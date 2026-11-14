@@ -20,5 +20,5 @@ Option 2. Renters pick a room; the server assigns the lowest-id free space.
 
 - Good: one overlap rule, one index, one lock for both property types.
 - Good: landlords see which bed is taken, and can archive a broken bed.
-- Bad: one more table and one more join for availability. Measured in slice 13 with `EXPLAIN` on seeded data.
+- Bad: one more table and one more join for availability. Measured in slice 5.2 with `EXPLAIN` on seeded data.
 - Renters never choose between "Bed A" and "Bed B", which keeps the UI simple and stops cherry-picking.

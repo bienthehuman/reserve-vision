@@ -2,9 +2,13 @@
 
 ## Workflow
 
-- **One slice = one branch = one PR.** Branch names: `slice/NN-short-name`, `docs/…`, `fix/…`.
+- **One slice = one branch = one PR.** Branch names follow Hilom:
+  - `feat/<phase>.<slice>-short-name` for build-plan slices, for example `feat/1.1-app-skeleton`
+  - `fix/…`, `test/…`, `chore/…` (tooling, quality passes) and `docs/…` for everything else
+- Slices are numbered `<phase>.<slice>` in [BUILD_PLAN.md](BUILD_PLAN.md); the PR title starts with that number, for example `1.1 App skeleton and design tokens`.
+- Doc files in `docs/` use `UPPER_SNAKE.md` (as in Hilom); ADRs use `NNNN-kebab-title.md`.
 - Every PR description has: what changed, how it was tested, the slice's definition of done ticked off, and **Decisions to check**: design calls made inside the slice that the reviewer should confirm.
-- Ideas that come up mid-slice go to the backlog table in [BUILD-PLAN.md](BUILD-PLAN.md#backlog), never into the slice.
+- Ideas that come up mid-slice go to the backlog table in [BUILD_PLAN.md](BUILD_PLAN.md#backlog), never into the slice.
 - **Docs are the source of truth.** A PR that changes behaviour updates the doc in the same PR.
 - Commits and PRs carry **no AI attribution**.
 - Past clients and collaborators stay anonymous in docs and PRs.

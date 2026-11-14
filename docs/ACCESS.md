@@ -18,7 +18,7 @@ The code never says "tenant". See [ADR 0005](adr/0005-no-word-tenant.md).
 
 1. **Query scope.** Every landlord-owned model (`Property`, `Room`, `Space`, `Reservation`, `PaymentProof`, `ViewingRequest`, `PropertyPhoto`, `AuditLog`, `LandlordInvitation`) uses the `BelongsToLandlordAccount` trait. In a landlord request it adds `where landlord_account_id = ?`. The account is resolved **once per request from the user's membership** (`CurrentLandlordAccount`), never from a route or request parameter.
 2. **Policies.** Every action checks that the record belongs to the current account and that the role allows it.
-3. **Tests** that try to break both layers: test 6 in [BUILD-PLAN.md](BUILD-PLAN.md), and the policy matrix test.
+3. **Tests** that try to break both layers: test 6 in [BUILD_PLAN.md](BUILD_PLAN.md), and the policy matrix test.
 
 Renter and public queries go through separate, explicit scopes (`published()`, `ownedByRenter($user)`). A renter never touches the landlord scope.
 
@@ -88,7 +88,7 @@ Each main flow, step by step, with who acts and what they see. This is where gap
 
 | Gap | Resolution |
 | --- | --- |
-| Nobody verified landlord accounts | Operator CLI command ([kickoff decision](BUILD-PLAN.md#decisions-log)) |
+| Nobody verified landlord accounts | Operator CLI command ([kickoff decision](BUILD_PLAN.md#decisions-log)) |
 | Nobody marked moved in or ended | Owner or caretaker; plus the `EndStays` job |
 | A wrong proof forced a decline | `RejectProof` re-opens the hold |
 | A mistaken confirm was permanent | `UndoConfirmation` within 24h |

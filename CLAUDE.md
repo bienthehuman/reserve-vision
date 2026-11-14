@@ -4,12 +4,12 @@ Read [docs/CONVENTIONS.md](docs/CONVENTIONS.md) first. The docs in `docs/` are t
 
 ## Workflow
 
-- One slice = one branch (`slice/NN-name`) = one PR. The user reviews, merges and says "merged and pulled".
+- One slice = one branch (`feat/<phase>.<slice>-name`, e.g. `feat/1.1-app-skeleton`) = one PR. The user reviews, merges and says "merged and pulled".
 - Make in-slice design calls yourself and list them under **Decisions to check** in the PR; ask only when a choice is costly to reverse.
 - **No AI attribution** in commits or PR descriptions (no Co-Authored-By, no "Generated with" footer).
-- Out-of-slice ideas go to the backlog table in docs/BUILD-PLAN.md.
+- Out-of-slice ideas go to the backlog table in docs/BUILD_PLAN.md.
 - Never use the word "tenant" (ADR 0005).
 
 ## Environment
 
-_Filled in by slice 1: ports, service names, tool versions, how to run each test suite, DB users, known CLI quirks._
+_Filled in by slice 1.1: ports, service names, tool versions, how to run each test suite, DB users, known CLI quirks._

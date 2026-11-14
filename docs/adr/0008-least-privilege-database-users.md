@@ -22,4 +22,4 @@ Tests run as `app`. They reset data with transactions or truncation that the gra
 
 - Good: a SQL injection or a bug can't drop tables or rewrite the audit history.
 - Good: a missing grant fails in CI, not in production.
-- Bad: test setup is slightly more involved (two connections; `RefreshDatabase` replaced by a migrate-once + transaction strategy). This is settled in slice 1, while there is almost nothing to change.
+- Bad: test setup is slightly more involved (two connections; `RefreshDatabase` replaced by a migrate-once + transaction strategy). This is settled in slice 1.1, while there is almost nothing to change.
