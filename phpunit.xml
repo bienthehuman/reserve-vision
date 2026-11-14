@@ -29,6 +29,10 @@
         <env name="DB_DATABASE" value="reservevision_test" force="true"/>
         <env name="DB_URL" value="" force="true"/>
         <env name="DB_MIGRATOR_URL" value="" force="true"/>
+        <!-- Parallel runs: each worker uses <DB_DATABASE>_<N>, created up front by
+             database/sql/create-users.sql (see tests/TestCase.php). Laravel's own
+             per-process databases need CREATE DATABASE, which `app` doesn't have. -->
+        <server name="LARAVEL_PARALLEL_TESTING_WITHOUT_DATABASES" value="1" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

@@ -1,0 +1,120 @@
+# Reusable: Pest against one database engine, as the least-privilege `app` user
+# (ADR 0008). Called by tests-mysql.yml and tests-mariadb.yml, one per badge.
+name: Tests (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      database-image:
+        description: Docker image of the database service, e.g. mysql:8.4
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  DB_ROOT_PASSWORD: root-secret
+  # Read by Laravel (job env wins over .env) and by the SQL setup step below.
+  DB_HOST: 127.0.0.1
+  DB_PORT: '3306'
+  DB_DATABASE: reservevision_test
+  DB_USERNAME: app
+  DB_PASSWORD: app-secret
+  DB_MIGRATOR_USERNAME: migrator
+  DB_MIGRATOR_PASSWORD: migrator-secret
+  # Production SSR server (bundle from `npm run build`), not the Vite dev server.
+  INERTIA_SSR_HOT_URL: ''
+
+jobs:
+  pest:
+    name: Pest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      db:
+        image: ${{ inputs.database-image }}
+        env:
+          # Same as DB_ROOT_PASSWORD above (the env context isn't available here).
+          MYSQL_ROOT_PASSWORD: root-secret
+          MARIADB_ROOT_PASSWORD: root-secret
+        ports:
+          - 3306:3306
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, intl, zip, bcmath, pcntl
+          tools: composer:v2
+          coverage: none
+
+      - name: Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22'
+          cache: npm
+
+      - name: Build the client and SSR bundles
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Application environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force --no-interaction
+
+      - name: Wait for the database
+        run: |
+          for _ in $(seq 1 60); do
+            mysqladmin ping -h "$DB_HOST" -P "$DB_PORT" -u root -p"$DB_ROOT_PASSWORD" --silent && exit 0
+            sleep 2
+          done
+          echo "::error::${{ inputs.database-image }} did not become ready" && exit 1
+
+      - name: Create the schemas and the app/migrator users (database/sql/create-users.sql)
+        run: |
+          # The test schema plus one per parallel Pest worker (tests/TestCase.php).
+          for db in "$DB_DATABASE" "${DB_DATABASE}_1" "${DB_DATABASE}_2" "${DB_DATABASE}_3" "${DB_DATABASE}_4"; do
+            {
+              printf "SET @db_name = '%s', @app_password = '%s', @migrator_password = '%s';\n" \
+                "$db" "$DB_PASSWORD" "$DB_MIGRATOR_PASSWORD"
+              cat database/sql/create-users.sql
+            } | mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p"$DB_ROOT_PASSWORD"
+          done
+
+      - name: Migrate as migrator
+        run: composer migrate
+
+      - name: Start the SSR server
+        run: |
+          nohup php artisan inertia:start-ssr > storage/logs/ssr.log 2>&1 &
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:13714/health > /dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          cat storage/logs/ssr.log
+          echo "::error::The Inertia SSR server did not start" && exit 1
+
+      - name: Pest (as app, 4 workers)
+        run: composer test -- --parallel --processes=4
+
+      - name: SSR server log
+        if: failure()
+        run: cat storage/logs/ssr.log || true

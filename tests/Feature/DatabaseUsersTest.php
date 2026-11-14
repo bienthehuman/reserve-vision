@@ -12,7 +12,7 @@ it('runs the test suite as the app user', function (): void {
 
     expect(DB::getDefaultConnection())->toBe('mysql')
         ->and($user)->toStartWith('app@')
-        ->and(DB::getDatabaseName())->toEndWith('_test');
+        ->and(DB::getDatabaseName())->toMatch('/_test(_\\d+)?$/');
 });
 
 it('lets the app user read and write data', function (): void {

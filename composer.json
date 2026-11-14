@@ -26,6 +26,9 @@
         "pestphp/pest": "^5.3",
         "pestphp/pest-plugin-laravel": "^5.0"
     },
+    "conflict": {
+        "brianium/paratest": ">=7.28"
+    },
     "autoload": {
         "psr-4": {
             "App\\": "app/",

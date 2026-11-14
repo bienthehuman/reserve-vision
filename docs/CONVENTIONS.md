@@ -13,6 +13,20 @@
 - Commits and PRs carry **no AI attribution**.
 - Past clients and collaborators stay anonymous in docs and PRs.
 
+## Checks before merging
+
+A PR merges only when every one of these checks is green (the CI workflows are described in [CLAUDE.md](../CLAUDE.md#ci-github-actions)):
+
+| Check | Workflow | Covers |
+| --- | --- | --- |
+| `MySQL 8.4 / Pest` | Tests (MySQL 8.4) | Pest (unit, feature, arch) as the `app` user, 4 workers |
+| `MariaDB 11.4 / Pest` | Tests (MariaDB 11.4) | The same on MariaDB |
+| `Pint + Larastan` | Quality | Code style, static analysis at max level |
+| `TypeScript + Vitest + build` | Quality | `tsc --noEmit`, Vitest, production build (client + SSR), CSS budget |
+| `Playwright + axe` | E2E | Smoke and accessibility on the dev stack, phone and desktop |
+
+A failing check is fixed in the PR, not skipped or retried until it passes.
+
 ## Code
 
 - PHP: `declare(strict_types=1)`, `final` classes by default, Pint (Laravel preset), Larastan at max level.

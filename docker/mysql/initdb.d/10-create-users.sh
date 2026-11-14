@@ -1,8 +1,10 @@
 # Sourced (not executed) by the MySQL image's entrypoint on the first start
 # with an empty data volume, so docker_process_sql is available.
-# Runs database/sql/create-users.sql for the dev schema and the test schema.
+# Runs database/sql/create-users.sql for the dev schema, the test schema and
+# one test schema per parallel Pest worker (<test>_1 … _4, see tests/TestCase.php).
 
-for rv_db in "${RV_DB_DATABASE}" "${RV_DB_TEST_DATABASE}"; do
+for rv_db in "${RV_DB_DATABASE}" "${RV_DB_TEST_DATABASE}" \
+    "${RV_DB_TEST_DATABASE}_1" "${RV_DB_TEST_DATABASE}_2" "${RV_DB_TEST_DATABASE}_3" "${RV_DB_TEST_DATABASE}_4"; do
     mysql_note "ReserveVision: creating schema ${rv_db} and the app/migrator users"
     {
         printf "SET @db_name = '%s', @app_password = '%s', @migrator_password = '%s';\n" \
