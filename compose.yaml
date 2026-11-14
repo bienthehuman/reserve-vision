@@ -1,0 +1,95 @@
+# Development stack. `bin/setup` (or `make setup`) brings it up from a clean clone.
+# Host ports bind to 127.0.0.1 and can be changed in .env; see CLAUDE.md "Environment".
+name: reservevision
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/dev/app.Dockerfile
+    args:
+      UID: ${HOST_UID:-1000}
+      GID: ${HOST_GID:-1000}
+  image: reservevision-app:dev
+  user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+  volumes:
+    - .:/app
+  depends_on:
+    db:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  app:
+    <<: *app
+    ports:
+      - "127.0.0.1:${APP_PORT:-8180}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/up"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  ssr:
+    image: node:24.22-bookworm-slim
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /app
+    command: ["npm", "run", "dev"]
+    environment:
+      npm_config_update_notifier: "false"
+    volumes:
+      - .:/app
+    ports:
+      - "127.0.0.1:${VITE_PORT:-5183}:${VITE_PORT:-5183}"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:${VITE_PORT:-5183}/@vite/client').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  worker:
+    <<: *app
+    command: ["php", "artisan", "queue:work", "--tries=3", "--sleep=3"]
+    healthcheck:
+      disable: true # the image's check probes the web server, which this service doesn't run
+
+  scheduler:
+    <<: *app
+    command: ["php", "artisan", "schedule:work"]
+    healthcheck:
+      disable: true
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root-secret}
+      RV_DB_DATABASE: ${DB_DATABASE:-reservevision}
+      RV_DB_TEST_DATABASE: ${DB_TEST_DATABASE:-reservevision_test}
+      RV_DB_APP_PASSWORD: ${DB_PASSWORD:-app-secret}
+      RV_DB_MIGRATOR_PASSWORD: ${DB_MIGRATOR_PASSWORD:-migrator-secret}
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./docker/mysql/initdb.d:/docker-entrypoint-initdb.d:ro
+      - ./database/sql/create-users.sql:/rv-sql/create-users.sql:ro
+    ports:
+      - "127.0.0.1:${FORWARD_DB_PORT:-33306}:3306"
+    healthcheck:
+      # TCP as `app`: fails during the init phase (socket only), so "healthy"
+      # means the init script has run and the users exist.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u app -p\"$$RV_DB_APP_PASSWORD\" --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
+    restart: unless-stopped
+
+  mail:
+    image: axllent/mailpit:v1.33
+    ports:
+      - "127.0.0.1:${FORWARD_MAILPIT_DASHBOARD_PORT:-8126}:8025"
+      - "127.0.0.1:${FORWARD_MAILPIT_PORT:-1126}:1025"
+    restart: unless-stopped
+
+volumes:
+  db-data:

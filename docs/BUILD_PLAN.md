@@ -110,3 +110,6 @@ Ideas that came up and are deliberately not in any slice.
 | Undo a decline | RESERVATIONS correction paths |
 | Dark mode | DESIGN_SYSTEM |
 | Filipino translation of the UI | DESIGN_SYSTEM |
+| Parallel Pest (`--processes=4`): `app` can't create the per-process `_test_N` schemas Laravel expects, so the init script must pre-create them (or tests must pick schemas themselves) | Slice 1.1 test DB strategy |
+| Frontend strings through translation helpers (today only server-side strings use `__()`) | Slice 1.1 |
+| Trim the entry chunk (`app.js`, 112 KB gzipped, mostly React DOM + Inertia) and add a JS budget next to the CSS budget | Slice 1.1 build output |

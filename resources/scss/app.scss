@@ -1,0 +1,18 @@
+// resources/scss/app.scss — order matters (docs/DESIGN_SYSTEM.md, "Bootstrap Sass setup")
+@import "tokens";                 // the colors, fonts, radii above as Sass vars
+@import "bootstrap/scss/functions";
+@import "theme";                  // maps tokens onto Bootstrap variables ($primary, $border-radius, $font-family-sans-serif…)
+@import "bootstrap/scss/variables";
+@import "bootstrap/scss/variables-dark"; // required by maps even with dark mode off
+@import "bootstrap/scss/maps";
+@import "bootstrap/scss/mixins";
+@import "bootstrap/scss/utilities";
+// Only what we use:
+@import "bootstrap/scss/root", "bootstrap/scss/reboot", "bootstrap/scss/type", "bootstrap/scss/images",
+        "bootstrap/scss/containers", "bootstrap/scss/grid", "bootstrap/scss/forms", "bootstrap/scss/buttons",
+        "bootstrap/scss/transitions", "bootstrap/scss/dropdown", "bootstrap/scss/nav", "bootstrap/scss/navbar",
+        "bootstrap/scss/card", "bootstrap/scss/badge", "bootstrap/scss/alert", "bootstrap/scss/list-group",
+        "bootstrap/scss/close", "bootstrap/scss/toasts", "bootstrap/scss/modal", "bootstrap/scss/offcanvas",
+        "bootstrap/scss/tables", "bootstrap/scss/spinners", "bootstrap/scss/helpers";
+@import "bootstrap/scss/utilities/api";
+@import "components";             // custom component styles

@@ -1,0 +1,179 @@
+@use "sass:color";
+@use "sass:map";
+
+// Maps the tokens onto Bootstrap's Sass variables. Imported after
+// bootstrap/functions and before bootstrap/variables, so every value here wins
+// over Bootstrap's `!default`. Never override Bootstrap with `!important`.
+
+// Feature switches
+$enable-rfs: false;
+$enable-shadows: false;
+$enable-negative-margins: false;
+$enable-dark-mode: false;
+$enable-validation-icons: false; // errors show an icon in the feedback text instead
+
+// Colors
+$primary: $rv-primary;
+$secondary: $rv-secondary;
+$success: $rv-success;
+$info: $rv-info;
+$warning: $rv-warning;
+$danger: $rv-danger;
+$light: $rv-secondary-subtle;
+$dark: $rv-ink;
+
+$theme-colors: (
+  "primary": $primary,
+  "success": $success,
+  "warning": $warning,
+  "danger": $danger,
+  "info": $info,
+  "secondary": $secondary,
+  "light": $light,
+  "dark": $dark,
+);
+
+// Text on a color picks ink or white, whichever passes 4.5:1.
+$color-contrast-dark: $rv-ink;
+$min-contrast-ratio: 4.5;
+
+// Subtle backgrounds and the text drawn on them (badges, alerts)
+$primary-bg-subtle: $rv-primary-subtle;
+$primary-text-emphasis: $rv-primary;
+$primary-border-subtle: color.mix($rv-primary, $rv-primary-subtle, 25%);
+$success-bg-subtle: $rv-success-subtle;
+$success-text-emphasis: $rv-success;
+$success-border-subtle: color.mix($rv-success, $rv-success-subtle, 25%);
+$warning-bg-subtle: $rv-warning-subtle;
+$warning-text-emphasis: $rv-ink;
+$warning-border-subtle: $rv-mango;
+$danger-bg-subtle: $rv-danger-subtle;
+$danger-text-emphasis: $rv-danger;
+$danger-border-subtle: color.mix($rv-danger, $rv-danger-subtle, 25%);
+$info-bg-subtle: $rv-info-subtle;
+$info-text-emphasis: $rv-info;
+$info-border-subtle: color.mix($rv-info, $rv-info-subtle, 25%);
+$secondary-bg-subtle: $rv-secondary-subtle;
+$secondary-text-emphasis: $rv-muted;
+$secondary-border-subtle: $rv-border;
+$light-bg-subtle: $rv-bg;
+$light-text-emphasis: $rv-ink;
+$light-border-subtle: $rv-border;
+$dark-bg-subtle: $rv-secondary-subtle;
+$dark-text-emphasis: $rv-ink;
+$dark-border-subtle: $rv-border-strong;
+
+// Body, links, borders
+$body-bg: $rv-bg;
+$body-color: $rv-ink;
+$body-secondary-color: $rv-muted;
+$body-tertiary-color: $rv-muted;
+$body-emphasis-color: $rv-ink;
+$link-color: $rv-primary;
+$link-hover-color: $rv-primary-hover;
+$border-color: $rv-border;
+$hr-border-color: $rv-border;
+$hr-opacity: 1;
+
+// Typography
+$font-family-sans-serif: $rv-font-body;
+$font-size-base: $rv-font-size-body;
+$line-height-base: $rv-line-height-body;
+$small-font-size: $rv-font-size-small;
+$headings-font-family: $rv-font-heading;
+$headings-font-weight: 700;
+$headings-color: $rv-ink;
+$h1-font-size: map.get(map.get($rv-type-scale, "h1"), "size");
+$h2-font-size: map.get(map.get($rv-type-scale, "h2"), "size");
+$h3-font-size: map.get(map.get($rv-type-scale, "h3"), "size");
+$h4-font-size: $rv-font-size-body;
+$h5-font-size: $rv-font-size-body;
+$h6-font-size: $rv-font-size-body;
+$display-font-sizes: (
+  1: map.get(map.get($rv-type-scale, "display"), "size"),
+);
+$display-font-family: $rv-font-heading;
+$display-font-weight: 700;
+$display-line-height: map.get(map.get($rv-type-scale, "display"), "line-height");
+$lead-font-size: 1.125rem;
+$lead-font-weight: 400;
+
+// Space
+$spacer: $rv-spacer;
+$spacers: (
+  0: 0,
+  1: $spacer * 0.25,
+  2: $spacer * 0.5,
+  3: $spacer,
+  4: $spacer * 1.5,
+  5: $spacer * 3,
+  6: $spacer * 4,
+);
+
+// Layout: 1140 px max, 16 px side gutter on phones
+$container-max-widths: (
+  sm: 540px,
+  md: 720px,
+  lg: 960px,
+  xl: $rv-container-max,
+);
+$container-padding-x: $rv-gutter-phone * 2;
+
+// Shape and depth
+$border-radius-sm: $rv-radius-sm;
+$border-radius: $rv-radius;
+$border-radius-lg: $rv-radius-lg;
+$border-radius-xl: $rv-radius-lg;
+$border-radius-xxl: $rv-radius-lg;
+$box-shadow-sm: $rv-shadow-sm;
+$box-shadow: $rv-shadow;
+$box-shadow-lg: $rv-shadow-lg;
+$card-border-radius: $rv-radius;
+$card-box-shadow: $rv-shadow-sm;
+$modal-content-border-radius: $rv-radius-lg;
+$modal-content-box-shadow-xs: $rv-shadow-lg;
+$modal-content-box-shadow-sm-up: $rv-shadow-lg;
+$alert-border-radius: $rv-radius;
+$badge-border-radius: 50rem;
+$badge-font-weight: 600;
+$badge-font-size: $rv-font-size-small;
+$badge-padding-y: 0.375em;
+$badge-padding-x: 0.75em;
+
+// Buttons: 44 px touch target
+$btn-padding-y: 0.75rem;
+$btn-padding-x: 1.25rem;
+$btn-font-weight: 600;
+$btn-border-radius: $rv-radius;
+$btn-border-radius-lg: $rv-radius;
+$btn-border-radius-sm: $rv-radius-sm;
+$btn-transition: color $rv-motion, background-color $rv-motion, border-color $rv-motion;
+
+// Forms: 1rem text (no iOS zoom), strong borders, labels above fields
+$input-font-size: $rv-font-size-body;
+$input-padding-y: 0.625rem;
+$input-padding-x: 0.875rem;
+$input-bg: $rv-surface;
+$input-border-color: $rv-border-strong;
+$input-border-radius: $rv-radius-sm;
+$input-focus-border-color: $rv-primary;
+$form-select-border-radius: $rv-radius-sm;
+$form-check-input-border: 1px solid $rv-border-strong;
+$form-label-font-weight: 600;
+$form-text-color: $rv-muted;
+$form-feedback-font-size: $rv-font-size-small;
+$form-feedback-invalid-color: $rv-danger;
+$form-feedback-valid-color: $rv-success;
+
+// Focus: no box-shadow ring; _components.scss draws a solid :focus-visible outline.
+$focus-ring-width: 0;
+$focus-ring-opacity: 0;
+$input-btn-focus-width: 0;
+$input-btn-focus-box-shadow: none;
+$input-focus-box-shadow: none;
+$btn-focus-box-shadow: none;
+$form-check-input-focus-box-shadow: none;
+$form-select-focus-box-shadow: none;
+
+// Motion
+$transition-base: all $rv-motion;

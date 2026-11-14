@@ -16,7 +16,7 @@ Two users, created by the database init script in dev, CI and production:
 | `migrator` | all privileges on the app schema | `php artisan migrate` only |
 | `app` | `SELECT, INSERT, UPDATE, DELETE` on app tables; **`SELECT, INSERT` only on `audit_logs`**; no DDL | the web app, workers, scheduler, **and the test suite** |
 
-Tests run as `app`. They reset data with transactions or truncation that the grants allow; the schema is migrated once per run by `migrator`.
+Tests run as `app`. They reset data with transactions (`DatabaseTransactions`); `TRUNCATE` is not available to `app` because MySQL treats it as DDL (it needs `DROP`). The schema is migrated once per run by `migrator`.
 
 ## Consequences
 

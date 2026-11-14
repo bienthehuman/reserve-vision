@@ -39,7 +39,15 @@ In rental language a *tenant* is the person renting; in SaaS language a *tenant*
 
 ## Getting started
 
-_One-command setup and the Codespaces button arrive in slices 1.1 and 1.3._
+Needs Docker with Compose v2. From a fresh clone:
+
+```bash
+bin/setup
+```
+
+It builds the dev image, installs dependencies, creates the database users, migrates and seeds, then starts the stack at http://localhost:8180 (styleguide at `/styleguide`, mail at http://localhost:8126). It's safe to run again. Ports, test commands and the database users are listed in [CLAUDE.md](CLAUDE.md#environment).
+
+_The Codespaces button arrives in slice 1.3._
 
 ## Next (out of scope for v1)
 
