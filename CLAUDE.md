@@ -88,7 +88,7 @@ PHP 8.4.27 (FrankenPHP 1.13.5 image), Composer 2.9, Laravel 13.42, inertia-larav
 
 ### Quirks hit in 1.1
 
-- **The FrankenPHP image has its own `HEALTHCHECK`** (probes the Caddy admin port), which `worker` and `scheduler` inherit. They set `healthcheck: disable: true`, or `up --wait` reports them unhealthy.
+- **The FrankenPHP image has its own `HEALTHCHECK`** (probes the Caddy admin port), which `worker` and `scheduler` inherit, so `up --wait` reports them unhealthy. They override it with `kill -0 1` (the `artisan` process is alive). Not `disable: true`: the Compose on GitHub's runners then fails `up --wait` with "container … has no healthcheck configured" (fixed in 1.2).
 - **Vite host check**: the app calls the SSR endpoint as `http://ssr:5183`, so `server.allowedHosts: ['ssr']` is needed (otherwise a 403 and a silent fallback to client rendering). `INERTIA_SSR_HOT_URL` tells Laravel to use that URL instead of the browser-facing one in `public/hot`.
 - **Vite CORS**: setting `server.origin` replaces laravel-vite-plugin's CORS list, so `server.cors.origin` is set to `APP_URL` explicitly.
 - **React-Bootstrap imports**: import from the package root (`import { Button } from 'react-bootstrap'`). Deep imports (`react-bootstrap/Button`) resolve to CommonJS under Node SSR and fail with "Element type is invalid … got: object".

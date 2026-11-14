@@ -52,13 +52,21 @@ services:
     <<: *app
     command: ["php", "artisan", "queue:work", "--tries=3", "--sleep=3"]
     healthcheck:
-      disable: true # the image's check probes the web server, which this service doesn't run
+      # The image's own check probes the web server, which this service doesn't run.
+      # Not `disable: true`: some Compose versions then fail `up --wait` ("no healthcheck configured").
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   scheduler:
     <<: *app
     command: ["php", "artisan", "schedule:work"]
     healthcheck:
-      disable: true
+      test: ["CMD-SHELL", "kill -0 1"] # see worker
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   db:
     image: mysql:8.4
