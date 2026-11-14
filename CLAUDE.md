@@ -70,5 +70,7 @@ PHP 8.4.27 (FrankenPHP 1.13.5 image), Composer 2.9, Laravel 13.42, inertia-larav
 - **React-Bootstrap imports**: import from the package root (`import { Button } from 'react-bootstrap'`). Deep imports (`react-bootstrap/Button`) resolve to CommonJS under Node SSR and fail with "Element type is invalid … got: object".
 - **CSP and axe**: axe-core injects a `<style>` that the CSP blocks. The e2e test checks console and CSP errors *before* running axe.
 - **Sass**: Bootstrap 5.3 still needs `@import`; `quietDeps` + `silenceDeprecations: ['import']` in [vite.config.ts](vite.config.ts). Our partials use `sass:color` / `sass:map`, not the deprecated globals.
+- **Cold Vite dev server**: the first load after `ssr` starts can fail with `504 Outdated Optimize Dep` while Vite discovers dependencies. `optimizeDeps.include` and `server.warmup` in [vite.config.ts](vite.config.ts) prevent this; add new heavy dependencies there.
+- **SSR warm-up**: for a few seconds after `ssr` starts, Inertia logs "SSR skipped, module graph is still warming up" and pages fall back to client rendering. `bin/setup` waits until `/` is server-rendered; after a manual `docker compose restart ssr`, wait before running e2e or the Pest SSR test.
 - **Playwright on the host** needs `npx playwright install chromium` after any `@playwright/test` version change.
 - The MySQL healthcheck connects over TCP as `app`, so "healthy" also means the init script has finished.

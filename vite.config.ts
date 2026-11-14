@@ -24,6 +24,19 @@ export default defineConfig(({ mode }) => {
         resolve: {
             alias: { '@': fileURLToPath(new URL('./resources/js', import.meta.url)) },
         },
+        // Pre-bundle dependencies at startup. Without this, the first page load on a
+        // cold dev server discovers them, re-optimizes, and fails with
+        // "504 Outdated Optimize Dep" (flaky e2e right after `bin/setup`).
+        optimizeDeps: {
+            include: [
+                'react',
+                'react/jsx-dev-runtime',
+                'react-dom/client',
+                '@inertiajs/react',
+                'react-bootstrap',
+                'react-bootstrap-icons',
+            ],
+        },
         css: {
             preprocessorOptions: {
                 scss: {
@@ -44,6 +57,9 @@ export default defineConfig(({ mode }) => {
             // Setting `origin` replaces laravel-vite-plugin's CORS list, so allow the app explicitly.
             cors: { origin: env.APP_URL ?? 'http://localhost:8180' },
             hmr: { host: 'localhost', port, clientPort: port },
+            warmup: {
+                clientFiles: ['./resources/js/app.tsx', './resources/js/Pages/**/*.tsx'],
+            },
             watch: {
                 ignored: ['**/storage/framework/views/**', '**/vendor/**'],
             },
