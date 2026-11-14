@@ -16,7 +16,7 @@ Dev runs entirely in Docker Compose ([compose.yaml](compose.yaml)). The host nee
 
 ### Setup
 
-`bin/setup` (or `make setup`): creates `.env` from `.env.example` if missing, builds the image, `composer install`, `npm ci`, generates `APP_KEY` if empty, `docker compose up -d --wait`, migrates as `migrator`, seeds as `app`, then checks `/` answers. Non-interactive and idempotent; slice 1.3 reuses it for Codespaces.
+`bin/setup` (or `make setup`): creates `.env` from `.env.example` if missing, builds the image, `composer install`, `npm ci`, generates `APP_KEY` if empty, starts `db`, migrates as `migrator` and seeds as `app` (before the worker, which needs the `cache` and `jobs` tables), `docker compose up -d --wait`, then waits until `/` is server-rendered. Non-interactive and idempotent; slice 1.3 reuses it for Codespaces.
 
 ### Services and ports
 
