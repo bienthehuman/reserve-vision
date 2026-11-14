@@ -10,7 +10,7 @@ it('server-renders the home page, so it is complete HTML without JavaScript', fu
     $response->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Public/Home')
-            ->where('appName', 'GateBiteCheck'));
+            ->where('appName', 'ReserveVision'));
 
     $html = $response->getContent();
 
