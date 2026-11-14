@@ -31,7 +31,7 @@ jobs:
       - name: Start the dev stack (bin/setup)
         run: bin/setup
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24.22'
 
