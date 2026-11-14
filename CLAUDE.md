@@ -16,7 +16,7 @@ Dev runs entirely in Docker Compose ([compose.yaml](compose.yaml)). The host nee
 
 ### Setup
 
-`bin/setup` (or `make setup`): creates `.env` from `.env.example` if missing, builds the image, `composer install`, `npm ci`, generates `APP_KEY` if empty, `docker compose up -d --wait`, migrates as `migrator`, seeds as `app`, then checks `/` answers. Non-interactive and idempotent; slice 1.3 reuses it for Codespaces.
+`bin/setup` (or `make setup`): creates `.env` from `.env.example` if missing, builds the image, `composer install`, `npm ci`, generates `APP_KEY` if empty, starts `db`, migrates as `migrator` and seeds as `app` (before the worker, which needs the `cache` and `jobs` tables), `docker compose up -d --wait`, then waits until `/` is server-rendered. Non-interactive and idempotent; slice 1.3 reuses it for Codespaces.
 
 ### Services and ports
 
@@ -52,19 +52,43 @@ URLs: app http://localhost:8180, styleguide http://localhost:8180/styleguide, he
 | --- | --- | --- |
 | Pint | `docker compose exec app composer lint` (`make lint`) | `composer format` fixes. Laravel preset + `declare_strict_types` |
 | Larastan | `docker compose exec app composer analyse` (`make analyse`) | Level max, no baseline. Covers `app`, `bootstrap/app.php`, `config`, `database`, `routes` |
-| Pest | `docker compose exec app composer test` (`make test`) | Runs as `app` on `reservevision_test`. `tests/TestCase.php` runs `migrate:fresh` once per process as `migrator` (refuses any schema not ending in `_test`), then each Feature test runs in a `DatabaseTransactions` transaction. **Never use `RefreshDatabase`.** Feature tests that render pages need SSR: in dev that's the running `ssr` service; `INERTIA_SSR_THROW_ON_ERROR=true` makes a missing SSR server fail loudly |
+| Pest | `docker compose exec app composer test` (`make test`); in parallel like CI: `docker compose exec app composer test -- --parallel --processes=4` | Runs as `app` on `reservevision_test`; in parallel, worker N uses `reservevision_test_N` (1–4, created by the init script). `tests/TestCase.php` runs `migrate:fresh` once per process as `migrator` (refuses any schema not ending in `_test` or `_test_N`), then each Feature test runs in a `DatabaseTransactions` transaction. **Never use `RefreshDatabase`.** Feature tests that render pages need SSR: in dev that's the running `ssr` service; `INERTIA_SSR_THROW_ON_ERROR=true` makes a missing SSR server fail loudly |
 | Vitest | `docker compose exec ssr npm run test` (`make vitest`) | jsdom; `resources/js/**/*.test.{ts,tsx}` |
 | TypeScript | `docker compose exec ssr npm run types` (`make types`) | TS 7 (`tsc --noEmit`) |
 | Playwright + axe | `npm run e2e` on the host (`make e2e`) | Needs the stack running and `npx playwright install chromium` once. `E2E_BASE_URL` (default `http://localhost:8180`) points it at another stack; `E2E_SKIP_DEV_PAGES=1` skips `/styleguide` against production |
 | Production build | `docker compose exec ssr npm run build` | Client to `public/build`, SSR bundle to `bootstrap/ssr/app.js`. Delete `public/hot` or stop `ssr` to test the built assets |
 
+### CI (GitHub Actions)
+
+Every PR and every push to `main` runs four workflows ([.github/workflows](.github/workflows)). Each cancels a superseded run on the same branch, runs with `contents: read`, and has a job timeout.
+
+| Workflow | File | Check name(s) | What it runs |
+| --- | --- | --- | --- |
+| Tests (MySQL 8.4) | `tests-mysql.yml` | `MySQL 8.4 / Pest` | Reusable [_tests.yml](.github/workflows/_tests.yml) with `mysql:8.4` |
+| Tests (MariaDB 11.4) | `tests-mariadb.yml` | `MariaDB 11.4 / Pest` | Same, with `mariadb:11.4` |
+| Quality | `quality.yml` | `Pint + Larastan`, `TypeScript + Vitest + build` | `composer lint`, `composer analyse`, `npm run types`, `npm run test`, `npm run build`, then the CSS budget ([bin/check-css-budget.mjs](bin/check-css-budget.mjs): `app.css` ≤ 35 kB gzipped, size in the job summary) |
+| E2E | `e2e.yml` | `Playwright + axe` | `bin/setup` (the dev Compose stack, MySQL), then `npm run e2e`. On failure: the Playwright report and traces as the `playwright-report` artifact, and the stack logs |
+
+How `_tests.yml` differs from dev: PHP comes from `setup-php` on the runner (no app container) and the database is a service container. Root runs [database/sql/create-users.sql](database/sql/create-users.sql) with the `mysql` client for `reservevision_test` and `reservevision_test_1`…`_4`, `composer migrate` runs as `migrator`, `npm run build` plus `php artisan inertia:start-ssr` replace the Vite dev server for SSR, and Pest runs as `app` with `--parallel --processes=4`.
+
+Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens weekly PRs for Composer, npm and Actions, with minor and patch updates grouped into one PR per ecosystem.
+
+**Reproducing a CI failure locally** (stack running):
+
+| Failing check | Run |
+| --- | --- |
+| `… / Pest` | `docker compose exec app composer test -- --parallel --processes=4` (serially without the flags, to rule out a worker clash). For MariaDB-only failures, start `mariadb:11.4`, run the SQL file as root for the schemas above, and point `DB_HOST` at it |
+| `Pint + Larastan` | `make lint` (`composer format` fixes) and `make analyse` |
+| `TypeScript + Vitest + build` | `make types`, `make vitest`, `docker compose exec ssr npm run build && docker compose exec ssr node bin/check-css-budget.mjs`, then `rm -rf public/build bootstrap/ssr` |
+| `Playwright + axe` | `make e2e`, or download the `playwright-report` artifact and open a trace with `npx playwright show-trace test-results/<test>/trace.zip` |
+
 ### Pinned versions
 
-PHP 8.4.27 (FrankenPHP 1.13.5 image), Composer 2.9, Laravel 13.42, inertia-laravel 3.7, Pest 5.3, Larastan 3.15, Pint 1.32. Node 24.22, Vite 8.3, React 19.3, @inertiajs/react + @inertiajs/vite 3.11, TypeScript 7.0, Bootstrap 5.3.9, React-Bootstrap 2.10, react-bootstrap-icons 1.11, Sass 1.108, Vitest 5.1, Playwright 1.65.1 (exact, matches its browser build), @axe-core/playwright 4.14. MySQL 8.4.13, Mailpit 1.33.
+PHP 8.4.27 (FrankenPHP 1.13.5 image), Composer 2.9, Laravel 13.42, inertia-laravel 3.7, Pest 5.3 (ParaTest held below 7.28 by a `conflict` in composer.json, see quirks), Larastan 3.15, Pint 1.32. Node 24.22, Vite 8.3, React 19.3, @inertiajs/react + @inertiajs/vite 3.11, TypeScript 7.0, Bootstrap 5.3.9, React-Bootstrap 2.10, react-bootstrap-icons 1.11, Sass 1.108, Vitest 5.1, Playwright 1.65.1 (exact, matches its browser build), @axe-core/playwright 4.14. MySQL 8.4.13, Mailpit 1.33.
 
 ### Quirks hit in 1.1
 
-- **The FrankenPHP image has its own `HEALTHCHECK`** (probes the Caddy admin port), which `worker` and `scheduler` inherit. They set `healthcheck: disable: true`, or `up --wait` reports them unhealthy.
+- **The FrankenPHP image has its own `HEALTHCHECK`** (probes the Caddy admin port), which `worker` and `scheduler` inherit, so `up --wait` reports them unhealthy. They override it with `kill -0 1` (the `artisan` process is alive). Not `disable: true`: the Compose on GitHub's runners then fails `up --wait` with "container … has no healthcheck configured" (fixed in 1.2).
 - **Vite host check**: the app calls the SSR endpoint as `http://ssr:5183`, so `server.allowedHosts: ['ssr']` is needed (otherwise a 403 and a silent fallback to client rendering). `INERTIA_SSR_HOT_URL` tells Laravel to use that URL instead of the browser-facing one in `public/hot`.
 - **Vite CORS**: setting `server.origin` replaces laravel-vite-plugin's CORS list, so `server.cors.origin` is set to `APP_URL` explicitly.
 - **React-Bootstrap imports**: import from the package root (`import { Button } from 'react-bootstrap'`). Deep imports (`react-bootstrap/Button`) resolve to CommonJS under Node SSR and fail with "Element type is invalid … got: object".
@@ -74,3 +98,10 @@ PHP 8.4.27 (FrankenPHP 1.13.5 image), Composer 2.9, Laravel 13.42, inertia-larav
 - **SSR warm-up**: for a few seconds after `ssr` starts, Inertia logs "SSR skipped, module graph is still warming up" and pages fall back to client rendering. `bin/setup` waits until `/` is server-rendered; after a manual `docker compose restart ssr`, wait before running e2e or the Pest SSR test.
 - **Playwright on the host** needs `npx playwright install chromium` after any `@playwright/test` version change.
 - The MySQL healthcheck connects over TCP as `app`, so "healthy" also means the init script has finished.
+
+### Quirks hit in 1.2
+
+- **Pest 5.3.5 + ParaTest 7.28**: `--parallel` crashes with `getTestFiles(): Argument #1 ($filename) must be of type string, array given` (ParaTest 7.28 groups `SuiteLoader::$tests`). `composer.json` has `"conflict": {"brianium/paratest": ">=7.28"}`; drop it once a Pest release supports 7.28.
+- **Parallel Pest and the `app` user**: Laravel's own per-process test databases need `CREATE DATABASE`. phpunit.xml sets `LARAVEL_PARALLEL_TESTING_WITHOUT_DATABASES=1` and `tests/TestCase.php` points each worker at `<DB_DATABASE>_<token>` instead. A dev `db-data` volume from before 1.2 lacks `reservevision_test_1`…`_4`: run `docker compose down -v && bin/setup` (or run the SQL file as root for those four schemas).
+- **Vite restarts on config changes** (for example after `git pull` touches `vite.config.ts`) and can come back on its default port 5173 instead of 5183, so SSR tests fail with "Failed to connect to ssr port 5183". `docker compose restart ssr` fixes it.
+- **E2E on the runner**: the dev containers run as UID 1000, the runner as 1001, so `e2e.yml` creates `.env` and makes the checkout world-writable before `bin/setup`.

@@ -151,7 +151,7 @@ Use React-Bootstrap first; build a custom component only when the table says so.
 
 Settings in `_theme.scss`: `$enable-rfs: false`, `$enable-shadows: false`, `$enable-negative-margins: false`, `$enable-dark-mode: false` (no dark styles emitted in v1), and `$theme-colors` trimmed to `primary, success, warning, danger, info, secondary, light, dark`. The `@import` syntax matches what Bootstrap 5.3's Sass still requires; silence Dart Sass deprecation warnings for vendor files only.
 
-**CSS budget:** ≤ 35 KB gzipped for `app.css`, checked in CI from slice 2.
+**CSS budget:** ≤ 35 KB gzipped for `app.css`, checked in CI since slice 1.2 (`bin/check-css-budget.mjs` in the Quality workflow; the size is in its job summary).
 
 ## Voice
 

@@ -4,7 +4,10 @@ Multi-landlord reservations for apartments and boarding-house beds, with a guara
 
 > 🚧 Phase 0: design under review. See the [build plan](docs/BUILD_PLAN.md).
 
-<!-- Badges: MySQL CI, MariaDB CI (slice 1.2) -->
+[![Tests (MySQL 8.4)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml)
+[![Tests (MariaDB 11.4)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml)
+[![Quality](https://github.com/bienthehuman/reserve-vision/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/quality.yml)
+[![E2E](https://github.com/bienthehuman/reserve-vision/actions/workflows/e2e.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/e2e.yml)
 <!-- GIF of the renter flow on a phone (slice 7.1) -->
 
 ## What it does
