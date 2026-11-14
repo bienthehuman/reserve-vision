@@ -18,11 +18,10 @@ Light mode only in v1. Dark mode is in the backlog; tokens are named by role, no
 
 | Token | Hex | Use | Contrast |
 | --- | --- | --- | --- |
-| `primary` | `#0E6B66` deep teal | Primary buttons, links, active nav, focus ring | 6.3 on white, 6.0 on `bg` |
-| `primary-hover` | `#0A5450` | Hover and pressed state | 8.8 on white |
-| `primary-subtle` | `#E6F2F1` | Selected filter chips, highlighted rows | `primary` text on it: 5.5 |
-| `accent` | `#B4471F` terracotta | **Prices** and the brand mark only. Never a second button color | 5.4 on white |
-| `accent-subtle` | `#FBEDE7` | "Last bed" / scarcity callouts | `accent` text on it: 4.8 |
+| `primary` | `#5B3E96` ube | Primary buttons, links, active nav, focus ring, **prices** | 8.2 on white, 7.7 on `bg` |
+| `primary-hover` | `#47307A` | Hover and pressed state | 10.7 on white |
+| `primary-subtle` | `#F1ECF8` | Selected filter chips, highlighted rows, "Living here" badge | `primary` text on it: 7.0 |
+| `mango` | `#F7C948` | Brand highlight: "Last bed" tags, the brand mark, and the `warning` background. **Background only**, always with `ink` text (9.4). Never text or an icon on white (1.6) | — |
 | `ink` | `#1F2A2E` | Body text, headings, footer background | 13.9 on `bg` |
 | `muted` | `#5B6770` | Secondary text, captions, metadata | 5.5 on `bg` |
 | `border-strong` | `#7D878F` | Input, select and checkbox borders | 3.5 on `bg` (UI 3:1) |
@@ -30,19 +29,21 @@ Light mode only in v1. Dark mode is in the backlog; tokens are named by role, no
 | `surface` | `#FFFFFF` | Cards, sheets, modals, inputs | — |
 | `bg` | `#FAF8F5` warm off-white | Page background | — |
 
-Why teal and terracotta: a calm, trustworthy primary that isn't Bootstrap blue or the generic SaaS indigo, paired with a warm, clay-like accent that reads as "home". The accent appears only on prices, so the eye finds the number that matters most to a renter.
+**Why ube and mango.** The palette has to stand apart from the rest of the portfolio. Hilom and PesoTrack both use teal (hue 175°), and the portfolio site uses an orange accent (15°). Ube purple (260°) is far from both, isn't Bootstrap blue or the generic SaaS indigo, and with mango yellow it reads as distinctly Filipino. Prices use bold `primary`, so there's one strong brand color and one highlight, nothing more.
+
+**Rule for future palettes:** before choosing a primary, check the hues already used in the other portfolio projects.
 
 ### Semantic
 
 | Token | Hex | Subtle background | Text on subtle | Use |
 | --- | --- | --- | --- | --- |
 | `success` | `#1E7B45` | `#E7F4EC` | 4.7 | Confirmed, available, saved |
-| `warning` | `#F2B33D` (as a background, with `ink` text: 7.9) | `#FDF3DC` | `ink` 13.3 | Holds, deadlines, countdowns |
+| `warning` | `#F7C948` = `mango` (as a background, with `ink` text: 9.4) | `#FEF6DA` | `ink` 13.6 | Holds, deadlines, countdowns, scarcity ("Last bed") |
 | `danger` | `#B42318` | `#FDECEA` | 5.8 | Declined, errors, destructive buttons |
 | `info` | `#1D5FA8` | `#E8F0FA` | 5.6 | Awaiting review, neutral notices |
 | `secondary` | `#5B6770` (= `muted`) | `#EEF0F1` | 5.1 | Ended, expired, cancelled, archived |
 
-`warning` is too light for text on white. It is only ever a background or icon fill, never text color.
+`warning`/`mango` is too light for text or icons on white. It is only ever a background, and icons on it are `ink`. Sharing one yellow for holds and scarcity is deliberate: both mean "act soon"; the label and icon tell them apart.
 
 ### Reservation status badges
 
@@ -76,7 +77,7 @@ Viewing requests use the same component: requested → info, accepted → succes
 | `h3` | 1.125rem → 1.25rem | 600 | 1.3 | Card title, room name |
 | `body` | 1rem (16 px) | 400 | 1.5 | Default. Never smaller for form inputs (prevents iOS zoom) |
 | `small` | 0.875rem | 400 | 1.45 | Metadata, captions |
-| `price` | 1.25rem | 700, `accent` | 1.2 | `₱6,500 / month`, the "/ month" part in `small` + `muted` |
+| `price` | 1.25rem | 700, `primary` | 1.2 | `₱6,500 / month`, the "/ month" part in `small` + `muted` |
 
 Bootstrap's responsive font sizes (`$enable-rfs`) are turned off; the two-step sizes above are explicit.
 

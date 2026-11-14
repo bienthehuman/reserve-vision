@@ -94,7 +94,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | --- | --- | --- |
 | 2026-11-14 | Deployable, not hosted; CI proves the production stack instead | [ADR 0007](adr/0007-deployable-not-hosted.md) |
 | 2026-11-14 | Landlord verification by artisan command; no admin web role | [ACCESS.md](ACCESS.md#actors) |
-| 2026-11-14 | Design system: teal primary, terracotta for prices only, Plus Jakarta Sans headings, light mode only in v1 | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) |
+| 2026-11-14 | Design system: ube primary (also prices), mango highlight, Plus Jakarta Sans headings; hue chosen to differ from Hilom/PesoTrack teal and the portfolio's orange, light mode only in v1 | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) |
 | 2026-11-14 | Public GitHub repo from day one; no AI attribution in commits or PRs | [CONVENTIONS.md](CONVENTIONS.md#workflow) |
 
 ## Backlog

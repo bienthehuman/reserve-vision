@@ -8,11 +8,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --primary:#0E6B66; --primary-hover:#0A5450; --primary-subtle:#E6F2F1;
-    --accent:#B4471F; --accent-subtle:#FBEDE7;
+    --primary:#5B3E96; --primary-hover:#47307A; --primary-subtle:#F1ECF8;
+    --mango:#F7C948;
     --ink:#1F2A2E; --muted:#5B6770; --border-strong:#7D878F; --border:#D9DEE1;
     --surface:#FFFFFF; --bg:#FAF8F5;
-    --success:#1E7B45; --success-subtle:#E7F4EC; --warning:#F2B33D; --warning-subtle:#FDF3DC;
+    --success:#1E7B45; --success-subtle:#E7F4EC; --warning:#F7C948; --warning-subtle:#FEF6DA;
     --danger:#B42318; --danger-subtle:#FDECEA; --info:#1D5FA8; --info-subtle:#E8F0FA; --secondary-subtle:#EEF0F1;
     --head:"Plus Jakarta Sans", system-ui, sans-serif;
     --body:system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -35,7 +35,7 @@
   .btn:focus-visible, input:focus-visible, a:focus-visible { outline:3px solid var(--primary); outline-offset:2px; }
   a { color:var(--primary); }
   .badge { display:inline-flex; gap:6px; align-items:center; border-radius:999px; padding:4px 12px; font-size:.875rem; font-weight:600; }
-  .b-held { background:var(--warning-subtle); color:var(--ink); } .b-held i { background:var(--warning); }
+  .b-held { background:var(--warning-subtle); color:var(--ink); } .b-held i { background:var(--ink); }
   .b-review { background:var(--info-subtle); color:var(--info); } .b-ok { background:var(--success-subtle); color:var(--success); }
   .b-live { background:var(--primary-subtle); color:var(--primary); } .b-no { background:var(--danger-subtle); color:var(--danger); }
   .b-off { background:var(--secondary-subtle); color:var(--muted); }
@@ -43,12 +43,12 @@
   label { display:block; font-weight:600; margin-bottom:4px; }
   input { font:1rem var(--body); padding:.625rem .75rem; border:1px solid var(--border-strong); border-radius:.375rem; width:100%; max-width:320px; background:var(--surface); color:var(--ink); }
   .card { background:var(--surface); border:1px solid var(--border); border-radius:1rem; box-shadow:0 1px 2px rgb(31 42 46 / .06); overflow:hidden; max-width:340px; }
-  .card .ph { aspect-ratio:4/3; background:linear-gradient(135deg,#cfe3e1,#e9ddd2); display:grid; place-items:center; color:var(--muted); font-size:.875rem; }
+  .card .ph { aspect-ratio:4/3; background:linear-gradient(135deg,#e2d9f1,#fbeec4); display:grid; place-items:center; color:var(--muted); font-size:.875rem; }
   .card .bd { padding:14px 16px 16px; }
-  .price { color:var(--accent); font-weight:700; font-size:1.25rem; font-variant-numeric:tabular-nums; }
+  .price { color:var(--primary); font-weight:700; font-size:1.25rem; font-variant-numeric:tabular-nums; }
   .price span { color:var(--muted); font-weight:400; font-size:.875rem; }
   .chip { display:inline-block; border:1px solid var(--border); border-radius:.375rem; padding:2px 8px; font-size:.8125rem; color:var(--muted); margin:6px 6px 0 0; }
-  .scarce { background:var(--accent-subtle); color:var(--accent); border-radius:.375rem; padding:4px 8px; font-size:.875rem; font-weight:600; display:inline-block; margin-top:8px; }
+  .scarce { background:var(--mango); color:var(--ink); border-radius:.375rem; padding:4px 8px; font-size:.875rem; font-weight:600; display:inline-block; margin-top:8px; }
   .alert { border-radius:.625rem; padding:12px 16px; max-width:520px; margin-bottom:8px; }
 </style>
 </head>
@@ -59,11 +59,10 @@
 
   <h2>Brand and neutrals</h2>
   <div class="grid">
-    <div class="sw"><div style="background:#0E6B66"></div><p><b>primary</b>#0E6B66</p></div>
-    <div class="sw"><div style="background:#0A5450"></div><p><b>primary-hover</b>#0A5450</p></div>
-    <div class="sw"><div style="background:#E6F2F1"></div><p><b>primary-subtle</b>#E6F2F1</p></div>
-    <div class="sw"><div style="background:#B4471F"></div><p><b>accent</b>#B4471F</p></div>
-    <div class="sw"><div style="background:#FBEDE7"></div><p><b>accent-subtle</b>#FBEDE7</p></div>
+    <div class="sw"><div style="background:#5B3E96"></div><p><b>primary</b>#5B3E96 ube</p></div>
+    <div class="sw"><div style="background:#47307A"></div><p><b>primary-hover</b>#47307A</p></div>
+    <div class="sw"><div style="background:#F1ECF8"></div><p><b>primary-subtle</b>#F1ECF8</p></div>
+    <div class="sw"><div style="background:#F7C948"></div><p><b>mango</b>#F7C948 (background only)</p></div>
     <div class="sw"><div style="background:#1F2A2E"></div><p><b>ink</b>#1F2A2E</p></div>
     <div class="sw"><div style="background:#5B6770"></div><p><b>muted</b>#5B6770</p></div>
     <div class="sw"><div style="background:#7D878F"></div><p><b>border-strong</b>#7D878F</p></div>
@@ -74,7 +73,7 @@
   <h2>Semantic</h2>
   <div class="grid">
     <div class="sw"><div style="background:#1E7B45"></div><p><b>success</b>#1E7B45</p></div>
-    <div class="sw"><div style="background:#F2B33D"></div><p><b>warning</b>#F2B33D (background only)</p></div>
+    <div class="sw"><div style="background:#F7C948"></div><p><b>warning</b>= mango</p></div>
     <div class="sw"><div style="background:#B42318"></div><p><b>danger</b>#B42318</p></div>
     <div class="sw"><div style="background:#1D5FA8"></div><p><b>info</b>#1D5FA8</p></div>
   </div>
