@@ -1,6 +1,6 @@
 # Design system
 
-The source of truth for how ReserveVision looks. `resources/scss/_tokens.scss` and `_theme.scss` must match this file, and a dev-only `/styleguide` page (slice 1) renders every token and component listed here. To preview the palette before any code exists, open [design/preview.html](design/preview.html).
+The source of truth for how ReserveVision looks. `resources/scss/_tokens.scss` and `_theme.scss` must match this file, and a dev-only `/styleguide` page (slice 1.1) renders every token and component listed here. To preview the palette before any code exists, open [design/preview.html](design/preview.html).
 
 ## Principles
 

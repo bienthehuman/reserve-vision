@@ -14,7 +14,7 @@ The plan delivers a production setup without paying for a live host. The previou
 
 ## Decision
 
-Option 2, with a guard. From slice 3, **every PR to `main` builds the production image, boots `compose.prod.yaml` in CI, runs migrations as the `migrator` user, and smoke-tests the home page, a listing page and login over HTTP.**
+Option 2, with a guard. From slice 1.3, **every PR to `main` builds the production image, boots `compose.prod.yaml` in CI, runs migrations as the `migrator` user, and smoke-tests the home page, a listing page and login over HTTP.**
 
 ## Consequences
 

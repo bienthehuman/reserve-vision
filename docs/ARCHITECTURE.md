@@ -18,16 +18,16 @@ flowchart LR
 
 | Layer | Choice | Pinned at |
 | --- | --- | --- |
-| Runtime | PHP 8.4 (Docker image), Node 24 LTS | slice 1 |
-| App | Laravel (current major), Inertia, React, TypeScript | slice 1 |
-| Rendering | Inertia SSR for public pages (listings, search, home); client-only for authenticated dashboards | slice 1 |
-| Styling | Bootstrap 5 via Sass with only the partials we use, React-Bootstrap, a custom theme through Sass variables. See [ADR 0006](adr/0006-bootstrap-over-utility-first.md) | slice 1 |
-| Database | MySQL 8.4 LTS (primary), MariaDB 11.4 LTS in the CI matrix | slice 1 |
-| Queue | Laravel database driver | slice 1 |
-| Files | `local`/`public` disks in dev; S3-compatible storage in production (MinIO in the production Compose file) | slice 3 |
-| Mail | Mailpit in dev; any SMTP transactional provider in production | slice 1 |
-| Maps | Leaflet + OSM tiles, one pin per property, loaded only on the listing page after interaction or in view; follows the OSM tile policy | slice 12 |
-| Quality | Pest, Larastan (level max, with a baseline only if forced), Pint, Vitest, Playwright + axe-core | slice 2 |
+| Runtime | PHP 8.4 (Docker image), Node 24 LTS | slice 1.1 |
+| App | Laravel (current major), Inertia, React, TypeScript | slice 1.1 |
+| Rendering | Inertia SSR for public pages (listings, search, home); client-only for authenticated dashboards | slice 1.1 |
+| Styling | Bootstrap 5 via Sass with only the partials we use, React-Bootstrap, a custom theme through Sass variables. See [ADR 0006](adr/0006-bootstrap-over-utility-first.md) | slice 1.1 |
+| Database | MySQL 8.4 LTS (primary), MariaDB 11.4 LTS in the CI matrix | slice 1.1 |
+| Queue | Laravel database driver | slice 1.1 |
+| Files | `local`/`public` disks in dev; S3-compatible storage in production (MinIO in the production Compose file) | slice 1.3 |
+| Mail | Mailpit in dev; any SMTP transactional provider in production | slice 1.1 |
+| Maps | Leaflet + OSM tiles, one pin per property, loaded only on the listing page after interaction or in view; follows the OSM tile policy | slice 5.1 |
+| Quality | Pest, Larastan (level max, with a baseline only if forced), Pint, Vitest, Playwright + axe-core | slice 1.2 |
 
 ## Code organization
 

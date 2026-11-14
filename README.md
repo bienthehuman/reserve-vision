@@ -2,10 +2,10 @@
 
 Multi-landlord reservations for apartments and boarding-house beds, with a guarantee that no space is ever double-booked.
 
-> 🚧 Phase 0: design under review. See the [build plan](docs/BUILD-PLAN.md).
+> 🚧 Phase 0: design under review. See the [build plan](docs/BUILD_PLAN.md).
 
-<!-- Badges: MySQL CI, MariaDB CI (slice 2) -->
-<!-- GIF of the renter flow on a phone (slice 18) -->
+<!-- Badges: MySQL CI, MariaDB CI (slice 1.2) -->
+<!-- GIF of the renter flow on a phone (slice 7.1) -->
 
 ## What it does
 
@@ -29,17 +29,17 @@ In rental language a *tenant* is the person renting; in SaaS language a *tenant*
 ## Design docs
 
 - [Architecture](docs/ARCHITECTURE.md)
-- [Data model](docs/DATA-MODEL.md)
+- [Data model](docs/DATA_MODEL.md)
 - [Access and isolation](docs/ACCESS.md)
 - [Reservations: rules, lifecycle, concurrency](docs/RESERVATIONS.md)
-- [Design system](docs/DESIGN-SYSTEM.md) ([palette preview](docs/design/preview.html))
+- [Design system](docs/DESIGN_SYSTEM.md) ([palette preview](docs/design/preview.html))
 - [Conventions](docs/CONVENTIONS.md)
-- [Build plan](docs/BUILD-PLAN.md)
+- [Build plan](docs/BUILD_PLAN.md)
 - [Architecture decision records](docs/adr/)
 
 ## Getting started
 
-_One-command setup and the Codespaces button arrive in slices 1 and 3._
+_One-command setup and the Codespaces button arrive in slices 1.1 and 1.3._
 
 ## Next (out of scope for v1)
 
