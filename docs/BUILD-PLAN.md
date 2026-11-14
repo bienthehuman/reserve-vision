@@ -36,7 +36,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 
 | # | Slice | Definition of done |
 | --- | --- | --- |
-| 1 | App skeleton | Laravel + Inertia + React + TypeScript + SSR; Bootstrap Sass theme; dev `compose.yaml` (app, ssr, worker, scheduler, MySQL, Mailpit); `app` and `migrator` DB users; security-headers middleware + test; `/up` health route; one SSR home page that passes axe |
+| 1 | App skeleton | Laravel + Inertia + React + TypeScript + SSR; Bootstrap Sass theme; dev `compose.yaml` (app, ssr, worker, scheduler, MySQL, Mailpit); `app` and `migrator` DB users; security-headers middleware + test; `/up` health route; design tokens and Bootstrap theme from [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md); dev-only `/styleguide` page; one SSR home page that passes axe |
 | 2 | CI | GitHub Actions: Pint, Larastan, Pest on a MySQL 8.4 + MariaDB 11.4 matrix (as `app` user), Vitest, Playwright + axe smoke; badges in the README |
 | 3 | Production + Codespaces | `Dockerfile` (multi-stage), `compose.prod.yaml` (Caddy, MinIO), `deploy.sh`, `DEPLOY.md`; CI job that boots the production stack and smoke-tests it; `.devcontainer/` that runs the app with one command |
 | — | **Phase demo** | Playwright smoke passes against both the dev stack and the production stack; tag `v0.1.0` |
@@ -94,6 +94,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | --- | --- | --- |
 | 2026-11-14 | Deployable, not hosted; CI proves the production stack instead | [ADR 0007](adr/0007-deployable-not-hosted.md) |
 | 2026-11-14 | Landlord verification by artisan command; no admin web role | [ACCESS.md](ACCESS.md#actors) |
+| 2026-11-14 | Design system: teal primary, terracotta for prices only, Plus Jakarta Sans headings, light mode only in v1 | [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) |
 | 2026-11-14 | Public GitHub repo from day one; no AI attribution in commits or PRs | [CONVENTIONS.md](CONVENTIONS.md#workflow) |
 
 ## Backlog
@@ -105,5 +106,7 @@ Ideas that came up and are deliberately not in any slice.
 | Admin web UI for landlord verification | Kickoff |
 | Undo "moved in" | RESERVATIONS correction paths |
 | Undo a decline | RESERVATIONS correction paths |
+| Dark mode | DESIGN-SYSTEM |
+| Filipino translation of the UI | DESIGN-SYSTEM |
 | Let a landlord user also rent from the same login | DATA-MODEL `users.type` |
 | Real payment gateway, monthly billing, chat, reviews, government ID, native apps | Scope document "Out of scope" |

@@ -32,6 +32,7 @@ In rental language a *tenant* is the person renting; in SaaS language a *tenant*
 - [Data model](docs/DATA-MODEL.md)
 - [Access and isolation](docs/ACCESS.md)
 - [Reservations: rules, lifecycle, concurrency](docs/RESERVATIONS.md)
+- [Design system](docs/DESIGN-SYSTEM.md) ([palette preview](docs/design/preview.html))
 - [Conventions](docs/CONVENTIONS.md)
 - [Build plan](docs/BUILD-PLAN.md)
 - [Architecture decision records](docs/adr/)
