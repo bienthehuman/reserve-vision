@@ -110,5 +110,3 @@ Ideas that came up and are deliberately not in any slice.
 | Undo a decline | RESERVATIONS correction paths |
 | Dark mode | DESIGN_SYSTEM |
 | Filipino translation of the UI | DESIGN_SYSTEM |
-| Let a landlord user also rent from the same login | DATA_MODEL `users.type` |
-| Real payment gateway, monthly billing, chat, reviews, government ID, native apps | Scope document "Out of scope" |
