@@ -1,4 +1,36 @@
+# Editors and OS
 .idea/
 .vscode/
+.zed/
+.cursor/
 .DS_Store
+Thumbs.db
+
+# Slice prompts (local only)
 prompts/
+
+# Laravel
+*.log
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+/.phpunit.cache
+/auth.json
+/bootstrap/ssr
+/node_modules
+/public/build
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+_ide_helper.php
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

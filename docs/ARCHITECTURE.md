@@ -6,7 +6,7 @@ One Laravel monolith that renders React pages through Inertia, with server-side 
 
 ```mermaid
 flowchart LR
-    Browser -->|HTML first, then Inertia JSON| Web[nginx + PHP-FPM<br/>Laravel]
+    Browser -->|HTML first, then Inertia JSON| Web[FrankenPHP<br/>Laravel]
     Web -->|render public pages| SSR[Inertia SSR<br/>Node]
     Web --> DB[(MySQL 8.4<br/>or MariaDB 11.4)]
     Worker[queue worker<br/>database driver] --> DB
@@ -18,16 +18,18 @@ flowchart LR
 
 | Layer | Choice | Pinned at |
 | --- | --- | --- |
-| Runtime | PHP 8.4 (Docker image), Node 24 LTS | slice 1.1 |
-| App | Laravel (current major), Inertia, React, TypeScript | slice 1.1 |
-| Rendering | Inertia SSR for public pages (listings, search, home); client-only for authenticated dashboards | slice 1.1 |
-| Styling | Bootstrap 5 via Sass with only the partials we use, React-Bootstrap, a custom theme through Sass variables. See [ADR 0006](adr/0006-bootstrap-over-utility-first.md) | slice 1.1 |
-| Database | MySQL 8.4 LTS (primary), MariaDB 11.4 LTS in the CI matrix | slice 1.1 |
+| Runtime | PHP 8.4 on FrankenPHP 1.13 (Docker image `dunglas/frankenphp:1.13-php8.4-bookworm`), Node 24 LTS | slice 1.1 |
+| App | Laravel 13, Inertia 3 (inertia-laravel 3.7, @inertiajs/react 3.11), React 19.3, TypeScript 7.0 (`strict`), Vite 8 | slice 1.1 |
+| Rendering | Inertia SSR for public pages (listings, search, home); client-only for authenticated dashboards. In dev the Vite dev server renders through `@inertiajs/vite` (`/__inertia_ssr`); in production `vite build --ssr` + `php artisan inertia:start-ssr`. Pages are code-split (`import.meta.glob`, not eager) | slice 1.1 |
+| Styling | Bootstrap 5.3.9 via Sass with only the partials we use, React-Bootstrap 2.10, react-bootstrap-icons 1.11, a custom theme through Sass variables. See [ADR 0006](adr/0006-bootstrap-over-utility-first.md) | slice 1.1 |
+| Database | MySQL 8.4 LTS (8.4.13 in dev; primary), MariaDB 11.4 LTS in the CI matrix | slice 1.1 |
 | Queue | Laravel database driver | slice 1.1 |
 | Files | `local`/`public` disks in dev; S3-compatible storage in production (MinIO in the production Compose file) | slice 1.3 |
-| Mail | Mailpit in dev; any SMTP transactional provider in production | slice 1.1 |
+| Mail | Mailpit 1.33 in dev; any SMTP transactional provider in production | slice 1.1 |
 | Maps | Leaflet + OSM tiles, one pin per property, loaded only on the listing page after interaction or in view; follows the OSM tile policy | slice 5.1 |
-| Quality | Pest, Larastan (level max, with a baseline only if forced), Pint, Vitest, Playwright + axe-core | slice 1.2 |
+| Quality | Pest 5.3, Larastan 3.15 (level max, with a baseline only if forced), Pint 1.32, Vitest 5.1, Playwright 1.65 + axe-core 4.14. Installed and runnable locally in 1.1; CI in 1.2 | slice 1.2 |
+
+**PHP server: FrankenPHP** (classic mode, not worker mode) instead of nginx + PHP-FPM. One process per container serves static files and PHP, so there's no supervisor and no nginx config to keep in sync, and the same image covers `app`, `worker` and `scheduler`. Production (1.3) can run it behind Caddy or let FrankenPHP's built-in Caddy terminate TLS.
 
 ## Code organization
 
@@ -54,7 +56,7 @@ Controllers don't touch the query builder for writes. Actions don't know about H
 
 | Service | Dev (`compose.yaml`) | Production (`compose.prod.yaml`) |
 | --- | --- | --- |
-| app | PHP-FPM + nginx, source mounted | Built image, OPcache, `php artisan optimize` |
+| app | FrankenPHP (PHP 8.4), source mounted | Built image, OPcache, `php artisan optimize` |
 | ssr | Vite dev server | `php artisan inertia:start-ssr` |
 | worker | `queue:work` | `queue:work` with `--max-time` |
 | scheduler | `schedule:work` | `schedule:work` |

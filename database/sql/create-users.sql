@@ -1,0 +1,59 @@
+-- Least-privilege database users (ADR 0008).
+--
+-- Plain SQL for the mysql or mariadb client, run as an administrative user.
+-- No Docker assumptions: dev (docker/mysql/initdb.d), CI (1.2) and production
+-- (1.3) all run this same file. Run it once per schema, after setting:
+--
+--   SET @db_name           = 'reservevision',
+--       @app_password      = '…',
+--       @migrator_password = '…';
+--   SOURCE database/sql/create-users.sql;
+--
+-- Idempotent: running it again keeps existing data and resets the passwords
+-- to the given values.
+--
+--   migrator  ALL PRIVILEGES on the schema. Used only by `php artisan migrate`
+--             (connection `mysql_migrator`).
+--   app       SELECT, INSERT, UPDATE, DELETE on the schema. No DDL. Used by the
+--             web app, queue workers, scheduler and the test suite.
+
+SET @db_ident = CONCAT('`', REPLACE(@db_name, '`', '``'), '`');
+
+-- Schema
+SET @stmt = CONCAT('CREATE DATABASE IF NOT EXISTS ', @db_ident,
+                   ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- Users (global; shared by every schema this script is run for)
+SET @stmt = CONCAT('CREATE USER IF NOT EXISTS ''migrator''@''%'' IDENTIFIED BY ', QUOTE(@migrator_password));
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+SET @stmt = CONCAT('ALTER USER ''migrator''@''%'' IDENTIFIED BY ', QUOTE(@migrator_password));
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @stmt = CONCAT('CREATE USER IF NOT EXISTS ''app''@''%'' IDENTIFIED BY ', QUOTE(@app_password));
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+SET @stmt = CONCAT('ALTER USER ''app''@''%'' IDENTIFIED BY ', QUOTE(@app_password));
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- migrator: everything on this schema, nothing outside it
+SET @stmt = CONCAT('GRANT ALL PRIVILEGES ON ', @db_ident, '.* TO ''migrator''@''%''');
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- app: data only, no DDL
+SET @stmt = CONCAT('GRANT SELECT, INSERT, UPDATE, DELETE ON ', @db_ident, '.* TO ''app''@''%''');
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+-- ---------------------------------------------------------------------------
+-- TODO(slice 2.1): audit_logs is append-only for `app` (ADR 0008):
+--   SELECT, INSERT only; no UPDATE or DELETE.
+--
+-- MySQL has no per-table DENY, and the schema-wide grant above already
+-- includes UPDATE and DELETE on every table, so 2.1 must pick one of:
+--   a) put audit_logs in its own schema (e.g. `<db>_audit`) and grant
+--      `app` only SELECT, INSERT there; or
+--   b) replace the schema-wide grant above with per-table grants, applied
+--      after migrations, plus `GRANT SELECT, INSERT ON <db>.audit_logs`.
+-- Whichever it is, add a test that `app` cannot UPDATE or DELETE audit_logs.
+-- ---------------------------------------------------------------------------
+
+FLUSH PRIVILEGES;
