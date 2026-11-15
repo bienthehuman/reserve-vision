@@ -126,4 +126,10 @@ Ideas that came up and are deliberately not in any slice.
 | Seed viewing requests and property photos (photos need real files, so after 4.2) | Slice 2.2 |
 | Narrow the "status is written only in `App\Actions`" arch test to reservations if it gets noisy for `PropertyPhoto`/`PaymentProof` status writes | Slice 2.1 |
 | Landlord edits that archive a space or room (or change its fee) lock the room row first, so they queue behind `ReserveSpace` like renters do | Slice 2.3, for 4.x |
-| Show `flash.error` in the layouts (a dismissible alert); today it's shared but not rendered | Slice 2.3, for 2.5 |
+| Show `flash.error` in the layouts (a dismissible alert); today it's shared but not rendered (`flash.status` is rendered since 2.4) | Slice 2.3, for 2.5 |
+| Two-factor authentication and passkeys (Fortify supports both; the routes are off) | Slice 2.4 |
+| Profile and settings pages: change name, phone, email (re-verify) and password | Slice 2.4 |
+| Social login (Google, Facebook) | Slice 2.4 |
+| Login, logout and sign-up without JavaScript (plain form posts with a `_token` field); today the forms need hydration | Slice 2.4 |
+| Header nav as `Navbar` + `Offcanvas` once there are more than the account links | Slice 2.4 |
+| Lowercase emails on save everywhere (today Fortify lowercases at login and registration only) | Slice 2.4 |

@@ -57,7 +57,7 @@ Or, with nothing installed: [open it in GitHub Codespaces](https://codespaces.ne
 
 ## Demo logins
 
-`bin/setup` seeds fake but realistic data (15 landlord accounts, 60 properties in 7 cities, about 390 spaces, about 2,200 reservations in every status). All logins use the password `password`; every email ends in `@example.com`, so nothing can be sent to a real person. (The login page lists them from slice 2.4 on.)
+`bin/setup` seeds fake but realistic data (15 landlord accounts, 60 properties in 7 cities, about 390 spaces, about 2,200 reservations in every status). All logins use the password `password`; every email ends in `@example.com`, so nothing can be sent to a real person. In Codespaces (and anywhere `APP_DEMO=true`) the login page lists them in a **Demo accounts** panel: one tap fills in the form. Locally, set `APP_DEMO=true` in `.env` to get the panel.
 
 | Login | Role | Use it for |
 | --- | --- | --- |

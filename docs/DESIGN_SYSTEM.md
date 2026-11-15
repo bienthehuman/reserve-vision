@@ -110,13 +110,16 @@ Use React-Bootstrap first; build a custom component only when the table says so.
 | --- | --- | --- |
 | Buttons | `Button` | Variants used: `primary`, `outline-primary`, `danger`, `link`. No `secondary` buttons; use `outline-primary` |
 | Forms | `Form`, `FloatingLabel` is **not** used | Labels above fields; `Form.Text` for help |
-| Navigation | `Navbar` + `Offcanvas` on mobile | Sticky top; bottom action bar on listing pages (see below) |
+| Navigation | `Navbar` + `Offcanvas` on mobile | Sticky top; bottom action bar on listing pages (see below). Until there are more links (slice 2.4): the account nav (Log in / Sign up, or name, Dashboard, Log out) wraps under the brand on narrow phones, which works without JavaScript |
 | Dialogs | `Modal` | Confirmations of destructive or irreversible actions only |
 | Feedback | `Alert`, `Toast` | Toast for "saved"; Alert for anything the user must read |
 | Tables | `Table` responsive | Landlord dashboard; collapses into stacked cards below `md` |
 | **ListingCard** | custom | Photo (4:3, lazy), name, barangay + city, `PriceTag`, gender-policy and kind chips, "N spaces free" |
 | **PriceTag** | custom | `₱6,500 / month`, always from integer centavos via `formatPeso()` |
 | **StatusBadge** | custom | The mapping table above |
+| **TextField** | custom on `Form.Group` | Label above, help (`Form.Text`) and error below, both in `aria-describedby`; error is `danger` text with an icon. The input id is `field-<name>` |
+| **ErrorSummary** | custom on `Alert` | "Please fix these N things:" with one link per error to its field; takes focus after a failed submit (`useFocusOnError`) |
+| **SubmitButton** | custom on `Button` | Full width on auth forms; while the request runs it is disabled and shows a spinner and a pending label ("Logging in…") |
 | **HoldCountdown** | custom | Remaining hold time; server sends `hold_expires_at`, so it's correct without JS (static "until 3:40 PM") |
 | **FilterSheet** | custom on `Offcanvas placement="bottom"` | Search filters on phones; a sidebar from `lg` |
 | **StickyReserveBar** | custom | On a listing page on phones: price + "Reserve" button fixed at the bottom |

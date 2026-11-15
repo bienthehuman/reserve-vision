@@ -78,7 +78,7 @@ Every PR and every push to `main` runs five workflows ([.github/workflows](.gith
 | Tests (MariaDB 11.4) | `tests-mariadb.yml` | `MariaDB 11.4 / Pest` | Same, with `mariadb:11.4` |
 | Quality | `quality.yml` | `Pint + Larastan`, `TypeScript + Vitest + build` | `composer lint`, `composer analyse`, `npm run types`, `npm run test`, `npm run build`, then the CSS budget ([bin/check-css-budget.mjs](bin/check-css-budget.mjs): `app.css` ≤ 35 kB gzipped, size in the job summary) |
 | E2E | `e2e.yml` | `Playwright + axe` | `bin/setup` (the dev Compose stack, MySQL), then `npm run e2e`. On failure: the Playwright report and traces as the `playwright-report` artifact, and the stack logs |
-| Production | `production.yml` | `Production stack` | The ADR 0007 guard. ShellCheck, `bin/ci-production-env` (throwaway secrets, Caddy on plain HTTP `:80` published at 8280), `./deploy.sh --current` (build, migrate as `migrator`, up, optimize, `app:doctor`, `/up`), image size in the job summary, `bin/smoke-production` (SSR'd pitch text, `/up` 200, `/styleguide` 404, security headers incl. HSTS), then `npm run e2e` against it with `E2E_SKIP_DEV_PAGES=1`. On failure: `playwright-report-production` artifact and the stack logs |
+| Production | `production.yml` | `Production stack` | The ADR 0007 guard. ShellCheck, `bin/ci-production-env` (throwaway secrets, `APP_DEMO=true`, Caddy on plain HTTP `:80` published at 8280), `./deploy.sh --current` (build, migrate as `migrator`, up, optimize, `app:doctor`, `/up`), image size in the job summary, `php artisan db:seed --force` (demo data), `bin/smoke-production` (SSR'd pitch text, `/up` 200, `/styleguide` 404, security headers incl. HSTS, SSR'd login form, session cookie `Secure`/`HttpOnly`/`SameSite=Lax`, a CSRF login as `owner@example.com` landing on `/landlord`), then `npm run e2e` against it with `E2E_SKIP_DEV_PAGES=1`. On failure: `playwright-report-production` artifact and the stack logs |
 
 How `_tests.yml` differs from dev: PHP comes from `setup-php` on the runner (no app container) and the database is a service container. Root runs [database/sql/create-users.sql](database/sql/create-users.sql) with the `mysql` client for `reservevision_test` and `reservevision_test_1`…`_4`, `composer migrate` runs as `migrator`, `npm run build` plus `php artisan inertia:start-ssr` replace the Vite dev server for SSR, and Pest runs as `app` with `--parallel --processes=4`.
 
@@ -96,7 +96,7 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens weekly PRs f
 
 ### Pinned versions
 
-PHP 8.4.27 (FrankenPHP 1.13.5 image), Composer 2.9, Laravel 13.42, inertia-laravel 3.7, league/flysystem-aws-s3-v3 3.32 (AWS SDK trimmed to S3 by `extra.aws/aws-sdk-php`), Pest 5.3 (ParaTest held below 7.28 by a `conflict` in composer.json, see quirks), Larastan 3.15, Pint 1.32. Node 24.22, Vite 8.3, React 19.3, @inertiajs/react + @inertiajs/vite 3.11, TypeScript 7.0, Bootstrap 5.3.9, React-Bootstrap 2.10, react-bootstrap-icons 1.11, Sass 1.108, Vitest 5.1, Playwright 1.65.1 (exact, matches its browser build), @axe-core/playwright 4.14. MySQL 8.4.13, Mailpit 1.33. Production only: Caddy 2.11 (`caddy:2.11-alpine`), MinIO RELEASE.2026-11-12 (`cgr.dev/chainguard/minio:latest-dev`, pinned by digest). Dev container: Node feature 1.7.1 (`devcontainer-lock.json`).
+PHP 8.4.27 (FrankenPHP 1.13.5 image), Composer 2.9, Laravel 13.42, inertia-laravel 3.7, league/flysystem-aws-s3-v3 3.32 (AWS SDK trimmed to S3 by `extra.aws/aws-sdk-php`), laravel/fortify 1.42 (pulls in laravel/passkeys and the 2FA libraries, unused), fakerphp/faker 1.24 (a runtime dependency since 2.4, for `DemoSeeder` in production), Pest 5.3 (ParaTest held below 7.28 by a `conflict` in composer.json, see quirks), Larastan 3.15, Pint 1.32. Node 24.22, Vite 8.3, React 19.3, @inertiajs/react + @inertiajs/vite 3.11, TypeScript 7.0, Bootstrap 5.3.9, React-Bootstrap 2.10, react-bootstrap-icons 1.11, Sass 1.108, Vitest 5.1, Playwright 1.65.1 (exact, matches its browser build), @axe-core/playwright 4.14. MySQL 8.4.13, Mailpit 1.33. Production only: Caddy 2.11 (`caddy:2.11-alpine`), MinIO RELEASE.2026-11-12 (`cgr.dev/chainguard/minio:latest-dev`, pinned by digest). Dev container: Node feature 1.7.1 (`devcontainer-lock.json`).
 
 ### Production stack (slice 1.3)
 
@@ -110,7 +110,7 @@ Full guide: [DEPLOY.md](DEPLOY.md). Pieces:
 | `.env.production` | Git-ignored. Every variable documented in [.env.production.example](.env.production.example). Used both for `${…}` in the Compose file (`--env-file`) and as the PHP containers' environment (`env_file`); there is no `.env` in the image |
 | [deploy.sh](deploy.sh) | `./deploy.sh <tag>` or `--current`. Preflight → checkout → build → db + MinIO → migrate as `migrator` → `up -d --wait` → `optimize` in app/worker/scheduler + `queue:restart` → `app:doctor` → GET `/up`. `set -Eeuo pipefail`, body in `main()` (the checkout replaces the file), prints the rollback command on failure |
 | [bin/ci-production-env](bin/ci-production-env) | Writes a throwaway `.env.production` (random secrets, `DOMAIN=:80`). Refuses to overwrite one it didn't write |
-| [bin/smoke-production](bin/smoke-production) | curl-only smoke test of a running stack. TODOs for slices 3.1 (listing page) and 5.1 (login) |
+| [bin/smoke-production](bin/smoke-production) | curl-only smoke test of a running stack, including a demo-owner login (needs demo data). TODO for slice 5.1 (public listing page) |
 
 Media disks ([config/filesystems.php](config/filesystems.php)): `photos` (public) and `proofs` (private). `MEDIA_STORAGE=local` (default; dev and tests, under `storage/app`) or `s3` (production: MinIO, or any S3). Not used by domain code until slice 4.2.
 
@@ -124,7 +124,7 @@ Proxies: `bootstrap/app.php` trusts `X-Forwarded-*` from any address (`trustProx
 
 [.devcontainer/devcontainer.json](.devcontainer/devcontainer.json) on top of `compose.yaml` plus [.devcontainer/compose.devcontainer.yaml](.devcontainer/compose.devcontainer.yaml) (project `reservevision-devcontainer`, so it never clashes with a local dev stack). The workspace container is `app` (user `app`, `/app`), with Node 24 from the dev container feature. `postCreateCommand` is `bin/setup`. Forwards 8000 (app, opens in the browser) and `mail:8025` (Mailpit).
 
-Differences from the plain dev stack: **built assets, no Vite dev server** (a Vite origin on a second forwarded port would need a public port and CORS), so run `npm run build` after frontend changes; the `ssr` service runs the production SSR bundle with `node --watch-path` and reloads on rebuilds. No host ports. `worker` and `scheduler` restart a few times until `bin/setup` has migrated.
+Differences from the plain dev stack: **built assets, no Vite dev server** (a Vite origin on a second forwarded port would need a public port and CORS), so run `npm run build` after frontend changes; the `ssr` service runs the production SSR bundle with `node --watch-path` and reloads on rebuilds. No host ports. `APP_DEMO=true`, so the login page shows the demo accounts. `worker` and `scheduler` restart a few times until `bin/setup` has migrated.
 
 Verify locally from a clean clone (not this working tree: the build removes `public/hot`):
 
@@ -152,6 +152,37 @@ Tests assert driver error codes, not messages (`dbErrorCode()` in `tests/Pest.ph
 - `App\Support\BusinessDate::today()`: the Manila calendar date as midnight **UTC**, the same shape as the `immutable_date` casts, so it compares with `move_in` directly. `BusinessDate::of($date)` drops the time and timezone of any date.
 - Domain exceptions: `app/Exceptions/Domain/`, extending the abstract `BusinessRuleException` (the only non-final class, exempted in `tests/Arch/ArchTest.php`). JSON → 422 `{message}`; Inertia (`X-Inertia`) → 303 back with the `error` flash, shared as `flash.error`; otherwise the 422 page. Not logged.
 - Tests in `tests/Feature/Reservations/` freeze "now" at 2027-03-15 10:00 Manila, so the window is Mar 15 – Jun 13, 2027 and T3 can use Jun 1. Helpers `reservableRoom()`, `reserve()` and `onlySpace()` are in `tests/Pest.php`.
+
+### Auth (slice 2.4)
+
+[docs/ACCESS.md](docs/ACCESS.md#logging-in-slice-24) has the rules. Laravel Fortify, headless:
+
+| Piece | Where |
+| --- | --- |
+| Config | [config/fortify.php](config/fortify.php): features `registration`, `resetPasswords`, `emailVerification` only; `lowercase_usernames`; `limiters.login` **null** on purpose (see quirks) |
+| Wiring | [app/Providers/FortifyServiceProvider.php](app/Providers/FortifyServiceProvider.php): `Fortify::ignoreRoutes()`, Inertia views, `CreateNewUser`/`ResetUserPassword`, our `LoginResponse` / `RegisterResponse` / `VerifyEmailResponse` / `FailedPasswordResetLinkRequestResponse` (`app/Http/Responses`), `Password::defaults()` (8–255), the `registration` and `password-reset-link` rate limiters |
+| Routes | [routes/auth.php](routes/auth.php) on Fortify's controllers: the complete list (no 2FA, passkey, profile or password-confirmation routes exist). Landlord pages: `Route::middleware(['auth', 'verified', 'landlord'])` in `routes/web.php` (`landlord` = `EnsureUserIsLandlord`, 403 for renters) |
+| Actions | `App\Actions\RegisterRenter`, `App\Actions\RegisterLandlord` (user + unverified account + owner membership in one transaction, retried on a slug clash) take `App\Data\RegistrationDetails`; `App\Actions\Fortify\CreateNewUser` validates and normalizes the phone (`App\Support\PhilippineMobile` → `09XXXXXXXXX`) |
+| Pages | `resources/js/Pages/Auth/{Login,Register,ForgotPassword,ResetPassword,VerifyEmail}.tsx`, `Pages/Landlord/Dashboard.tsx` (placeholder). Form pieces in `resources/js/Components/Form/` (`TextField`, `ErrorSummary`, `SubmitButton`, `useFocusOnError`). Shared props: `auth.user` (id, names, type, `email_verified`, never email or phone) and `flash.status` |
+| Mail | `User::sendEmailVerificationNotification()` / `sendPasswordResetNotification()` → queued notifications in `app/Notifications/Auth` → Markdown mailables in `app/Mail/Auth` with views in `resources/views/mail/auth`, themed by [resources/views/mail/reservevision.css](resources/views/mail/reservevision.css) (`mail.markdown.theme`) |
+| Messages | `lang/en/auth.php` and `lang/en/passwords.php`: only the lines we word differently |
+| Demo panel | `App\Support\DemoLogins`, sent as the `demoLogins` prop **only** when `config('app.demo')` is true, so it is absent from the HTML otherwise (`tests/Feature/Auth/DemoLoginsTest.php`). `APP_DEMO=true` in the dev container and in CI's production run |
+
+Tests: `tests/Feature/Auth/` (each feature, rate limits, intended URL, rollback of `RegisterLandlord`, demo panel), helpers `landlordUser()` and `registrationForm()` in `tests/Pest.php`. E2E: [e2e/auth.spec.ts](e2e/auth.spec.ts); shared helpers (console/CSP errors, axe) in [e2e/support.ts](e2e/support.ts).
+
+**Reading Mailpit in tests**: the e2e sign-up test polls Mailpit's API, `GET {E2E_MAILPIT_URL}/api/v1/search?query=to:"<email>"` then `GET /api/v1/message/<ID>` (the `Text` part holds the link). `E2E_MAILPIT_URL` defaults to `http://localhost:8126`; the test is skipped with `E2E_SKIP_DEV_PAGES=1` (no Mailpit in production). Mails go through the queue, so the `worker` must be running. In Pest, use `Notification::fake()` and call `toMail()` on the notification to check the rendered mail.
+
+### Quirks hit in 2.4
+
+- **Fortify's named login limiter answers with a bare 429**, which Inertia shows as an error page. With `limiters.login => null` Fortify runs `EnsureLoginIsNotThrottled` in its pipeline instead (5 a minute per email + IP), which throws a validation error on `email`. The `registration` and `password-reset-link` limiters do the same through `Limit::response()` (303 back with an `email` error).
+- **Fortify ships routes for everything**, and Fortify 1.42 requires laravel/passkeys. `Fortify::ignoreRoutes()` plus our own `routes/auth.php` keeps the route list to what we use; `php artisan route:list` shows no passkey or 2FA routes.
+- **The password broker reveals accounts** ("We can't find a user with that email" and the per-email throttle message). `FailedPasswordResetLinkRequestResponse` answers both like a sent link.
+- **Clicking an SSR'd Inertia `Link as="button"` before hydration does nothing** (it's a plain `<button type="button">`). E2E waits for `networkidle` after a full page load before clicking.
+- **Adding pages while the Vite dev server runs** can give `504 Outdated Optimize Dep` on the new page chunks in the browser; `docker compose restart ssr`, wait for SSR, rerun.
+- **`queue:work` keeps the config it booted with**: after changing mail config (or pulling this slice), `docker compose restart worker`, or mails use the old theme.
+- **`DemoSeeder` needs Faker at runtime**, and the production image installs `--no-dev`, so `fakerphp/faker` moved to `require` (it was a 2.2 gap: the documented production seeding could never have run).
+- **A `.env` created before 2.2 has no `APP_DEMO` line**: add one to try the demo panel locally.
+- **The lockout message counts seconds**: rate-limit tests freeze time, or "Wait 59 seconds" makes them flaky.
 
 ### Quirks hit in 2.3
 
