@@ -6,6 +6,8 @@
 #   would need public ports and CORS. bin/setup runs `npm run build`; run it again
 #   after frontend changes (the ssr service reloads the SSR bundle by itself).
 # - The ssr service runs the production SSR bundle, as in CI and production.
+# - worker and scheduler restart a few times until bin/setup has migrated (the
+#   cache and jobs tables), then stay up.
 # - No host ports: Codespaces forwards ports itself, and a local run must not
 #   clash with a dev stack that is already running.
 name: reservevision-devcontainer

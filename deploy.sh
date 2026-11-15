@@ -62,81 +62,88 @@ usage() {
     exit 2
 }
 
-[[ $# -eq 1 ]] || usage
-case "$1" in
-    -h | --help) usage ;;
-    --current) mode=current ;;
-    -*) usage ;;
-    *) mode=tag ;;
-esac
+# Everything runs inside main(), which bash parses completely before running it:
+# checking out another tag replaces this file on disk mid-deploy.
+main() {
+    local mode
+    [[ $# -eq 1 ]] || usage
+    case "$1" in
+        -h | --help) usage ;;
+        --current) mode=current ;;
+        -*) usage ;;
+        *) mode=tag ;;
+    esac
 
-step "Preflight"
-for tool in docker git curl; do
-    command -v "$tool" >/dev/null || die "$tool is not installed"
-done
-docker compose version >/dev/null || die "Docker Compose v2 is not available"
-[[ -f "$ENV_FILE" ]] || die "$ENV_FILE is missing: cp .env.production.example $ENV_FILE and fill it in (DEPLOY.md)"
-for key in DOMAIN APP_KEY APP_URL DB_PASSWORD DB_MIGRATOR_PASSWORD DB_ROOT_PASSWORD \
-    MINIO_ROOT_USER MINIO_ROOT_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY MAIL_FROM_ADDRESS; do
-    [[ -n "$(env_value "$key")" ]] || die "$key is empty in $ENV_FILE"
-done
-previous_ref="$(git describe --tags --exact-match HEAD 2>/dev/null || true)"
-echo "Currently checked out: ${previous_ref:-$(git rev-parse --short HEAD) (no tag)}"
+    step "Preflight"
+    for tool in docker git curl; do
+        command -v "$tool" >/dev/null || die "$tool is not installed"
+    done
+    docker compose version >/dev/null || die "Docker Compose v2 is not available"
+    [[ -f "$ENV_FILE" ]] || die "$ENV_FILE is missing: cp .env.production.example $ENV_FILE and fill it in (DEPLOY.md)"
+    for key in DOMAIN APP_KEY APP_URL DB_PASSWORD DB_MIGRATOR_PASSWORD DB_ROOT_PASSWORD \
+        MINIO_ROOT_USER MINIO_ROOT_PASSWORD AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY MAIL_FROM_ADDRESS; do
+        [[ -n "$(env_value "$key")" ]] || die "$key is empty in $ENV_FILE"
+    done
+    previous_ref="$(git describe --tags --exact-match HEAD 2>/dev/null || true)"
+    echo "Currently checked out: ${previous_ref:-$(git rev-parse --short HEAD) (no tag)}"
 
-if [[ "$mode" == tag ]]; then
-    target="$1"
-    step "Checking out $target"
-    if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-        die "the working tree has local changes; a deploy must match a tag exactly"
+    if [[ "$mode" == tag ]]; then
+        target="$1"
+        step "Checking out $target"
+        if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+            die "the working tree has local changes; a deploy must match a tag exactly"
+        fi
+        git fetch --tags --force --quiet origin
+        git rev-parse --verify --quiet "refs/tags/$target" >/dev/null || die "tag $target does not exist"
+        git -c advice.detachedHead=false checkout --quiet --detach "refs/tags/$target"
+        export IMAGE_TAG="$target"
+    else
+        target="$(git describe --tags --always --dirty)"
+        export IMAGE_TAG="${IMAGE_TAG:-current}"
     fi
-    git fetch --tags --force --quiet origin
-    git rev-parse --verify --quiet "refs/tags/$target" >/dev/null || die "tag $target does not exist"
-    git -c advice.detachedHead=false checkout --quiet --detach "refs/tags/$target"
-    export IMAGE_TAG="$target"
-else
-    target="$(git describe --tags --always --dirty)"
-    export IMAGE_TAG="${IMAGE_TAG:-current}"
-fi
-echo "Deploying $target as image reservevision:$IMAGE_TAG"
+    echo "Deploying $target as image reservevision:$IMAGE_TAG"
 
-step "Building the image"
-compose build --pull
+    step "Building the image"
+    compose build --pull
 
-step "Starting the database and storage"
-compose up -d --wait db minio
-compose run --rm minio-setup
+    step "Starting the database and storage"
+    compose up -d --wait db minio
+    compose run --rm minio-setup
 
-step "Migrating as migrator"
-compose run --rm --no-deps app php artisan migrate --database=mysql_migrator --force --no-interaction
+    step "Migrating as migrator"
+    compose run --rm --no-deps app php artisan migrate --database=mysql_migrator --force --no-interaction
 
-step "Starting the stack"
-compose up -d --wait --remove-orphans
+    step "Starting the stack"
+    compose up -d --wait --remove-orphans
 
-step "Caching config, routes, views and events (php artisan optimize)"
-# Each container has its own filesystem, so every PHP service caches its own.
-for service in app worker scheduler; do
-    compose exec -T "$service" php artisan optimize --no-interaction
-done
-# Workers finish their current job and restart with the cached config.
-compose exec -T app php artisan queue:restart --no-interaction
+    step "Caching config, routes, views and events (php artisan optimize)"
+    # Each container has its own filesystem, so every PHP service caches its own.
+    for service in app worker scheduler; do
+        compose exec -T "$service" php artisan optimize --no-interaction
+    done
+    # Workers finish their current job and restart with the cached config.
+    compose exec -T app php artisan queue:restart --no-interaction
 
-step "Checking the environment (php artisan app:doctor)"
-compose exec -T app php artisan app:doctor --no-interaction
+    step "Checking the environment (php artisan app:doctor)"
+    compose exec -T app php artisan app:doctor --no-interaction
 
-step "Checking /up"
-domain="$(env_value DOMAIN)"
-if [[ -n "${DEPLOY_HEALTH_URL:-}" ]]; then
-    curl -fsS --retry 10 --retry-delay 3 --retry-all-errors "$DEPLOY_HEALTH_URL" >/dev/null
-else
-    # Through Caddy and real TLS, resolved to this host so DNS changes don't matter.
-    curl -fsS --retry 10 --retry-delay 3 --retry-all-errors \
-        --resolve "${domain}:$(env_value HTTPS_PORT | grep . || echo 443):127.0.0.1" \
-        "https://${domain}/up" >/dev/null
-fi
-echo "/up is healthy"
+    step "Checking /up"
+    domain="$(env_value DOMAIN)"
+    if [[ -n "${DEPLOY_HEALTH_URL:-}" ]]; then
+        curl -fsS --retry 10 --retry-delay 3 --retry-all-errors "$DEPLOY_HEALTH_URL" >/dev/null
+    else
+        # Through Caddy and real TLS, resolved to this host so DNS changes don't matter.
+        curl -fsS --retry 10 --retry-delay 3 --retry-all-errors \
+            --resolve "${domain}:$(env_value HTTPS_PORT | grep . || echo 443):127.0.0.1" \
+            "https://${domain}/up" >/dev/null
+    fi
+    echo "/up is healthy"
 
-trap - ERR
-printf '\n\033[1;32mDeployed %s.\033[0m\n' "$target"
-if [[ -n "$previous_ref" && "$previous_ref" != "$target" ]]; then
-    printf 'To roll back: ./deploy.sh %s\n' "$previous_ref"
-fi
+    trap - ERR
+    printf '\n\033[1;32mDeployed %s.\033[0m\n' "$target"
+    if [[ -n "$previous_ref" && "$previous_ref" != "$target" ]]; then
+        printf 'To roll back: ./deploy.sh %s\n' "$previous_ref"
+    fi
+}
+
+main "$@"

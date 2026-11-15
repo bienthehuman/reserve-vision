@@ -24,9 +24,10 @@
     },
     "otherPortsAttributes": { "onAutoForward": "ignore" },
 
-    // Measured on the full stack after bin/setup: see the slice 1.3 PR. 4 cores keep
-    // `npm run build` and the MySQL start quick; the stack itself needs about 1.5 GB.
-    "hostRequirements": { "cpus": 4, "memory": "8gb", "storage": "32gb" },
+    // Measured with the Dev Containers CLI (slice 1.3): the stack uses about 0.8 GB at
+    // rest and peaks at about 1.7 GB during `npm run build` (9 s). The default
+    // 2-core / 8 GB codespace leaves room for the editor and Playwright.
+    "hostRequirements": { "cpus": 2, "memory": "8gb", "storage": "32gb" },
 
     "customizations": {
         "vscode": {
