@@ -20,15 +20,16 @@ use Illuminate\Notifications\Notifiable;
 /**
  * @property int $id
  * @property string $first_name
+ * @property string|null $middle_name
  * @property string $last_name
  * @property NameSuffix|null $suffix
- * @property-read string $full_name "Joshua Gonzales Jr."
+ * @property-read string $full_name "Joshua Michael Gonzales Jr." (middle name and suffix when present)
  * @property string $email
  * @property string|null $phone
  * @property UserType $type
  * @property CarbonImmutable|null $email_verified_at
  */
-#[Fillable(['first_name', 'last_name', 'suffix', 'email', 'phone', 'type', 'password'])]
+#[Fillable(['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'phone', 'type', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 final class User extends Authenticatable
 {
@@ -60,6 +61,21 @@ final class User extends Authenticatable
     }
 
     /**
+     * Optional: blank becomes null.
+     *
+     * @return Attribute<string|null, string|null>
+     */
+    protected function middleName(): Attribute
+    {
+        return Attribute::make(
+            get: fn (mixed $value): ?string => is_string($value) ? $value : null,
+            set: fn (?string $value): ?string => $value === null || trim($value) === ''
+                ? null
+                : trim((string) preg_replace('/\s+/u', ' ', $value)),
+        );
+    }
+
+    /**
      * @return Attribute<string, string>
      */
     protected function lastName(): Attribute
@@ -68,15 +84,18 @@ final class User extends Authenticatable
     }
 
     /**
-     * First name, last name and the suffix when there is one: "Joshua Gonzales Jr.".
+     * The whole name, skipping what's missing: "Joshua Michael Gonzales Jr.".
      *
      * @return Attribute<string, never>
      */
     protected function fullName(): Attribute
     {
-        return Attribute::get(fn (): string => trim(
-            $this->first_name.' '.$this->last_name.($this->suffix instanceof NameSuffix ? ' '.$this->suffix->label() : '')
-        ));
+        return Attribute::get(fn (): string => implode(' ', array_filter([
+            $this->first_name,
+            $this->middle_name,
+            $this->last_name,
+            $this->suffix?->label(),
+        ], fn (?string $part): bool => $part !== null && $part !== '')));
     }
 
     /**

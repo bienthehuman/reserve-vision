@@ -28,6 +28,7 @@ class UserFactory extends Factory
     {
         return [
             'first_name' => fake()->firstName(),
+            'middle_name' => null,
             'last_name' => fake()->lastName(),
             'suffix' => null,
             'email' => fake()->unique()->safeEmail(),
@@ -37,6 +38,11 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
+    }
+
+    public function withMiddleName(?string $middleName = null): static
+    {
+        return $this->state(fn (): array => ['middle_name' => $middleName ?? fake()->lastName()]);
     }
 
     public function withSuffix(NameSuffix $suffix = NameSuffix::Jr): static

@@ -35,11 +35,21 @@ it('trims names and collapses inner whitespace', function (): void {
         ->and($user->full_name)->toBe('Maria Cristina Dela Cruz');
 });
 
-it('rejects a suffix outside the list', function (): void {
-    $user = User::factory()->create();
+it('has no middle name unless given, and skips it when blank', function (): void {
+    $none = User::factory()->make(['first_name' => 'Ana', 'last_name' => 'Reyes']);
+    $blank = User::factory()->make(['first_name' => 'Ana', 'middle_name' => '   ', 'last_name' => 'Reyes']);
+    $some = User::factory()->withSuffix()->make(['first_name' => 'Joshua', 'middle_name' => ' Michael ', 'last_name' => 'Gonzales']);
 
-    expect(dbErrorCode(fn () => DB::table('users')->where('id', $user->id)->update(['suffix' => 'junior'])))
-        ->toBeIn(CHECK_VIOLATION);
+    expect($none->middle_name)->toBeNull()
+        ->and($blank->middle_name)->toBeNull()
+        ->and($blank->full_name)->toBe('Ana Reyes')
+        ->and($some->middle_name)->toBe('Michael')
+        ->and($some->full_name)->toBe('Joshua Michael Gonzales Jr.');
+});
+
+it('knows only the suffixes of the list (the form validates with the enum, the database has no CHECK)', function (): void {
+    expect(NameSuffix::tryFrom('junior'))->toBeNull()
+        ->and(NameSuffix::tryFrom('jr'))->toBe(NameSuffix::Jr);
 });
 
 it('requires a first and a last name', function (string $column): void {

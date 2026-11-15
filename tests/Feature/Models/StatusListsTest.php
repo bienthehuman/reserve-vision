@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\NameSuffix;
 use App\Enums\ReservationStatus;
 
 it('keeps resources/js/types/reservation.ts in sync with the ReservationStatus enum', function (): void {
@@ -12,4 +13,15 @@ it('keeps resources/js/types/reservation.ts in sync with the ReservationStatus e
 
     // Order matters too: the TS list is shown in lifecycle order.
     expect($matches[1])->toBe(array_map(fn (ReservationStatus $s): string => $s->value, ReservationStatus::cases()));
+});
+
+it('keeps resources/js/types/name.ts in sync with the NameSuffix enum', function (): void {
+    $ts = (string) file_get_contents(dirname(__DIR__, 3).'/resources/js/types/name.ts');
+
+    preg_match('/nameSuffixes\s*=\s*\[(.*?)\]\s*as const/s', $ts, $block);
+    preg_match_all("/value:\s*'([a-z]+)',\s*label:\s*'([^']+)'/", $block[1] ?? '', $matches, PREG_SET_ORDER);
+
+    $expected = array_map(fn (NameSuffix $s): array => [$s->value, $s->label()], NameSuffix::cases());
+
+    expect(array_map(fn (array $m): array => [$m[1], $m[2]], $matches))->toBe($expected);
 });

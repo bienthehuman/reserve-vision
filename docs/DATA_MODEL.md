@@ -18,7 +18,7 @@ The source of truth for the schema. Migrations must match it.
 
 | Table | Columns | Constraints / notes |
 | --- | --- | --- |
-| `users` | id, first_name, last_name, suffix, email, phone, type, password, email_verified_at, timestamps | `first_name` and `last_name` are required; `suffix` is optional, `IN ('jr','sr','ii','iii','iv','v')` (see [CONVENTIONS](CONVENTIONS.md#names)). `type IN ('renter','landlord')`, default `renter`. One user is one type; a landlord who wants to rent uses a second account (decision to check). Unique email |
+| `users` | id, first_name, middle_name, last_name, suffix, email, phone, type, password, email_verified_at, timestamps | `first_name` and `last_name` are required; `middle_name` and `suffix` are optional. `suffix` is `VARCHAR(8)` validated by the `NameSuffix` enum and the form, with **no CHECK** (see [CONVENTIONS](CONVENTIONS.md#names)). `type IN ('renter','landlord')`, default `renter`. One user is one type; a landlord who wants to rent uses a second account (decision to check). Unique email |
 | `landlord_accounts` | id, name, slug, contact_phone, is_verified, verified_at\*, timestamps | Unique slug. `is_verified` is set by `php artisan landlord:verify {slug}`. Only verified accounts can publish |
 | `landlord_members` | id, landlord_account_id, user_id, role, timestamps | `role IN ('owner','caretaker')`. **Unique `user_id`**: a landlord user belongs to exactly one account, which makes "current account" unambiguous. At least one owner per account, enforced in `RemoveMember` |
 | `landlord_invitations`\* | id, landlord_account_id, email, role, token_hash, invited_by, expires_at, accepted_at, revoked_at, timestamps | Needed for caretaker invites. The token is stored hashed and expires after 7 days. Correction: owner revokes |
@@ -165,7 +165,7 @@ erDiagram
 
 | Difference | Why |
 | --- | --- |
-| People's names are `first_name` + `last_name` + optional `suffix` instead of the single `name` the framework ships | "Joshua Gonzales" and "Joshua Gonzales Jr." are common in the Philippines and are different people. The migration splits any existing `name` at its last space (a fresh install has none) and `down()` joins them back |
+| People's names are `first_name` + optional `middle_name` + `last_name` + optional `suffix` instead of the single `name` the framework ships | "Joshua Gonzales" and "Joshua Gonzales Jr." are common in the Philippines and are different people. The migration splits any existing `name` at its last space (a fresh install has none) and `down()` joins them back. `suffix` is the one enum column without a CHECK: it is display data, so a new value shouldn't need a migration |
 | `users.type` has `DEFAULT 'renter'` | The column is added to a table that may already hold rows; a `NOT NULL` column without a default would leave `''`, which the CHECK rejects. Registration always sets it explicitly |
 | `properties.lat` and `lng` are nullable, with range CHECKs | A listing may be created before it is placed on a map; the draft didn't say |
 | `landlord_invitations.token_hash` is `CHAR(64)` (SHA-256 hex), unique | The token is high-entropy, so a fast hash is enough and lookups by hash need no per-row work |

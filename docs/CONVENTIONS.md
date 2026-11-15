@@ -30,9 +30,10 @@ A failing check is fixed in the PR, not skipped or retried until it passes.
 
 ## Names
 
-- A **person's** name is three fields everywhere (database, forms, seeders, factories, emails): `first_name`, `last_name` and an optional `suffix` (Jr., Sr., II, III, IV, V: the `NameSuffix` enum, chosen from a list, never typed). There is no single "name" field for a person. This keeps "Joshua Gonzales" and "Joshua Gonzales Jr." apart, which in the Philippines are often unrelated people.
-- Show the full name with `$user->full_name` ("Joshua Gonzales Jr."), and sort by last name, then first name. Never split or join names by hand.
-- Names are stored trimmed with inner whitespace collapsed (the model does it). Compound first names ("Maria Cristina") and compound last names ("Dela Cruz") are fine in their own field. Middle names are not collected (decision to check).
+- A **person's** name is four fields everywhere (database, forms, seeders, factories, emails): `first_name`, an optional `middle_name`, `last_name` and an optional `suffix` (Jr., Sr., II, III, IV, V: the `NameSuffix` enum, chosen from a list, never typed). There is no single "name" field for a person. This keeps "Joshua Gonzales" and "Joshua Gonzales Jr." apart, which in the Philippines are often unrelated people.
+- Show the full name with `$user->full_name` ("Joshua Michael Gonzales Jr.", skipping what's missing), and sort by last name, then first name. Never split or join names by hand.
+- Names are stored trimmed with inner whitespace collapsed (the model does it). Compound first names ("Maria Cristina") and compound last names ("Dela Cruz") are fine in their own field.
+- `suffix` is the one enum without a database CHECK: the PHP enum validates it (`Rule::enum(NameSuffix::class)`) and `resources/js/types/name.ts` lists it for the form's select, kept equal by a test. Adding a suffix is an enum case plus a line in that file, no migration.
 - Things that aren't people keep one `name`: landlord accounts, properties, rooms, amenities.
 
 ## Code

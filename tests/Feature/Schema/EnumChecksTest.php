@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Enums\GenderPolicy;
 use App\Enums\LandlordRole;
-use App\Enums\NameSuffix;
 use App\Enums\PaymentProofStatus;
 use App\Enums\PhotoStatus;
 use App\Enums\PropertyKind;
@@ -21,7 +20,6 @@ use Illuminate\Support\Facades\DB;
 function enumChecks(): array
 {
     return [
-        'users.suffix' => ['users_suffix_valid', NameSuffix::class],
         'users.type' => ['users_type_valid', UserType::class],
         'landlord_members.role' => ['landlord_members_role_valid', LandlordRole::class],
         'landlord_invitations.role' => ['landlord_invitations_role_valid', LandlordRole::class],

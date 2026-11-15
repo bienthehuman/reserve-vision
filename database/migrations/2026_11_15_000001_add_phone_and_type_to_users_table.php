@@ -17,11 +17,14 @@ return new class extends Migration
             // One user is one type (DATA_MODEL.md). Existing rows are renters.
             $table->string('type', 16)->default('renter')->after('phone');
 
-            // People have a first name, a last name and an optional suffix, never one
+            // People have a first name, an optional middle name, a last name and an optional suffix, never one
             // free-text name: "Joshua Gonzales" and "Joshua Gonzales Jr." are
             // different people (CONVENTIONS.md, "Names").
             $table->string('first_name', 100)->default('')->after('id');
-            $table->string('last_name', 100)->default('')->after('first_name');
+            $table->string('middle_name', 100)->nullable()->after('first_name'); // many people have none
+            $table->string('last_name', 100)->default('')->after('middle_name');
+            // Validated by the NameSuffix enum and the form, not a CHECK: it is display
+            // data, and a new value shouldn't need a migration.
             $table->string('suffix', 8)->nullable()->after('last_name');
         });
 
@@ -43,7 +46,6 @@ return new class extends Migration
         });
 
         Constraints::in('users', 'type', ['renter', 'landlord']);
-        Constraints::in('users', 'suffix', ['jr', 'sr', 'ii', 'iii', 'iv', 'v']);
     }
 
     public function down(): void
@@ -52,11 +54,11 @@ return new class extends Migration
             $table->string('name')->default('')->after('id');
         });
 
-        DB::table('users')->update(['name' => DB::raw("TRIM(CONCAT(first_name, ' ', last_name))")]);
+        DB::table('users')->update(['name' => DB::raw("CONCAT_WS(' ', first_name, middle_name, last_name)")]);
 
         Schema::table('users', function (Blueprint $table) {
             $table->string('name')->default(null)->change();
-            $table->dropColumn(['first_name', 'last_name', 'suffix', 'phone', 'type']);
+            $table->dropColumn(['first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'type']);
         });
     }
 };
