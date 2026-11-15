@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\LandlordMembership;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -43,7 +44,7 @@ final class HandleInertiaRequests extends Middleware
      * Only what the header needs: never the email, phone or anything else
      * personal, since shared props are in every page's HTML.
      *
-     * @return array{id: int, first_name: string, full_name: string, type: string, email_verified: bool}|null
+     * @return array{id: int, first_name: string, full_name: string, type: string, email_verified: bool, landlord_role?: string|null}|null
      */
     private function user(Request $request): ?array
     {
@@ -59,6 +60,8 @@ final class HandleInertiaRequests extends Middleware
             'full_name' => $user->full_name,
             'type' => $user->type->value,
             'email_verified' => $user->hasVerifiedEmail(),
+            // For the landlord menu only (the caretaker has no Members link); absent for renters.
+            ...($user->isLandlord() ? ['landlord_role' => LandlordMembership::of($user)?->role->value] : []),
         ];
     }
 

@@ -14,6 +14,12 @@ final class PropertyPolicy
 {
     use ChecksAccess;
 
+    /** View own account's properties, rooms, spaces and photos: the list. */
+    public function viewAny(User $user): Response
+    {
+        return $this->landlordRole($user, self::MEMBERS);
+    }
+
     /** View own account's properties, rooms, spaces and photos. */
     public function view(User $user, Property $property): Response
     {

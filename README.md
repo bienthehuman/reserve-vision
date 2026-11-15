@@ -2,7 +2,7 @@
 
 Multi-landlord reservations for apartments and boarding-house beds, with a guarantee that no space is ever double-booked.
 
-> 🚧 Phase 0: design under review. See the [build plan](docs/BUILD_PLAN.md).
+> 🚧 Proof of concept: the reservation engine and landlord isolation are built and tested (the PoC gate, slice 3.2). Listings, search and the renter flow are still to come. See the [build plan](docs/BUILD_PLAN.md).
 
 [![Tests (MySQL 8.4)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml)
 [![Tests (MariaDB 11.4)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml)
@@ -26,7 +26,7 @@ Each guarantee links to the test that proves it (links filled in as the tests la
 | No space is ever double-booked, even under simultaneous requests | [T1](tests/Concurrency/ReservationRaceTest.php#L114) (10 renters, one room), [T2](tests/Concurrency/ReservationRaceTest.php#L135) (6 renters, 4 beds), [T3, T4](tests/Feature/Reservations/OverlapTest.php) (date edges) |
 | A renter can't get past the hold limits with parallel requests | [T8](tests/Feature/Reservations/RenterLimitsTest.php), [T8b](tests/Concurrency/ReservationRaceTest.php#L160) (3 parallel requests, at most 2 holds; 2 in one property, at most 1) |
 | An expired hold never blocks a space, even if the cleanup job hasn't run | [T5](tests/Feature/Reservations/ExpiredHoldTest.php) |
-| A landlord can't see or probe another landlord's data | T6, T7 |
+| A landlord can't see or probe another landlord's data, on any route; a caretaker can't change rates or invite | [T6](tests/Feature/Isolation/T6CrossAccessTest.php) (generated over every `landlord` and `renter` route: 404, no data, nothing changed), [T7](tests/Feature/Isolation/T7RoleLimitsTest.php) (caretaker gets 403, no audit row), and the [phase 3 demo](e2e/isolation.spec.ts) |
 | Payment proofs are private; links are short-lived and bound to one user | T9 |
 
 T2 on the dev stack: six renters' requests are all inside the server at once; the room lock lets them through one at a time, so four get beds A to D and two are told there's no space. Each bar is one request, by the server's clock. Run it yourself with `docker compose exec app composer test:concurrency`.

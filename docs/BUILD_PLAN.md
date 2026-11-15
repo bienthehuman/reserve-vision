@@ -138,3 +138,6 @@ Ideas that came up and are deliberately not in any slice.
 | Extend the scope arch test to raw `DB::select()` / `DB::statement()` naming a landlord-owned table (today only `DB::table()` is caught) | Slice 3.1 |
 | Policies for `LandlordAccount` (account settings) and `User` (profile) once those pages exist, with matrix rows | Slice 3.1 |
 | Factories that work while a landlord is logged in (today fixtures must be created before `actingAs()`, or the write guard refuses them) | Slice 3.1 |
+| Search reservations by renter name or room, and a date filter, on the landlord list (the demo owner has 328, so finding one means paging) | Slice 3.2 |
+| Revoke an invitation and resend from the members page (the policy ability `revoke` exists; the UI is 4.3) | Slice 3.2 |
+| Show a caretaker's email on the members page, if owners ask for it (today names only) | Slice 3.2 |

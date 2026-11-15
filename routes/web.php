@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Landlord\DashboardController;
+use App\Http\Controllers\Landlord\ListMembers;
+use App\Http\Controllers\Landlord\ListProperties;
+use App\Http\Controllers\Landlord\ListReservations;
+use App\Http\Controllers\Landlord\StoreInvitation;
+use App\Http\Controllers\Landlord\UpdateRoomRate;
+use App\Http\Controllers\Landlord\ViewProperty;
+use App\Http\Controllers\Landlord\ViewReservation;
 use App\Http\Controllers\Reservations\ShowReservation;
 use App\Http\Controllers\Reservations\StoreReservation;
 use App\Http\Controllers\Rooms\ShowRoom;
@@ -34,4 +41,16 @@ Route::middleware(['auth', 'verified', 'renter'])->group(function (): void {
 // Landlord pages: logged in, email verified, and a landlord user (ACCESS.md).
 Route::middleware(['auth', 'verified', 'landlord'])->prefix('landlord')->name('landlord.')->group(function (): void {
     Route::get('/', DashboardController::class)->name('dashboard');
+
+    // Slice 3.2. Record parameters bind through the isolation scope: another account's id is a 404.
+    // tests/Feature/Isolation/T6CrossAccessTest.php walks every route in this group.
+    Route::get('/reservations', ListReservations::class)->name('reservations.index');
+    Route::get('/reservations/{reservation}', ViewReservation::class)->whereNumber('reservation')->name('reservations.show');
+
+    Route::get('/properties', ListProperties::class)->name('properties.index');
+    Route::get('/properties/{property}', ViewProperty::class)->whereNumber('property')->name('properties.show');
+    Route::patch('/rooms/{room}/rate', UpdateRoomRate::class)->whereNumber('room')->name('rooms.rate.update');
+
+    Route::get('/members', ListMembers::class)->name('members.index');
+    Route::post('/invitations', StoreInvitation::class)->name('invitations.store');
 });

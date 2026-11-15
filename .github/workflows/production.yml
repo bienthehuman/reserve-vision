@@ -52,7 +52,12 @@ jobs:
 
       - name: Smoke test over HTTP
         # TODO(slice 5.1): bin/smoke-production gains a public listing page.
-        run: bin/smoke-production "$BASE_URL"
+        # The reservation id is read from the seeded data: the lowest id in owner@example.com's account.
+        run: |
+          id="$(docker compose --env-file .env.production exec -T app php artisan tinker --execute='echo "RESERVATION_ID=".App\Models\Reservation::query()->where("landlord_account_id", App\Models\LandlordMember::query()->whereHas("user", fn ($q) => $q->where("email", "owner@example.com"))->value("landlord_account_id"))->orderBy("id")->value("id");' | grep -o 'RESERVATION_ID=[0-9]*' | cut -d= -f2)"
+          test -n "$id"
+          echo "owner@example.com's reservation: $id"
+          SMOKE_OWNER_RESERVATION_ID="$id" bin/smoke-production "$BASE_URL"
 
       - uses: actions/setup-node@v7
         with:

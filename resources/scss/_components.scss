@@ -302,3 +302,80 @@ $rv-swatches: (
 .demo-logins .list-group-item-action {
   min-height: 2.75rem;
 }
+
+// Landlord menu (slice 3.2): a row of links under the header that scrolls sideways
+// on a narrow phone rather than wrapping; the current page is ube with an underline.
+.landlord-nav {
+    border-bottom: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+}
+
+.landlord-nav__list {
+    display: flex;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-x: auto;
+}
+
+.landlord-nav__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 0.75rem;
+    border-bottom: 3px solid transparent;
+    color: var(--bs-body-color);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &[aria-current='page'] {
+        color: var(--bs-primary);
+        border-bottom-color: var(--bs-primary);
+    }
+}
+
+// Tables become stacked cards below md: one table in the DOM, so there is one copy of
+// every value. Each cell carries its column name in data-label, shown as the cell's caption.
+.stack-table {
+    @include media-breakpoint-down(md) {
+        thead {
+            @include visually-hidden;
+        }
+
+        &,
+        tbody,
+        tr,
+        td {
+            display: block;
+        }
+
+        tr {
+            margin-bottom: 0.75rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--bs-border-color);
+            border-radius: var(--bs-border-radius);
+            background: var(--bs-white);
+        }
+
+        td {
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+            padding: 0.375rem 0;
+            border: 0;
+            background: transparent;
+            box-shadow: none; // Bootstrap paints cells with an inset shadow; here the row is the card
+            text-align: right;
+
+            &::before {
+                content: attr(data-label);
+                flex: 0 0 auto;
+                color: var(--bs-secondary-color);
+                font-weight: 600;
+                text-align: left;
+            }
+        }
+    }
+}
