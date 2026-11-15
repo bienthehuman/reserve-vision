@@ -11,8 +11,8 @@ Planned in **review batches**, not weeks. A batch is one or more slices you revi
 | T3 | Lease ends Jun 1, next starts Jun 1 | Allowed | 2.3 |
 | T4 | Overlap of a single day | Rejected | 2.3 |
 | T5 | Hold passes its expiry without proof (expiry job not run) | Space reservable again; old hold can't take a proof or be confirmed | 2.3 |
-| T6 | Landlord A requests landlord B's property, room, reservation or proof by ID, on every landlord route | `404`, no data | 3.1 |
-| T7 | Caretaker tries to change a rate or invite a member | `403` | 3.1 |
+| T6 | Landlord A requests landlord B's property, room, reservation or proof by ID, on every landlord route; renter A requests renter B's reservation | `404`, no data | 3.2 (generated over every route, so later routes are covered automatically) |
+| T7 | Caretaker tries to change a rate or invite a member | `403` | 3.2 |
 | T8 | Renter tries a third open reservation, or a second in the same property | Rejected with a clear message | 2.3 |
 | T8b | One renter fires 3 parallel reserve requests on different properties | At most 2 succeed | 2.5 |
 | T9 | Signed proof URL used by another user, or after it expires | Denied | 5.3 |
@@ -56,16 +56,17 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 
 | # | Slice | Definition of done |
 | --- | --- | --- |
-| 3.1 | Landlord isolation | `CurrentLandlordAccount`, `BelongsToLandlordAccount` scope, policies, 404-across-accounts, audit log writes; permission-matrix doc test; T6 (generated over every landlord route), T7 |
-| — | **Phase demo** | Playwright: renter-1 and renter-2 race for the last bed through the minimal UI; owner and caretaker see only their own data; tag `v0.3.0-poc` |
+| 3.1 | Isolation core | `CurrentLandlordAccount`, fail-closed `BelongsToLandlordAccount` scope, policies for every model, `AuditLogger`, renter ownership via policies; permission-matrix doc test |
+| 3.2 | Landlord surface + T6/T7 | Minimal landlord pages: reservations list and detail (renter contact shown only here), properties list and detail, change a room's rate (owner), create a caretaker invitation (owner; email and acceptance in 4.3); every write audited; T6 generated over every landlord and renter route; T7 |
+| — | **Phase demo** | Playwright: renter-1 and renter-2 race for the last bed; owner and caretaker see only their own account's reservations, owner2 gets 404 on them; caretaker gets 403 changing a rate; tag `v0.3.0-poc` |
 
 ### Phase 4: Landlord side (batch 4)
 
 | # | Slice | Definition of done |
 | --- | --- | --- |
-| 4.1 | Dashboard + property/room/space editing | Owner CRUD with archive; caretaker read-only; axe clean |
+| 4.1 | Dashboard + property/room/space editing | Real dashboard; owner CRUD with archive, extending 3.2's pages; caretaker read-only; axe clean |
 | 4.2 | Photos | Upload, queued WebP resize (thumb + full), reorder, delete, processing state |
-| 4.3 | Publish + caretaker invites | Publish rules (verified, a room, a ready photo); invitations with expiry and revoke; remove member; last-owner guard |
+| 4.3 | Publish + caretaker invites | Publish rules (verified, a room, a ready photo); invitation email, acceptance, expiry and revoke (creation exists from 3.2); remove member; last-owner guard |
 
 ### Phase 5: Renter side (batch 5)
 
@@ -97,6 +98,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | 2026-11-14 | Deployable, not hosted; CI proves the production stack instead | [ADR 0007](adr/0007-deployable-not-hosted.md) |
 | 2026-11-14 | Landlord verification by artisan command; no admin web role | [ACCESS.md](ACCESS.md#actors) |
 | 2026-11-14 | Design system: ube primary (also prices), mango highlight, Plus Jakarta Sans headings; hue chosen to differ from Hilom/PesoTrack teal and the portfolio's orange, light mode only in v1 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
+| 2026-11-16 | Phase 3 split into 3.1 (isolation core) and 3.2 (minimal landlord pages + T6/T7): T6 and T7 need landlord routes, and none existed. T6 also covers renter routes | this file |
 | 2026-11-15 | Auth gets its own slice (2.4), before the concurrency harness (now 2.5), which needs logged-in renters. Phase 2 ends with tag `v0.2.0`; the PoC tag becomes `v0.3.0-poc` | this file |
 | 2026-11-15 | Transition-table doc test moves from 6.1 to 2.1, so the lifecycle is locked before any action uses it | this file |
 | 2026-11-14 | Keep Inertia + React with SSR after comparing Blade + Livewire and a Blade/Inertia hybrid | [ADR 0002](adr/0002-inertia-monolith.md) |
