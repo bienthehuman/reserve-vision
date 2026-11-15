@@ -84,6 +84,11 @@ return [
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
+    /*
+    | Allows the demo seeder to run in production (slice 2.2). Never on a real site.
+    */
+    'demo' => (bool) env('APP_DEMO', false),
+
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
     /*
