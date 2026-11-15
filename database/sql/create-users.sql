@@ -14,8 +14,8 @@
 --
 --   migrator  ALL PRIVILEGES on the schema. Used only by `php artisan migrate`
 --             (connection `mysql_migrator`).
---   app       SELECT, INSERT, UPDATE, DELETE on the schema. No DDL. Used by the
---             web app, queue workers, scheduler and the test suite.
+--   app       SELECT, INSERT, UPDATE, DELETE on the schema. No DDL, no TRIGGER.
+--             Used by the web app, queue workers, scheduler and the test suite.
 
 SET @db_ident = CONCAT('`', REPLACE(@db_name, '`', '``'), '`');
 
@@ -43,17 +43,11 @@ PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
 SET @stmt = CONCAT('GRANT SELECT, INSERT, UPDATE, DELETE ON ', @db_ident, '.* TO ''app''@''%''');
 PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
 
--- ---------------------------------------------------------------------------
--- TODO(slice 2.1): audit_logs is append-only for `app` (ADR 0008):
---   SELECT, INSERT only; no UPDATE or DELETE.
---
--- MySQL has no per-table DENY, and the schema-wide grant above already
--- includes UPDATE and DELETE on every table, so 2.1 must pick one of:
---   a) put audit_logs in its own schema (e.g. `<db>_audit`) and grant
---      `app` only SELECT, INSERT there; or
---   b) replace the schema-wide grant above with per-table grants, applied
---      after migrations, plus `GRANT SELECT, INSERT ON <db>.audit_logs`.
--- Whichever it is, add a test that `app` cannot UPDATE or DELETE audit_logs.
--- ---------------------------------------------------------------------------
+-- audit_logs is append-only for `app` (ADR 0008), but not through grants: MySQL
+-- has no per-table DENY, so the schema-wide grant above includes UPDATE and
+-- DELETE on it. The migration that creates audit_logs adds BEFORE UPDATE and
+-- BEFORE DELETE triggers that signal an error. `app` has no TRIGGER or DROP
+-- privilege, so it can neither remove them nor TRUNCATE the table. The server
+-- needs log_bin_trust_function_creators=1 for the migrator to create them.
 
 FLUSH PRIVILEGES;

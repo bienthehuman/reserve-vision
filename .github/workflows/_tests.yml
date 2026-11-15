@@ -88,6 +88,11 @@ jobs:
           done
           echo "::error::${{ inputs.database-image }} did not become ready" && exit 1
 
+      - name: Allow the audit_logs triggers (ADR 0008)
+        # A service container can't take server arguments. compose.yaml and
+        # compose.prod.yaml pass --log-bin-trust-function-creators=1 instead.
+        run: mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p"$DB_ROOT_PASSWORD" -e "SET GLOBAL log_bin_trust_function_creators = 1"
+
       - name: Create the schemas and the app/migrator users (database/sql/create-users.sql)
         run: |
           # The test schema plus one per parallel Pest worker (tests/TestCase.php).

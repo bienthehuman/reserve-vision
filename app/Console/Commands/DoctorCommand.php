@@ -25,6 +25,9 @@ final class DoctorCommand extends Command
     /** MySQL and MariaDB: "<command> denied to user". */
     private const int ER_TABLEACCESS_DENIED = 1142;
 
+    /** SIGNAL SQLSTATE '45000' (MySQL and MariaDB). */
+    private const int ER_SIGNAL_EXCEPTION = 1644;
+
     protected $signature = 'app:doctor';
 
     protected $description = 'Check the database users, queue table, storage disks and mail configuration';
@@ -64,6 +67,7 @@ final class DoctorCommand extends Command
         return [
             'Database connection' => $this->databaseConnection(...),
             'App user has no DDL' => $this->appUserHasNoDdl(...),
+            'Audit log is append-only' => $this->auditLogIsAppendOnly(...),
             'Queue table' => $this->queueTable(...),
             'Storage: photos' => fn (): string => $this->diskRoundTrip('photos'),
             'Storage: proofs' => fn (): string => $this->diskRoundTrip('proofs'),
@@ -103,6 +107,34 @@ final class DoctorCommand extends Command
         DB::statement("DROP TABLE IF EXISTS `{$table}`");
 
         throw new RuntimeException('The app user can CREATE TABLE. Grant it only SELECT, INSERT, UPDATE, DELETE (database/sql/create-users.sql).');
+    }
+
+    /**
+     * Inserts a probe row inside a transaction, tries to UPDATE it, and rolls
+     * back: nothing is left behind. The triggers answer with SQLSTATE 45000
+     * (driver code 1644).
+     */
+    private function auditLogIsAppendOnly(): string
+    {
+        DB::beginTransaction();
+
+        try {
+            DB::table('audit_logs')->insert(['action' => 'doctor.probe', 'subject_type' => 'doctor', 'subject_id' => 0]);
+
+            try {
+                DB::table('audit_logs')->where('action', 'doctor.probe')->update(['action' => 'doctor.edited']);
+            } catch (QueryException $e) {
+                if (($e->errorInfo[1] ?? null) === self::ER_SIGNAL_EXCEPTION) {
+                    return 'UPDATE rejected by the trigger, as it should be';
+                }
+
+                throw $e;
+            }
+        } finally {
+            DB::rollBack();
+        }
+
+        throw new RuntimeException('audit_logs rows can be UPDATEd. The triggers are missing: run the migrations with log_bin_trust_function_creators=1 (ADR 0008).');
     }
 
     private function queueTable(): string

@@ -17,10 +17,11 @@ it('passes when the environment is healthy', function (): void {
     $this->artisan('app:doctor')
         ->expectsOutputToContain('Database connection')
         ->expectsOutputToContain('CREATE TABLE denied, as it should be')
+        ->expectsOutputToContain('UPDATE rejected by the trigger, as it should be')
         ->expectsOutputToContain('jobs: 0 pending, 0 failed')
         ->expectsOutputToContain('Storage: photos')
         ->expectsOutputToContain('Storage: proofs')
-        ->expectsOutputToContain('All 6 checks passed.')
+        ->expectsOutputToContain('All 7 checks passed.')
         ->assertExitCode(0);
 
     expect(Storage::disk('photos')->allFiles())->toBeEmpty()
@@ -36,7 +37,7 @@ it('fails when a disk cannot be written', function (): void {
     Storage::forgetDisk('proofs');
 
     $this->artisan('app:doctor')
-        ->expectsOutputToContain('1 of 6 checks failed.')
+        ->expectsOutputToContain('1 of 7 checks failed.')
         ->assertExitCode(1);
 });
 
