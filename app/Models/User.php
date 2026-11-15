@@ -6,8 +6,11 @@ namespace App\Models;
 
 use App\Enums\NameSuffix;
 use App\Enums\UserType;
+use App\Notifications\Auth\ResetPasswordNotification;
+use App\Notifications\Auth\VerifyEmailNotification;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -31,7 +34,7 @@ use Illuminate\Notifications\Notifiable;
  */
 #[Fillable(['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'phone', 'type', 'password'])]
 #[Hidden(['password', 'remember_token'])]
-final class User extends Authenticatable
+final class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
@@ -107,6 +110,31 @@ final class User extends Authenticatable
             get: fn (mixed $value): string => is_string($value) ? $value : '',
             set: fn (string $value): string => trim((string) preg_replace('/\s+/u', ' ', $value)),
         );
+    }
+
+    public function isLandlord(): bool
+    {
+        return $this->type === UserType::Landlord;
+    }
+
+    /** Where the user lands after logging in when no page asked for it: / for renters, /landlord for landlords. */
+    public function homePath(): string
+    {
+        return $this->isLandlord() ? route('landlord.dashboard', absolute: false) : route('home', absolute: false);
+    }
+
+    /** Markdown mail in the project's voice and colors (resources/views/mail/auth), queued. */
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new VerifyEmailNotification);
+    }
+
+    /**
+     * @param  string  $token
+     */
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 
     /**
