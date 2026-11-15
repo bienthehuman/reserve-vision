@@ -46,8 +46,12 @@ jobs:
           size="$(docker image inspect reservevision:current --format '{{.Size}}' | numfmt --to=iec)"
           echo "Production image: ${size}" | tee -a "$GITHUB_STEP_SUMMARY"
 
+      - name: Seed demo data (APP_DEMO=true in the throwaway env)
+        # As the `app` user, like bin/setup. The smoke test and e2e log in as demo users.
+        run: docker compose --env-file .env.production exec -T app php artisan db:seed --force
+
       - name: Smoke test over HTTP
-        # TODO(slice 3.1, 5.1): bin/smoke-production gains a listing page (3.1) and login (5.1).
+        # TODO(slice 5.1): bin/smoke-production gains a public listing page.
         run: bin/smoke-production "$BASE_URL"
 
       - uses: actions/setup-node@v7
