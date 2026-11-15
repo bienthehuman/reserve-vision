@@ -50,7 +50,8 @@ expect_body "built assets, not the Vite dev server" '/build/assets/app-'
 echo "Security headers on /"
 expect_header Strict-Transport-Security "max-age=31536000"
 expect_header Content-Security-Policy "default-src 'self'"
-expect_header Content-Security-Policy "upgrade-insecure-requests"
+# upgrade-insecure-requests is sent on HTTPS requests only (SecurityHeaders); this stack may be plain HTTP.
+if [[ "$base" == https://* ]]; then expect_header Content-Security-Policy "upgrade-insecure-requests"; fi
 expect_header X-Frame-Options DENY
 expect_header X-Content-Type-Options nosniff
 expect_header Referrer-Policy strict-origin-when-cross-origin

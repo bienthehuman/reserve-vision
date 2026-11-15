@@ -257,7 +257,7 @@ docker compose -f compose.prod.yaml --env-file .env.production down -v   # remov
 rm .env.production
 ```
 
-With `DOMAIN=:80` Caddy serves plain HTTP and requests no certificate. The app still runs with `APP_ENV=production`, so it sends HSTS and `upgrade-insecure-requests`; browsers ignore both on `http://localhost`.
+With `DOMAIN=:80` Caddy serves plain HTTP and requests no certificate. The app still runs with `APP_ENV=production`, so it sends HSTS, which browsers ignore over plain HTTP. `upgrade-insecure-requests` is sent on HTTPS requests only: over plain HTTP Chromium does apply it, and it upgrades Inertia's redirect follow-ups to an `https://` that isn't there.
 
 ## Not covered by CI
 

@@ -30,7 +30,7 @@ final class SecurityHeaders
         $response = $next($request);
 
         $headers = $response->headers;
-        $headers->set('Content-Security-Policy', $this->contentSecurityPolicy($nonce));
+        $headers->set('Content-Security-Policy', $this->contentSecurityPolicy($nonce, $request->isSecure()));
         $headers->set('X-Frame-Options', 'DENY');
         $headers->set('X-Content-Type-Options', 'nosniff');
         $headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -54,7 +54,7 @@ final class SecurityHeaders
         return $response;
     }
 
-    private function contentSecurityPolicy(string $nonce): string
+    private function contentSecurityPolicy(string $nonce, bool $secure): string
     {
         $vite = $this->viteDevOrigin();
         $viteSocket = $vite !== null ? (string) preg_replace('/^http/', 'ws', $vite) : null;
@@ -77,7 +77,11 @@ final class SecurityHeaders
             $policy[] = $name.' '.implode(' ', array_filter($sources));
         }
 
-        if (app()->isProduction()) {
+        // HTTPS requests only (always the case behind Caddy with TLS). On a page served over
+        // plain HTTP (CI's production stack) it would upgrade Inertia's same-origin
+        // redirect follow-ups to https://, which isn't there, so every form post would
+        // stall after a successful login (slice 2.4).
+        if (app()->isProduction() && $secure) {
             $policy[] = 'upgrade-insecure-requests';
         }
 

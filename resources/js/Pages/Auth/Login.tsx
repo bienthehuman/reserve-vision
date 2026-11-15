@@ -107,7 +107,7 @@ function DemoLoginPanel({ logins, onPick }: { logins: DemoLogin[]; onPick: (logi
                             </h2>
                             <p className="small text-body-secondary mb-3">
                                 This is a demo site. Tap an account to fill in the form, then log in. Every password is{' '}
-                                <code>password</code>.
+                                <strong className="text-body">password</strong>.
                             </p>
                             <ListGroup as="ul">
                                 {logins.map((login) => (
