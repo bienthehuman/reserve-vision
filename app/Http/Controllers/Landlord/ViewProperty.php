@@ -17,9 +17,9 @@ use Inertia\Response;
  */
 final class ViewProperty
 {
-    public function __invoke(int $property): Response
+    public function __invoke(Property $property): Response
     {
-        $property = Property::query()->withoutGlobalScopes()->findOrFail($property);
+        Gate::authorize('view', $property);
 
         $rooms = $property->rooms()->with('spaces')->orderBy('rooms.name')->get();
 
