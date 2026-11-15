@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\ViewingRequestStatus;
+use App\Models\Concerns\BelongsToLandlordAccount;
 use Carbon\CarbonImmutable;
 use Database\Factories\ViewingRequestFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -28,7 +29,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 final class ViewingRequest extends Model
 {
     /** @use HasFactory<ViewingRequestFactory> */
-    use HasFactory;
+    use BelongsToLandlordAccount, HasFactory;
 
     /**
      * @return array<string, string>

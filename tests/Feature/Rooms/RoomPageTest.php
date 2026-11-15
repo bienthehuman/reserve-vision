@@ -87,7 +87,11 @@ it('points a renter to their own hold in the room instead of offering another', 
 });
 
 it('tells a landlord that only renters can reserve', function (): void {
-    $this->actingAs(landlordUser())->get('/rooms/'.reservableRoom()->id)
+    // Fixtures before actingAs(): with a landlord logged in, factories are
+    // isolated to that landlord's account too (CLAUDE.md, quirks of 3.1).
+    $room = reservableRoom();
+
+    $this->actingAs(landlordUser())->get('/rooms/'.$room->id)
         ->assertOk()
         ->assertSee('Only renter accounts can reserve');
 });

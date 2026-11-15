@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\User;
+use App\Support\CurrentLandlordAccount;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,8 +19,23 @@ final class AppServiceProvider extends ServiceProvider
     /** Reserve requests per renter per minute (RESERVATIONS.md "Booking rules"). */
     public const int RESERVATIONS_PER_MINUTE = 10;
 
+    public function register(): void
+    {
+        // Scoped, not a singleton: dropped between queue jobs (and requests on a
+        // long-lived server), so one landlord's account can never answer for the next.
+        $this->app->scoped(CurrentLandlordAccount::class);
+    }
+
     public function boot(): void
     {
+        // The queue worker resets scoped instances between jobs but keeps the auth
+        // guards, so a job that logged a user in would leave them logged in for the
+        // next job, and the isolation scope would follow them. Looping fires before
+        // each job in a daemon worker only, never for sync jobs inside a request.
+        Queue::looping(function (): void {
+            Auth::forgetGuards();
+        });
+
         RateLimiter::for('reservations', fn (Request $request): Limit => Limit::perMinute(self::RESERVATIONS_PER_MINUTE)
             ->by('reservations|'.($request->user() instanceof User ? $request->user()->id : $request->ip()))
             ->response($this->tooManyReservations(...)));

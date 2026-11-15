@@ -6,8 +6,10 @@ namespace App\Http\Controllers\Rooms;
 
 use App\Actions\ReserveSpace;
 use App\Enums\UserType;
+use App\Models\Property;
 use App\Models\Reservation;
 use App\Models\Room;
+use App\Models\Space;
 use App\Models\User;
 use App\Support\BusinessDate;
 use Carbon\CarbonImmutable;
@@ -25,8 +27,10 @@ final class ShowRoom
 
     public function __invoke(Request $request, int $room): Response
     {
+        // Public queries only (named scopes, ACCESS.md "Isolation"): a landlord
+        // looking at another account's listing sees what everyone sees.
         $room = Room::query()->listed()->findOrFail($room);
-        $property = $room->property()->firstOrFail();
+        $property = Property::query()->published()->findOrFail($room->property_id);
 
         $today = BusinessDate::today();
         $moveIn = $this->moveIn($request) ?? $today;
@@ -40,7 +44,7 @@ final class ShowRoom
                 'type' => $room->room_type->value,
                 'monthly_rate' => $room->monthly_rate,
                 'reservation_fee' => $room->reservation_fee,
-                'space_count' => $room->spaces()->whereNull('archived_at')->count(),
+                'space_count' => Space::query()->listed()->where('spaces.room_id', $room->id)->count(),
             ],
             'property' => [
                 'name' => $property->name,

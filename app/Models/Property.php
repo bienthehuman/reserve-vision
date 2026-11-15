@@ -6,9 +6,12 @@ namespace App\Models;
 
 use App\Enums\GenderPolicy;
 use App\Enums\PropertyKind;
+use App\Models\Concerns\BelongsToLandlordAccount;
+use App\Models\Scopes\LandlordAccountScope;
 use Carbon\CarbonImmutable;
 use Database\Factories\PropertyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -41,7 +44,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 final class Property extends Model
 {
     /** @use HasFactory<PropertyFactory> */
-    use HasFactory;
+    use BelongsToLandlordAccount, HasFactory;
 
     /**
      * `lat` and `lng` stay strings (DECIMAL(9,6)): no floats anywhere (DATA_MODEL.md).
@@ -98,5 +101,20 @@ final class Property extends Model
     public function viewingRequests(): HasMany
     {
         return $this->hasMany(ViewingRequest::class);
+    }
+
+    /**
+     * Properties anyone may browse, of every account: published, not archived,
+     * and the landlord account is verified. A named escape from the isolation
+     * scope (ACCESS.md "Isolation"): landlords browse listings through it too.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopePublished(Builder $query): void
+    {
+        $query->withoutGlobalScope(LandlordAccountScope::class)
+            ->where($query->qualifyColumn('is_published'), true)
+            ->whereNull($query->qualifyColumn('archived_at'))
+            ->whereHas('landlordAccount', fn (Builder $account) => $account->where('is_verified', true));
     }
 }
