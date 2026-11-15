@@ -28,6 +28,13 @@ A PR merges only when every one of these checks is green (the CI workflows are d
 
 A failing check is fixed in the PR, not skipped or retried until it passes.
 
+## Names
+
+- A **person's** name is three fields everywhere (database, forms, seeders, factories, emails): `first_name`, `last_name` and an optional `suffix` (Jr., Sr., II, III, IV, V: the `NameSuffix` enum, chosen from a list, never typed). There is no single "name" field for a person. This keeps "Joshua Gonzales" and "Joshua Gonzales Jr." apart, which in the Philippines are often unrelated people.
+- Show the full name with `$user->full_name` ("Joshua Gonzales Jr."), and sort by last name, then first name. Never split or join names by hand.
+- Names are stored trimmed with inner whitespace collapsed (the model does it). Compound first names ("Maria Cristina") and compound last names ("Dela Cruz") are fine in their own field. Middle names are not collected (decision to check).
+- Things that aren't people keep one `name`: landlord accounts, properties, rooms, amenities.
+
 ## Code
 
 - PHP: `declare(strict_types=1)`, `final` classes by default, Pint (Laravel preset), Larastan at max level.
