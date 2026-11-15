@@ -40,8 +40,6 @@ jobs:
 
       - name: Deploy (build, migrate as migrator, up, optimize, app:doctor, /up)
         run: ./deploy.sh --current
-        env:
-          DEPLOY_HEALTH_URL: ${{ env.BASE_URL }}/up
 
       - name: Image size
         run: |

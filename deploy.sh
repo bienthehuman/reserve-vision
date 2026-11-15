@@ -11,7 +11,8 @@
 # Environment:
 #   ENV_FILE            default .env.production
 #   COMPOSE_FILE        default compose.prod.yaml (Compose reads it as well)
-#   DEPLOY_HEALTH_URL   default https://<DOMAIN>/up, resolved to this host
+#   DEPLOY_HEALTH_URL   default https://<DOMAIN>/up resolved to this host, or
+#                       http://127.0.0.1:<HTTP_PORT>/up when DOMAIN has no host (:80)
 set -Eeuo pipefail
 
 cd "$(dirname "$0")"
@@ -128,15 +129,23 @@ main() {
     compose exec -T app php artisan app:doctor --no-interaction
 
     step "Checking /up"
+    local domain http_port https_port health_url
+    local curl_args=()
     domain="$(env_value DOMAIN)"
+    http_port="$(env_value HTTP_PORT)"
+    https_port="$(env_value HTTPS_PORT)"
     if [[ -n "${DEPLOY_HEALTH_URL:-}" ]]; then
-        curl -fsS --retry 10 --retry-delay 3 --retry-all-errors "$DEPLOY_HEALTH_URL" >/dev/null
+        health_url="$DEPLOY_HEALTH_URL"
+    elif [[ "$domain" == :* ]]; then
+        # No host name (DOMAIN=:80): Caddy serves plain HTTP on HTTP_PORT.
+        health_url="http://127.0.0.1:${http_port:-80}/up"
     else
-        # Through Caddy and real TLS, resolved to this host so DNS changes don't matter.
-        curl -fsS --retry 10 --retry-delay 3 --retry-all-errors \
-            --resolve "${domain}:$(env_value HTTPS_PORT | grep . || echo 443):127.0.0.1" \
-            "https://${domain}/up" >/dev/null
+        # Through Caddy and real TLS, resolved to this host so DNS doesn't matter.
+        health_url="https://${domain}:${https_port:-443}/up"
+        curl_args=(--resolve "${domain}:${https_port:-443}:127.0.0.1")
     fi
+    echo "GET ${health_url}"
+    curl -fsS --retry 10 --retry-delay 3 --retry-all-errors "${curl_args[@]}" "$health_url" >/dev/null
     echo "/up is healthy"
 
     trap - ERR
