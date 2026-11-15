@@ -85,7 +85,7 @@ Landlords browse listings through these too, so a landlord on another account's 
 | Reject proof, confirm or decline | ✓ | ✓ | — | — |
 | Undo a confirmation | ✓ | ✓ | — | — |
 | Mark moved in, end stay | ✓ | ✓ | — | — |
-| Withdraw a confirmed reservation | ✓ | — | — | — |
+| Withdraw a confirmed reservation | ✓ | ✓ | — | — |
 | Record a refund | ✓ | ✓ | — | — |
 | Answer viewing requests | ✓ | ✓ | — | — |
 | Invite or remove caretakers, revoke invites | ✓ | — | — | — |
