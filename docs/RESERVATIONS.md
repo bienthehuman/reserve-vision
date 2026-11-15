@@ -26,11 +26,20 @@ The source of truth for how a reservation behaves. Action classes, the transitio
 | Hold length | 24 hours from creation | `ReserveSpace` |
 | Open reservations per renter | at most 2 | `ReserveSpace`, under the renter lock |
 | Open reservations per renter per property | at most 1 | `ReserveSpace`, under the renter lock |
+| Reserve requests | at most 10 a minute per renter (`throttle:reservations`); the 11th gets the same answer as a broken rule | Route middleware |
 | Reservation fee | Snapshot of `rooms.reservation_fee` (centavos) at reservation time | `ReserveSpace` |
 | Property must be published and not archived, account verified, room not archived | Otherwise the room is 404 to renters | Query scope + `ReserveSpace` |
 | Gender policy | Not enforced by the system. Shown on the listing; the landlord declines if it doesn't fit | (decision to check) |
 
 When a renter breaks both limits at once, the per-property message wins: it's the one that tells them which reservation to cancel.
+
+### Over HTTP (slice 2.5)
+
+| Route | Who | What |
+| --- | --- | --- |
+| `GET /rooms/{room}` | anyone | The minimal room page (slice 5.1 replaces it): rate, fee, free spaces for `?move_in=Y-m-d&months=n` (default today, 6 months), and the reserve form. Listed rooms only (`Room::scopeListed()`: room not archived, property published and not archived, account verified), anything else `404`. A renter with an open reservation in the room gets a link to it instead of the form |
+| `POST /rooms/{room}/reservations` | renter, email verified | `StoreReservationRequest` checks the shape only (`move_in` is `Y-m-d`, `months` a whole number), then `ReserveSpace` decides. Success: redirect to `/reservations/{id}`, or `201` JSON (`reservation.id`, `space_id`, `status`, `hold_expires_at`). Broken rule: the `error` flash back on the room page, or `422 {message}` JSON. Guests go to `/login` and come back to the room page; landlords get `403` |
+| `GET /reservations/{reservation}` | the reservation's renter | "Your hold": status badge, space, stay, fee, `hold_expires_at` in Manila time. Anyone else's reservation is `404` |
 
 ### Rejections
 
@@ -57,6 +66,8 @@ Two locks inside one transaction, always taken in the same order to avoid deadlo
 Then: check the room is reservable, check the renter limits, find the first free space, insert the hold. The transaction makes up to 3 attempts on a deadlock or lock wait timeout.
 
 **Every read inside the transaction is a locking read** (`FOR UPDATE` or `LOCK IN SHARE MODE`), and the two locks come first. Under InnoDB's `REPEATABLE READ`, a plain `SELECT` would fix a read snapshot; a request that then waited at the room lock would keep reading that snapshot and miss the hold the lock holder just inserted. Locking reads always see the latest committed rows. For the same reason the checks are separate queries, not `NOT EXISTS (…)` subqueries: a locking clause on the outer query doesn't make its subquery a locking read. [ADR 0001](adr/0001-room-lock-vs-exclusion-constraint.md) has why this instead of `READ COMMITTED`; `tests/Feature/Reservations/LockingTest.php` pins the rules down. This works the same on MySQL, MariaDB, PostgreSQL and SQL Server. [ADR 0001](adr/0001-room-lock-vs-exclusion-constraint.md) compares it with a PostgreSQL exclusion constraint.
+
+**Proven over real parallel HTTP** by the concurrency suite (`tests/Concurrency`, slice 2.5): T1, T2 and T8b, five rounds each, against a multi-threaded server, in CI on MySQL and MariaDB. Each race also proves that every request was inside the server before the first one finished. With either lock removed the suite fails ([ADR 0001, Evidence](adr/0001-room-lock-vs-exclusion-constraint.md#evidence-slice-25)).
 
 Every other action that changes a reservation's status (confirm, decline, cancel, upload proof…) locks the **reservation row** and re-reads its status before applying the transition. Two caretakers confirming and declining at the same moment can't both win.
 

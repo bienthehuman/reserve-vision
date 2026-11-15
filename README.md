@@ -19,14 +19,21 @@ Renters browse apartments and boarding-house beds, reserve a space and upload pr
 
 ## Guarantees
 
-Each guarantee links to the test that proves it (links filled in as the tests land).
+Each guarantee links to the test that proves it (links filled in as the tests land). T1, T2 and T8b fire **real parallel HTTP requests** at a running multi-threaded server and run in CI on both databases ([![MySQL 8.4](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml) [![MariaDB 11.4](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml), check `… / Concurrency`); each run also proves the requests really overlapped inside the server.
 
 | Guarantee | Proven by |
 | --- | --- |
-| No space is ever double-booked, even under simultaneous requests | T1–T4, T8b |
-| An expired hold never blocks a space, even if the cleanup job hasn't run | T5 |
+| No space is ever double-booked, even under simultaneous requests | [T1](tests/Concurrency/ReservationRaceTest.php#L114) (10 renters, one room), [T2](tests/Concurrency/ReservationRaceTest.php#L135) (6 renters, 4 beds), [T3, T4](tests/Feature/Reservations/OverlapTest.php) (date edges) |
+| A renter can't get past the hold limits with parallel requests | [T8](tests/Feature/Reservations/RenterLimitsTest.php), [T8b](tests/Concurrency/ReservationRaceTest.php#L160) (3 parallel requests, at most 2 holds; 2 in one property, at most 1) |
+| An expired hold never blocks a space, even if the cleanup job hasn't run | [T5](tests/Feature/Reservations/ExpiredHoldTest.php) |
 | A landlord can't see or probe another landlord's data | T6, T7 |
 | Payment proofs are private; links are short-lived and bound to one user | T9 |
+
+T2 on the dev stack: six renters' requests are all inside the server at once; the room lock lets them through one at a time, so four get beds A to D and two are told there's no space. Each bar is one request, by the server's clock. Run it yourself with `docker compose exec app composer test:concurrency`.
+
+![T2: six parallel reserve requests for a 4-bed room; four holds on four different beds, two rejections](docs/media/t2-race.svg)
+
+The negative controls (the suite run with the locks removed, where it double-books) are in [ADR 0001](docs/adr/0001-room-lock-vs-exclusion-constraint.md#evidence-slice-25).
 
 ## A note on naming
 
@@ -66,7 +73,7 @@ Or, with nothing installed: [open it in GitHub Codespaces](https://codespaces.ne
 | `owner2@example.com` | Owner of **Cruz Lettings**, a different verified account | Isolation: it must never see the other account's data |
 | `renter1@example.com`, `renter2@example.com` | Renters with no reservations | Racing for the last bed |
 
-**The last bed:** the property *Santos Bedspace House* (Sampaloc, Manila) has a published 4-bed shared room called **Last Bed Room**. Beds A, B and C are confirmed from the 1st of next month, so exactly one bed is free. Log in as `renter1` and `renter2` in two browsers and reserve it for that move-in date at the same moment: one wins and the other is told it's taken.
+**The last bed:** the property *Santos Bedspace House* (Sampaloc, Manila) has a published 4-bed shared room called **Last Bed Room**, at [/rooms/1](http://localhost:8180/rooms/1). Beds A, B and C are confirmed from the 1st of next month, so exactly one bed is free. Log in as `renter1` and `renter2` in two browsers and reserve it for that move-in date at the same moment: one wins and the other is told it's taken. The Playwright test [e2e/reserve.spec.ts](e2e/reserve.spec.ts) does the same, one after the other.
 
 The data is the same on every run (fixed seed), dates are relative to the day you seed, and it is only added to an empty database: running `bin/setup` again changes nothing. To start over: `docker compose down -v && bin/setup`. Three accounts (`tan-realty`, `buenaventura-lettings`, `uy-rentals`) are unverified with draft properties; verify one with `docker compose exec app php artisan landlord:verify tan-realty` (`--list` shows who is waiting, `--revoke` undoes it and unpublishes the account's properties).
 

@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Renders an asciicast v2 recording as a looping animated SVG (for the README).
+
+    bin/cast-to-svg docs/media/t2-race.cast docs/media/t2-race.svg [--rows 30] [--command "..."]
+
+Handles what the concurrency suite prints: text, newlines and SGR colours.
+Runs of █ become rectangles, so the timeline bars line up in any font.
+Idle gaps are shortened to 1 s; the last frame is held for 5 s.
+"""
+import argparse, html, json, re
+
+PALETTE = {30: '#3b3846', 31: '#f87171', 32: '#4ade80', 33: '#facc15', 34: '#60a5fa', 35: '#c084fc', 36: '#22d3ee', 37: '#e7e5ee', 90: '#9893a8'}
+FG, BG, CHAR_W, LINE_H, FONT = '#e7e5ee', '#17151f', 7.8, 18, 13
+PAD, BAR = 16, 30
+
+ap = argparse.ArgumentParser()
+ap.add_argument('cast'); ap.add_argument('svg')
+ap.add_argument('--rows', type=int, default=30)
+ap.add_argument('--command', default='')
+args = ap.parse_args()
+
+lines = open(args.cast, encoding='utf-8').read().splitlines()
+header = json.loads(lines[0])
+cols, rows = header['width'], args.rows
+events = [json.loads(l) for l in lines[1:]]
+
+# Timeline: optional typed command, then the recording with idle gaps capped at 1 s.
+timed, t = [], 0.4
+if args.command:
+    prompt = '\x1b[35m$\x1b[0m '
+    timed.append((t, prompt)); t += 0.5
+    for i in range(0, len(args.command), 12):
+        timed.append((t, args.command[i:i + 12])); t += 0.09
+    timed.append((t + 0.4, '\r\n')); t += 0.6
+last = 0.0
+for when, _, data in events:
+    t += min(when - last, 1.0); last = when
+    timed.append((t, data))
+
+# A minimal terminal: a list of lines of (char, fg, bg, bold).
+screen, style = [[]], {'fg': None, 'bg': None, 'bold': False}
+frames = []
+
+def sgr(params):
+    for p in [int(x) if x else 0 for x in params.split(';')]:
+        if p == 0: style.update(fg=None, bg=None, bold=False)
+        elif p == 1: style['bold'] = True
+        elif p == 22: style['bold'] = False
+        elif p == 39: style['fg'] = None
+        elif p == 49: style['bg'] = None
+        elif p in PALETTE: style['fg'] = PALETTE[p]
+        elif 40 <= p <= 47: style['bg'] = PALETTE[p - 10]
+
+for when, data in timed:
+    for token in re.split(r'(\x1b\[[0-9;]*m|\r\n|\n|\r)', data):
+        if not token: continue
+        if token.startswith('\x1b['): sgr(token[2:-1])
+        elif token in ('\r\n', '\n'): screen.append([])
+        elif token == '\r': pass
+        else:
+            for ch in token:
+                if len(screen[-1]) < cols: screen[-1].append((ch, style['fg'], style['bg'], style['bold']))
+    frames.append((when, [list(l) for l in screen[-rows:]]))
+
+# Drop frames that show the same thing as the next one at the same instant.
+frames = [f for i, f in enumerate(frames) if i + 1 == len(frames) or frames[i + 1][0] - f[0] > 0.02]
+total = frames[-1][0] + 5.0
+
+def runs(line):
+    out, start = [], 0
+    for i in range(1, len(line) + 1):
+        if i == len(line) or line[i][1:] != line[start][1:] or (line[i][0] == '█') != (line[start][0] == '█'):
+            out.append((start, ''.join(c[0] for c in line[start:i]), *line[start][1:])); start = i
+    return out
+
+width = round(cols * CHAR_W + 2 * PAD)
+height = rows * LINE_H + 2 * PAD + BAR
+parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="Terminal recording: the T2 concurrency test">',
+         '<title>T2: 6 renters race for a 4-bed room; 4 holds on 4 different beds, 2 rejections</title>', '<style>',
+         f"text{{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'DejaVu Sans Mono','Liberation Mono',monospace;font-size:{FONT}px;white-space:pre}}",
+         '.f{opacity:0}']
+for i, (when, _) in enumerate(frames):
+    end = frames[i + 1][0] if i + 1 < len(frames) else total
+    a, b = when / total * 100, end / total * 100
+    parts.append(f'.f{i}{{animation:k{i} {total:.2f}s steps(1,end) infinite}}@keyframes k{i}{{0%{{opacity:0}}{a:.3f}%{{opacity:1}}{b:.3f}%{{opacity:0}}100%{{opacity:0}}}}')
+parts.append('</style>')
+parts.append(f'<rect width="{width}" height="{height}" rx="8" fill="{BG}"/>')
+for x, c in ((PAD, '#f87171'), (PAD + 18, '#facc15'), (PAD + 36, '#4ade80')):
+    parts.append(f'<circle cx="{x + 5}" cy="{BAR / 2 + 2}" r="5" fill="{c}"/>')
+for i, (_, snapshot) in enumerate(frames):
+    parts.append(f'<g class="f f{i}">')
+    for row, line in enumerate(snapshot):
+        y = PAD + BAR + row * LINE_H
+        for col, text, fg, bg, bold in runs(line):
+            x = PAD + col * CHAR_W
+            if bg: parts.append(f'<rect x="{x:.1f}" y="{y - 13}" width="{len(text) * CHAR_W:.1f}" height="{LINE_H - 1}" fill="{bg}"/>')
+            if text.strip('█') == '' and text:
+                parts.append(f'<rect x="{x:.1f}" y="{y - 11}" width="{len(text) * CHAR_W:.1f}" height="12" rx="2" fill="{fg or FG}"/>')
+            elif text.strip():
+                weight = ' font-weight="700"' if bold else ''
+                parts.append(f'<text x="{x:.1f}" y="{y}" fill="{fg or FG}"{weight}>{html.escape(text)}</text>')
+    parts.append('</g>')
+parts.append('</svg>')
+open(args.svg, 'w', encoding='utf-8').write('\n'.join(parts) + '\n')
+print(f'{len(frames)} frames, {total:.1f} s, {width}x{height}')

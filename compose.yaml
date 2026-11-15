@@ -23,6 +23,11 @@ services:
     <<: *app
     ports:
       - "127.0.0.1:${APP_PORT:-8180}:8000"
+    environment:
+      # A fixed PHP thread pool instead of FrankenPHP's 2 per CPU (4 on a 2-core
+      # Codespace): enough for the two-browser "last bed" race and more. The
+      # concurrency suite starts its own server (docker/concurrency/Caddyfile).
+      FRANKENPHP_CONFIG: "num_threads 16"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/up"]
       interval: 5s
@@ -77,6 +82,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root-secret}
       RV_DB_DATABASE: ${DB_DATABASE:-reservevision}
       RV_DB_TEST_DATABASE: ${DB_TEST_DATABASE:-reservevision_test}
+      RV_DB_CONCURRENCY_DATABASE: ${DB_CONCURRENCY_DATABASE:-reservevision_concurrency}
       RV_DB_APP_PASSWORD: ${DB_PASSWORD:-app-secret}
       RV_DB_MIGRATOR_PASSWORD: ${DB_MIGRATOR_PASSWORD:-migrator-secret}
     volumes:

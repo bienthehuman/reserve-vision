@@ -24,6 +24,7 @@ Laravel Fortify, headless: Fortify's controllers and login pipeline, Inertia pag
 | Password reset | Link by email, valid 60 minutes, one use. The form answers the same whether or not the email has an account |
 | Rate limits | Login 5 a minute per email + IP; sign-up and reset emails 3 a minute per IP. Shown as a form error ("Too many tries. Wait 60 seconds, then try again."), not a 429 page |
 | `/landlord` | Logged in, verified, and a landlord user with a membership; a renter gets `403` |
+| Reserving (2.5) | `POST /rooms/{room}/reservations` and `/reservations/{id}`: logged in, verified, and a renter (`renter` middleware); a landlord gets `403`. A guest goes to `/login` and comes back to the room page. Someone else's reservation is `404`. 10 reserve requests a minute per renter. Routes and responses: [RESERVATIONS.md](RESERVATIONS.md#over-http-slice-25) |
 | Session cookie | `HttpOnly`, `SameSite=Lax`, `Secure` in production |
 
 The code never says "tenant". See [ADR 0005](adr/0005-no-word-tenant.md).

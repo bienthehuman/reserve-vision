@@ -26,7 +26,7 @@ Host ports bind to `127.0.0.1` and are set in `.env` (chosen to avoid Hilom's 54
 
 | Service | Image | Inside | Host | Notes |
 | --- | --- | --- | --- | --- |
-| `app` | `reservevision-app:dev` ([docker/dev/app.Dockerfile](docker/dev/app.Dockerfile)), FrankenPHP 1.13 + PHP 8.4 | 8000 | `APP_PORT=8180` | Source bind-mounted at `/app`, runs as UID/GID 1000 |
+| `app` | `reservevision-app:dev` ([docker/dev/app.Dockerfile](docker/dev/app.Dockerfile)), FrankenPHP 1.13 + PHP 8.4 | 8000 | `APP_PORT=8180` | Source bind-mounted at `/app`, runs as UID/GID 1000. 16 PHP threads (`FRANKENPHP_CONFIG: num_threads 16`, not FrankenPHP's 2 per CPU) |
 | `ssr` | `node:24.22-bookworm-slim` | 5183 | `VITE_PORT=5183` | `npm run dev`: Vite dev server, HMR **and** Inertia SSR (`/__inertia_ssr`) |
 | `worker` | app image | — | — | `php artisan queue:work` (database queue) |
 | `scheduler` | app image | — | — | `php artisan schedule:work` |
@@ -42,7 +42,7 @@ URLs: app http://localhost:8180, styleguide http://localhost:8180/styleguide, he
 | `migrator` | `ALL` on the schema | `mysql_migrator` (`DB_MIGRATOR_USERNAME` / `DB_MIGRATOR_PASSWORD`) | `composer migrate` / `make migrate` = `php artisan migrate --database=mysql_migrator --force`. Never anything else |
 | `app` | `SELECT, INSERT, UPDATE, DELETE` on the schema, no DDL | `mysql` (default; `DB_USERNAME` / `DB_PASSWORD`) | web, worker, scheduler, seeders, **tests** |
 
-- Schemas: `reservevision` (dev) and `reservevision_test` (Pest). Both get both users.
+- Schemas: `reservevision` (dev), `reservevision_test` (Pest) and `reservevision_concurrency` (the concurrency suite, slice 2.5). All get both users. `bin/setup` creates the concurrency schema on volumes from before 2.5.
 - [database/sql/create-users.sql](database/sql/create-users.sql) is plain SQL with no Docker assumptions. CI and production run it with the `mysql` client after `SET @db_name = …, @app_password = …, @migrator_password = …;`. Idempotent.
 - The init script only runs on an **empty** `db-data` volume. After changing it, run `docker compose down -v && bin/setup`.
 - Plain `php artisan migrate` (without `--database=mysql_migrator`) fails with error 1142 on purpose.
@@ -51,6 +51,8 @@ URLs: app http://localhost:8180, styleguide http://localhost:8180/styleguide, he
 ### Demo data (slice 2.2)
 
 `bin/setup` runs `php artisan db:seed` on every invocation: the amenity catalogue (always) and `DemoSeeder` (only if `owner@example.com` doesn't exist yet, so reruns change nothing). To reseed from scratch: `docker compose down -v && bin/setup` (the seeder itself takes about 1 s; a whole cold `bin/setup` about a minute). `DemoSeeder` throws in production unless `APP_DEMO=true` (`config('app.demo')`, documented in both env examples); `DatabaseSeeder` skips it there instead. Logins and the "last bed" room are in the [README](README.md#demo-logins); data files are in `database/data/` (`places.php`, `names.php`, `amenities.php`). Ids are assigned by the seeder (max + 1) so rows don't depend on auto-increment counters, and "now" is read once, so a fixed seed gives identical rows on any day apart from the relative dates. Reservations come from `Database\Seeders\Demo\StayScheduler` (back-to-back stays per space), not `ReserveSpace`.
+
+The "last bed" room is `/rooms/1` (pinned by `DemoSeederTest`); [e2e/reserve.spec.ts](e2e/reserve.spec.ts) is the Phase 2 demo on it (phone viewport only, so the two Playwright projects don't race for the bed; on a dev stack it reuses renter1's existing hold on reruns).
 
 `php artisan landlord:verify {slug}` verifies an account, `--revoke` clears it and unpublishes the account's properties in one transaction, `--list` shows the unverified accounts.
 
@@ -63,6 +65,7 @@ The seeder self-checks are in `tests/Feature/Seeding/DemoSeederTest.php`; each t
 | Pint | `docker compose exec app composer lint` (`make lint`) | `composer format` fixes. Laravel preset + `declare_strict_types` |
 | Larastan | `docker compose exec app composer analyse` (`make analyse`) | Level max, no baseline. Covers `app`, `bootstrap/app.php`, `config`, `database`, `routes` |
 | Pest | `docker compose exec app composer test` (`make test`); in parallel like CI: `docker compose exec app composer test -- --parallel --processes=4` | Runs as `app` on `reservevision_test`; in parallel, worker N uses `reservevision_test_N` (1–4, created by the init script). `tests/TestCase.php` runs `migrate:fresh` once per process as `migrator` (refuses any schema not ending in `_test` or `_test_N`), then each Feature test runs in a `DatabaseTransactions` transaction. **Never use `RefreshDatabase`.** Feature tests that render pages need SSR: in dev that's the running `ssr` service; `INERTIA_SSR_THROW_ON_ERROR=true` makes a missing SSR server fail loudly |
+| Concurrency | `docker compose exec app composer test:concurrency` (`-- --filter=T2` for one scenario) | T1, T2, T8b over real parallel HTTP; about 15 s. Starts its own server: see [Concurrency suite](#concurrency-suite-slice-25). Never with `--parallel` |
 | Vitest | `docker compose exec ssr npm run test` (`make vitest`) | jsdom; `resources/js/**/*.test.{ts,tsx}` |
 | TypeScript | `docker compose exec ssr npm run types` (`make types`) | TS 7 (`tsc --noEmit`) |
 | Playwright + axe | `npm run e2e` on the host (`make e2e`) | Needs the stack running and `npx playwright install chromium` once. `E2E_BASE_URL` (default `http://localhost:8180`) points it at another stack; `E2E_SKIP_DEV_PAGES=1` skips `/styleguide` against production |
@@ -74,8 +77,8 @@ Every PR and every push to `main` runs five workflows ([.github/workflows](.gith
 
 | Workflow | File | Check name(s) | What it runs |
 | --- | --- | --- | --- |
-| Tests (MySQL 8.4) | `tests-mysql.yml` | `MySQL 8.4 / Pest` | Reusable [_tests.yml](.github/workflows/_tests.yml) with `mysql:8.4` |
-| Tests (MariaDB 11.4) | `tests-mariadb.yml` | `MariaDB 11.4 / Pest` | Same, with `mariadb:11.4` |
+| Tests (MySQL 8.4) | `tests-mysql.yml` | `MySQL 8.4 / Pest`, `MySQL 8.4 / Concurrency` | Reusable [_tests.yml](.github/workflows/_tests.yml) with `mysql:8.4`: Pest, and the concurrency suite in the dev app image |
+| Tests (MariaDB 11.4) | `tests-mariadb.yml` | `MariaDB 11.4 / Pest`, `MariaDB 11.4 / Concurrency` | Same, with `mariadb:11.4` |
 | Quality | `quality.yml` | `Pint + Larastan`, `TypeScript + Vitest + build` | `composer lint`, `composer analyse`, `npm run types`, `npm run test`, `npm run build`, then the CSS budget ([bin/check-css-budget.mjs](bin/check-css-budget.mjs): `app.css` ≤ 35 kB gzipped, size in the job summary) |
 | E2E | `e2e.yml` | `Playwright + axe` | `bin/setup` (the dev Compose stack, MySQL), then `npm run e2e`. On failure: the Playwright report and traces as the `playwright-report` artifact, and the stack logs |
 | Production | `production.yml` | `Production stack` | The ADR 0007 guard. ShellCheck, `bin/ci-production-env` (throwaway secrets, `APP_DEMO=true`, Caddy on plain HTTP `:80` published at 8280), `./deploy.sh --current` (build, migrate as `migrator`, up, optimize, `app:doctor`, `/up`), image size in the job summary, `php artisan db:seed --force` (demo data), `bin/smoke-production` (SSR'd pitch text, `/up` 200, `/styleguide` 404, security headers incl. HSTS (`upgrade-insecure-requests` only against HTTPS), SSR'd login form, session cookie `Secure`/`HttpOnly`/`SameSite=Lax`, a CSRF login as `owner@example.com` landing on `/landlord`), then `npm run e2e` against it with `E2E_SKIP_DEV_PAGES=1`. On failure: `playwright-report-production` artifact and the stack logs |
@@ -89,6 +92,7 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens weekly PRs f
 | Failing check | Run |
 | --- | --- |
 | `… / Pest` | `docker compose exec app composer test -- --parallel --processes=4` (serially without the flags, to rule out a worker clash). For MariaDB-only failures, start `mariadb:11.4`, run the SQL file as root for the schemas above, and point `DB_HOST` at it |
+| `… / Concurrency` | `docker compose exec app composer test:concurrency`. The job log has each race's timeline; on failure, `storage/logs/concurrency-server.log` and `laravel.log`. MariaDB-only: run the SQL file as root for `reservevision_concurrency` on a `mariadb:11.4`, point `DB_HOST` at it |
 | `Pint + Larastan` | `make lint` (`composer format` fixes) and `make analyse` |
 | `TypeScript + Vitest + build` | `make types`, `make vitest`, `docker compose exec ssr npm run build && docker compose exec ssr node bin/check-css-budget.mjs`, then `rm -rf public/build bootstrap/ssr` |
 | `Playwright + axe` | `make e2e`, or download the `playwright-report` artifact and open a trace with `npx playwright show-trace test-results/<test>/trace.zip` |
@@ -171,6 +175,31 @@ Tests assert driver error codes, not messages (`dbErrorCode()` in `tests/Pest.ph
 Tests: `tests/Feature/Auth/` (each feature, rate limits, intended URL, rollback of `RegisterLandlord`, demo panel), helpers `landlordUser()` and `registrationForm()` in `tests/Pest.php`. E2E: [e2e/auth.spec.ts](e2e/auth.spec.ts); shared helpers (console/CSP errors, axe) in [e2e/support.ts](e2e/support.ts).
 
 **Reading Mailpit in tests**: the e2e sign-up test polls Mailpit's API, `GET {E2E_MAILPIT_URL}/api/v1/search?query=to:"<email>"` then `GET /api/v1/message/<ID>` (the `Text` part holds the link). `E2E_MAILPIT_URL` defaults to `http://localhost:8126`; the test is skipped with `E2E_SKIP_DEV_PAGES=1` (no Mailpit in production). Mails go through the queue, so the `worker` must be running. In Pest, use `Notification::fake()` and call `toMail()` on the notification to check the rendered mail.
+
+### Concurrency suite (slice 2.5)
+
+T1, T2 and T8b over **real parallel HTTP**: [tests/Concurrency/ReservationRaceTest.php](tests/Concurrency/ReservationRaceTest.php), its own PHPUnit config ([phpunit.concurrency.xml](phpunit.concurrency.xml)), so `composer test` never runs it. Results and negative controls: [ADR 0001](docs/adr/0001-room-lock-vs-exclusion-constraint.md#evidence-slice-25).
+
+| Piece | What |
+| --- | --- |
+| [bin/test-concurrency](bin/test-concurrency) (`composer test:concurrency`) | Starts FrankenPHP on `127.0.0.1:8001` inside the app image, waits for `/up`, runs Pest with `phpunit.concurrency.xml` (extra arguments go to Pest), stops the server. Refuses a cached config. Log: `storage/logs/concurrency-server.log` |
+| [docker/concurrency/Caddyfile](docker/concurrency/Caddyfile) | The server: `num_threads 16` (more than the largest race, 10; FrankenPHP's default of 2 per CPU is only 8 on a 4-vCPU CI runner), `DB_DATABASE=reservevision_concurrency`, `CONCURRENCY_PROBE=true`, SSR off, `BCRYPT_ROUNDS=4`. Env: `CONCURRENCY_THREADS`, `CONCURRENCY_PORT`, `CONCURRENCY_DB_DATABASE` |
+| `Tests\Concurrency\ConcurrencyTestCase` | No transaction (the server must see the fixtures): fixtures are committed as `app`. `migrate:fresh` as `migrator` once per run, and only on a schema ending in `_concurrency`. `assertServerSees($room)` fails clearly if the server is on another schema |
+| `Support\Racer` / `Http` / `Race` | A racer is one user with a cookie jar: GET `/login`, POST credentials with `X-XSRF-TOKEN` (the `XSRF-TOKEN` cookie, URL-decoded). `Http::fire()` adds every curl handle to one `curl_multi` before releasing them. `Race::run()` prints the server-side timeline and asserts overlap |
+| Overlap proof | `App\Http\Middleware\ExposeRequestTiming` on the reserve route adds `X-Request-Start` (`LARAVEL_START`) and `X-Request-End`, only when `config('concurrency.probe')` is on **and** the app isn't in production (`App\Support\Concurrency\Probe`; `tests/Feature/Concurrency/ProbeSwitchTest.php` boots a production app with the switch set). Each race asserts last start < first end, by the server's clock |
+| CI | The `concurrency` job in `_tests.yml`: builds the dev image (`--build-arg UID=$(id -u)`), `composer install` in it, `npm run build` on the runner (racers GET `/login`, which needs built assets), creates the schema with the SQL file, then `docker run --network host … bin/test-concurrency`, so the server reaches the database service on 127.0.0.1. About 4 minutes, most of it the image build |
+
+Each scenario repeats 5 times (`->repeat(ROUNDS)`) with new rooms and renters; move-in is today + 14 days. A failure names what broke: `DOUBLE-BOOKED: …`, `LIMIT BROKEN: …`, `Unexpected response: … HTTP 500`, or the no-overlap message.
+
+### Quirks hit in 2.5
+
+- **Removing a lock doesn't make `ReserveSpace` double-book**: its locking reads take shared next-key locks, so parallel inserts deadlock (1213) instead. The negative controls had to drop the locking reads too (ADR 0001, Evidence). Without the room lock the losers get `500` after 3 deadlocks, not "no free space".
+- **Client-side timings can't prove concurrency**: a server with one thread still accepts all 10 connections at once, so every request "starts" together from curl's point of view. Only server-side start/end times show it.
+- **`/up` has no `web` middleware**, so it sets no session or XSRF cookie: racers GET `/login` for theirs, and that page needs built assets (or `public/hot`) to render.
+- **The CSRF bypass in tests depends on `APP_ENV=testing`**: a Feature test that switches the app to `production` gets `419` on posts; exercise the middleware directly instead.
+- **FrankenPHP passes the process environment to PHP**: in CI the container gets `DB_HOST=127.0.0.1` with `-e`, which wins over `.env`'s `db`. `php_server { env … }` in a Caddyfile sets `$_SERVER` entries, which Laravel also reads before `.env`.
+- **axe's injected `<style>` is a CSP error for the rest of the document**: after an Inertia visit the next page is the same document, so the e2e test clears its error list after each axe run.
+- **`Carbon::createFromFormat()` throws on garbage** (`?move_in=tomorrow`) rather than returning false: check the shape with a regex first.
 
 ### Quirks hit in 2.4
 

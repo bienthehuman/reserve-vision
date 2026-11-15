@@ -123,3 +123,96 @@ jobs:
       - name: SSR server log
         if: failure()
         run: cat storage/logs/ssr.log || true
+
+  # T1, T2 and T8b (tests/Concurrency): real parallel HTTP against a running,
+  # multi-threaded server. Server and suite run in the dev app image (FrankenPHP
+  # 1.13 + PHP 8.4, exactly as `docker compose exec app composer test:concurrency`),
+  # on the host network so they reach the database service on 127.0.0.1.
+  concurrency:
+    name: Concurrency
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      db:
+        image: ${{ inputs.database-image }}
+        env:
+          MYSQL_ROOT_PASSWORD: root-secret
+          MARIADB_ROOT_PASSWORD: root-secret
+        ports:
+          - 3306:3306
+
+    env:
+      CONCURRENCY_DB_DATABASE: reservevision_concurrency
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the dev app image
+        run: |
+          docker build --quiet -f docker/dev/app.Dockerfile \
+            --build-arg UID="$(id -u)" --build-arg GID="$(id -g)" \
+            -t reservevision-app:dev .
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/rv-composer
+          key: composer-docker-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-docker-${{ runner.os }}-
+
+      - name: Install PHP dependencies (in the image)
+        run: |
+          mkdir -p ~/.cache/rv-composer
+          docker run --rm -v "$PWD:/app" -w /app -v ~/.cache/rv-composer:/home/app/.composer/cache \
+            reservevision-app:dev composer install --no-interaction --prefer-dist --no-progress
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22'
+          cache: npm
+
+      # The racers GET /login like a browser, so the page needs its built assets.
+      - name: Build the client bundle
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Application environment
+        run: |
+          cp .env.example .env
+          docker run --rm -v "$PWD:/app" -w /app reservevision-app:dev php artisan key:generate --force --no-interaction
+
+      - name: Wait for the database
+        run: |
+          for _ in $(seq 1 60); do
+            mysqladmin ping -h "$DB_HOST" -P "$DB_PORT" -u root -p"$DB_ROOT_PASSWORD" --silent && exit 0
+            sleep 2
+          done
+          echo "::error::${{ inputs.database-image }} did not become ready" && exit 1
+
+      - name: Allow the audit_logs triggers (ADR 0008)
+        run: mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p"$DB_ROOT_PASSWORD" -e "SET GLOBAL log_bin_trust_function_creators = 1"
+
+      - name: Create the concurrency schema and the app/migrator users
+        run: |
+          {
+            printf "SET @db_name = '%s', @app_password = '%s', @migrator_password = '%s';\n" \
+              "$CONCURRENCY_DB_DATABASE" "$DB_PASSWORD" "$DB_MIGRATOR_PASSWORD"
+            cat database/sql/create-users.sql
+          } | mysql -h "$DB_HOST" -P "$DB_PORT" -u root -p"$DB_ROOT_PASSWORD"
+
+      - name: Concurrency suite (T1, T2, T8b)
+        # bin/test-concurrency starts FrankenPHP with 16 threads on 127.0.0.1:8001
+        # (docker/concurrency/Caddyfile), migrates the schema as migrator, runs the suite.
+        run: |
+          docker run --rm --network host -v "$PWD:/app" -w /app \
+            -e DB_HOST -e DB_PORT -e DB_USERNAME -e DB_PASSWORD \
+            -e DB_MIGRATOR_USERNAME -e DB_MIGRATOR_PASSWORD -e CONCURRENCY_DB_DATABASE \
+            -e TERM=xterm-256color \
+            reservevision-app:dev bin/test-concurrency --colors=always
+
+      - name: Concurrency server log
+        if: failure()
+        run: |
+          cat storage/logs/concurrency-server.log || true
+          tail -n 200 storage/logs/laravel.log || true

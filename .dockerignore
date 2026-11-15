@@ -51,6 +51,7 @@ blob-report
 playwright.config.ts
 vitest.config.ts
 phpunit.xml
+phpunit.concurrency.xml
 phpstan.neon
 pint.json
 .phpunit.cache

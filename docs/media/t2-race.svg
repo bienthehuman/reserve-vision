@@ -1,0 +1,339 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1093" height="494" viewBox="0 0 1093 494" role="img" aria-label="Terminal recording: the T2 concurrency test">
+<title>T2: 6 renters race for a 4-bed room; 4 holds on 4 different beds, 2 rejections</title>
+<style>
+text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'DejaVu Sans Mono','Liberation Mono',monospace;font-size:13px;white-space:pre}
+.f{opacity:0}
+.f0{animation:k0 11.49s steps(1,end) infinite}@keyframes k0{0%{opacity:0}3.481%{opacity:1}7.832%{opacity:0}100%{opacity:0}}
+.f1{animation:k1 11.49s steps(1,end) infinite}@keyframes k1{0%{opacity:0}7.832%{opacity:1}8.615%{opacity:0}100%{opacity:0}}
+.f2{animation:k2 11.49s steps(1,end) infinite}@keyframes k2{0%{opacity:0}8.615%{opacity:1}9.399%{opacity:0}100%{opacity:0}}
+.f3{animation:k3 11.49s steps(1,end) infinite}@keyframes k3{0%{opacity:0}9.399%{opacity:1}10.182%{opacity:0}100%{opacity:0}}
+.f4{animation:k4 11.49s steps(1,end) infinite}@keyframes k4{0%{opacity:0}10.182%{opacity:1}10.965%{opacity:0}100%{opacity:0}}
+.f5{animation:k5 11.49s steps(1,end) infinite}@keyframes k5{0%{opacity:0}10.965%{opacity:1}11.748%{opacity:0}100%{opacity:0}}
+.f6{animation:k6 11.49s steps(1,end) infinite}@keyframes k6{0%{opacity:0}11.748%{opacity:1}16.013%{opacity:0}100%{opacity:0}}
+.f7{animation:k7 11.49s steps(1,end) infinite}@keyframes k7{0%{opacity:0}16.013%{opacity:1}26.455%{opacity:0}100%{opacity:0}}
+.f8{animation:k8 11.49s steps(1,end) infinite}@keyframes k8{0%{opacity:0}26.455%{opacity:1}35.158%{opacity:0}100%{opacity:0}}
+.f9{animation:k9 11.49s steps(1,end) infinite}@keyframes k9{0%{opacity:0}35.158%{opacity:1}41.042%{opacity:0}100%{opacity:0}}
+.f10{animation:k10 11.49s steps(1,end) infinite}@keyframes k10{0%{opacity:0}41.042%{opacity:1}46.133%{opacity:0}100%{opacity:0}}
+.f11{animation:k11 11.49s steps(1,end) infinite}@keyframes k11{0%{opacity:0}46.133%{opacity:1}51.237%{opacity:0}100%{opacity:0}}
+.f12{animation:k12 11.49s steps(1,end) infinite}@keyframes k12{0%{opacity:0}51.237%{opacity:1}56.488%{opacity:0}100%{opacity:0}}
+.f13{animation:k13 11.49s steps(1,end) infinite}@keyframes k13{0%{opacity:0}56.488%{opacity:1}100.000%{opacity:0}100%{opacity:0}}
+</style>
+<rect width="1093" height="494" rx="8" fill="#17151f"/>
+<circle cx="21" cy="17.0" r="5" fill="#f87171"/>
+<circle cx="39" cy="17.0" r="5" fill="#facc15"/>
+<circle cx="57" cy="17.0" r="5" fill="#4ade80"/>
+<g class="f f0">
+<text x="16.0" y="46" fill="#c084fc">$</text>
+</g>
+<g class="f f1">
+<text x="16.0" y="46" fill="#c084fc">$</text>
+<text x="23.8" y="46" fill="#e7e5ee"> docker compo</text>
+</g>
+<g class="f f2">
+<text x="16.0" y="46" fill="#c084fc">$</text>
+<text x="23.8" y="46" fill="#e7e5ee"> docker compose exec app </text>
+</g>
+<g class="f f3">
+<text x="16.0" y="46" fill="#c084fc">$</text>
+<text x="23.8" y="46" fill="#e7e5ee"> docker compose exec app composer tes</text>
+</g>
+<g class="f f4">
+<text x="16.0" y="46" fill="#c084fc">$</text>
+<text x="23.8" y="46" fill="#e7e5ee"> docker compose exec app composer test:concurrenc</text>
+</g>
+<g class="f f5">
+<text x="16.0" y="46" fill="#c084fc">$</text>
+<text x="23.8" y="46" fill="#e7e5ee"> docker compose exec app composer test:concurrency -- --filte</text>
+</g>
+<g class="f f6">
+<text x="16.0" y="46" fill="#c084fc">$</text>
+<text x="23.8" y="46" fill="#e7e5ee"> docker compose exec app composer test:concurrency -- --filter=T2</text>
+</g>
+<g class="f f7">
+<text x="16.0" y="46" fill="#c084fc">$</text>
+<text x="23.8" y="46" fill="#e7e5ee"> docker compose exec app composer test:concurrency -- --filter=T2</text>
+</g>
+<g class="f f8">
+<text x="16.0" y="46" fill="#c084fc">$</text>
+<text x="23.8" y="46" fill="#e7e5ee"> docker compose exec app composer test:concurrency -- --filter=T2</text>
+<text x="16.0" y="64" fill="#e7e5ee">Concurrency server: http://127.0.0.1:8001, FrankenPHP v1.13.5, 16 threads, schema reservevision_concurrency</text>
+</g>
+<g class="f f9">
+<text x="16.0" y="46" fill="#c084fc">$</text>
+<text x="23.8" y="46" fill="#e7e5ee"> docker compose exec app composer test:concurrency -- --filter=T2</text>
+<text x="16.0" y="64" fill="#e7e5ee">Concurrency server: http://127.0.0.1:8001, FrankenPHP v1.13.5, 16 threads, schema reservevision_concurrency</text>
+<text x="31.6" y="100" fill="#e7e5ee" font-weight="700">T2 round 1/5: 6 renters, a 4-bed shared room, same dates</text>
+<text x="16.0" y="118" fill="#e7e5ee">  racer      HTTP in the server (0 → 175 ms)          outcome</text>
+<text x="16.0" y="136" fill="#e7e5ee">  renter-01  </text>
+<text x="117.4" y="136" fill="#4ade80">201 </text>
+<rect x="156.4" y="125" width="163.8" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="136" fill="#e7e5ee">     0.0 →   99.7 ms  hold on Bed A (Room 549234)</text>
+<text x="16.0" y="154" fill="#e7e5ee">  renter-02  </text>
+<text x="117.4" y="154" fill="#4ade80">201 </text>
+<rect x="156.4" y="143" width="226.2" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="154" fill="#e7e5ee">     0.0 →  140.2 ms  hold on Bed C (Room 549234)</text>
+<text x="16.0" y="172" fill="#e7e5ee">  renter-03  </text>
+<text x="117.4" y="172" fill="#4ade80">201 </text>
+<rect x="156.4" y="161" width="257.4" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="172" fill="#e7e5ee">     0.2 →  156.3 ms  hold on Bed D (Room 549234)</text>
+<text x="16.0" y="190" fill="#e7e5ee">  renter-04  </text>
+<text x="117.4" y="190" fill="#4ade80">201 </text>
+<rect x="156.4" y="179" width="187.2" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="190" fill="#e7e5ee">     0.2 →  116.6 ms  hold on Bed B (Room 549234)</text>
+<text x="16.0" y="208" fill="#e7e5ee">  renter-05  </text>
+<text x="117.4" y="208" fill="#facc15">422 </text>
+<rect x="156.4" y="197" width="280.8" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="208" fill="#e7e5ee">     0.2 →  175.2 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="226" fill="#e7e5ee">  renter-06  </text>
+<text x="117.4" y="226" fill="#facc15">422 </text>
+<rect x="156.4" y="215" width="273.0" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="226" fill="#e7e5ee">     0.2 →  168.9 ms  This room has no free space for those dates. Try other d...</text>
+<text x="31.6" y="244" fill="#4ade80">overlap: all 6 requests were in the server at once from 0.2 to 99.7 ms</text>
+</g>
+<g class="f f10">
+<text x="16.0" y="46" fill="#c084fc">$</text>
+<text x="23.8" y="46" fill="#e7e5ee"> docker compose exec app composer test:concurrency -- --filter=T2</text>
+<text x="16.0" y="64" fill="#e7e5ee">Concurrency server: http://127.0.0.1:8001, FrankenPHP v1.13.5, 16 threads, schema reservevision_concurrency</text>
+<text x="31.6" y="100" fill="#e7e5ee" font-weight="700">T2 round 1/5: 6 renters, a 4-bed shared room, same dates</text>
+<text x="16.0" y="118" fill="#e7e5ee">  racer      HTTP in the server (0 → 175 ms)          outcome</text>
+<text x="16.0" y="136" fill="#e7e5ee">  renter-01  </text>
+<text x="117.4" y="136" fill="#4ade80">201 </text>
+<rect x="156.4" y="125" width="163.8" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="136" fill="#e7e5ee">     0.0 →   99.7 ms  hold on Bed A (Room 549234)</text>
+<text x="16.0" y="154" fill="#e7e5ee">  renter-02  </text>
+<text x="117.4" y="154" fill="#4ade80">201 </text>
+<rect x="156.4" y="143" width="226.2" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="154" fill="#e7e5ee">     0.0 →  140.2 ms  hold on Bed C (Room 549234)</text>
+<text x="16.0" y="172" fill="#e7e5ee">  renter-03  </text>
+<text x="117.4" y="172" fill="#4ade80">201 </text>
+<rect x="156.4" y="161" width="257.4" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="172" fill="#e7e5ee">     0.2 →  156.3 ms  hold on Bed D (Room 549234)</text>
+<text x="16.0" y="190" fill="#e7e5ee">  renter-04  </text>
+<text x="117.4" y="190" fill="#4ade80">201 </text>
+<rect x="156.4" y="179" width="187.2" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="190" fill="#e7e5ee">     0.2 →  116.6 ms  hold on Bed B (Room 549234)</text>
+<text x="16.0" y="208" fill="#e7e5ee">  renter-05  </text>
+<text x="117.4" y="208" fill="#facc15">422 </text>
+<rect x="156.4" y="197" width="280.8" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="208" fill="#e7e5ee">     0.2 →  175.2 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="226" fill="#e7e5ee">  renter-06  </text>
+<text x="117.4" y="226" fill="#facc15">422 </text>
+<rect x="156.4" y="215" width="273.0" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="226" fill="#e7e5ee">     0.2 →  168.9 ms  This room has no free space for those dates. Try other d...</text>
+<text x="31.6" y="244" fill="#4ade80">overlap: all 6 requests were in the server at once from 0.2 to 99.7 ms</text>
+<text x="31.6" y="280" fill="#e7e5ee" font-weight="700">T2 round 2/5: 6 renters, a 4-bed shared room, same dates</text>
+<text x="16.0" y="298" fill="#e7e5ee">  racer      HTTP in the server (0 → 162 ms)          outcome</text>
+<text x="16.0" y="316" fill="#e7e5ee">  renter-01  </text>
+<text x="117.4" y="316" fill="#4ade80">201 </text>
+<rect x="156.4" y="305" width="171.6" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="316" fill="#e7e5ee">     0.0 →   98.9 ms  hold on Bed A (Room 157029)</text>
+<text x="16.0" y="334" fill="#e7e5ee">  renter-02  </text>
+<text x="117.4" y="334" fill="#4ade80">201 </text>
+<rect x="156.4" y="323" width="257.4" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="334" fill="#e7e5ee">     0.3 →  145.8 ms  hold on Bed D (Room 157029)</text>
+<text x="16.0" y="352" fill="#e7e5ee">  renter-03  </text>
+<text x="117.4" y="352" fill="#facc15">422 </text>
+<rect x="156.4" y="341" width="273.0" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="352" fill="#e7e5ee">     0.3 →  153.7 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="370" fill="#e7e5ee">  renter-04  </text>
+<text x="117.4" y="370" fill="#4ade80">201 </text>
+<rect x="156.4" y="359" width="202.8" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="370" fill="#e7e5ee">     0.3 →  113.3 ms  hold on Bed B (Room 157029)</text>
+<text x="16.0" y="388" fill="#e7e5ee">  renter-05  </text>
+<text x="117.4" y="388" fill="#facc15">422 </text>
+<rect x="156.4" y="377" width="280.8" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="388" fill="#e7e5ee">     0.3 →  162.1 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="406" fill="#e7e5ee">  renter-06  </text>
+<text x="117.4" y="406" fill="#4ade80">201 </text>
+<rect x="156.4" y="395" width="226.2" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="406" fill="#e7e5ee">     0.3 →  130.3 ms  hold on Bed C (Room 157029)</text>
+<text x="31.6" y="424" fill="#4ade80">overlap: all 6 requests were in the server at once from 0.3 to 98.9 ms</text>
+</g>
+<g class="f f11">
+<text x="16.0" y="46" fill="#e7e5ee">  renter-05  </text>
+<text x="117.4" y="46" fill="#facc15">422 </text>
+<rect x="156.4" y="35" width="280.8" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="46" fill="#e7e5ee">     0.2 →  175.2 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="64" fill="#e7e5ee">  renter-06  </text>
+<text x="117.4" y="64" fill="#facc15">422 </text>
+<rect x="156.4" y="53" width="273.0" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="64" fill="#e7e5ee">     0.2 →  168.9 ms  This room has no free space for those dates. Try other d...</text>
+<text x="31.6" y="82" fill="#4ade80">overlap: all 6 requests were in the server at once from 0.2 to 99.7 ms</text>
+<text x="31.6" y="118" fill="#e7e5ee" font-weight="700">T2 round 2/5: 6 renters, a 4-bed shared room, same dates</text>
+<text x="16.0" y="136" fill="#e7e5ee">  racer      HTTP in the server (0 → 162 ms)          outcome</text>
+<text x="16.0" y="154" fill="#e7e5ee">  renter-01  </text>
+<text x="117.4" y="154" fill="#4ade80">201 </text>
+<rect x="156.4" y="143" width="171.6" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="154" fill="#e7e5ee">     0.0 →   98.9 ms  hold on Bed A (Room 157029)</text>
+<text x="16.0" y="172" fill="#e7e5ee">  renter-02  </text>
+<text x="117.4" y="172" fill="#4ade80">201 </text>
+<rect x="156.4" y="161" width="257.4" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="172" fill="#e7e5ee">     0.3 →  145.8 ms  hold on Bed D (Room 157029)</text>
+<text x="16.0" y="190" fill="#e7e5ee">  renter-03  </text>
+<text x="117.4" y="190" fill="#facc15">422 </text>
+<rect x="156.4" y="179" width="273.0" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="190" fill="#e7e5ee">     0.3 →  153.7 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="208" fill="#e7e5ee">  renter-04  </text>
+<text x="117.4" y="208" fill="#4ade80">201 </text>
+<rect x="156.4" y="197" width="202.8" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="208" fill="#e7e5ee">     0.3 →  113.3 ms  hold on Bed B (Room 157029)</text>
+<text x="16.0" y="226" fill="#e7e5ee">  renter-05  </text>
+<text x="117.4" y="226" fill="#facc15">422 </text>
+<rect x="156.4" y="215" width="280.8" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="226" fill="#e7e5ee">     0.3 →  162.1 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="244" fill="#e7e5ee">  renter-06  </text>
+<text x="117.4" y="244" fill="#4ade80">201 </text>
+<rect x="156.4" y="233" width="226.2" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="244" fill="#e7e5ee">     0.3 →  130.3 ms  hold on Bed C (Room 157029)</text>
+<text x="31.6" y="262" fill="#4ade80">overlap: all 6 requests were in the server at once from 0.3 to 98.9 ms</text>
+<text x="31.6" y="298" fill="#e7e5ee" font-weight="700">T2 round 3/5: 6 renters, a 4-bed shared room, same dates</text>
+<text x="16.0" y="316" fill="#e7e5ee">  racer      HTTP in the server (0 → 143 ms)          outcome</text>
+<text x="16.0" y="334" fill="#e7e5ee">  renter-01  </text>
+<text x="117.4" y="334" fill="#4ade80">201 </text>
+<rect x="156.4" y="323" width="226.2" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="334" fill="#e7e5ee">     0.0 →  111.8 ms  hold on Bed C (Room 547660)</text>
+<text x="16.0" y="352" fill="#e7e5ee">  renter-02  </text>
+<text x="117.4" y="352" fill="#facc15">422 </text>
+<rect x="156.4" y="341" width="280.8" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="352" fill="#e7e5ee">     0.0 →  143.5 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="370" fill="#e7e5ee">  renter-03  </text>
+<text x="117.4" y="370" fill="#4ade80">201 </text>
+<rect x="156.4" y="359" width="163.8" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="370" fill="#e7e5ee">     0.4 →   83.4 ms  hold on Bed A (Room 547660)</text>
+<text x="16.0" y="388" fill="#e7e5ee">  renter-04  </text>
+<text x="117.4" y="388" fill="#4ade80">201 </text>
+<rect x="156.4" y="377" width="257.4" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="388" fill="#e7e5ee">     1.3 →  127.7 ms  hold on Bed D (Room 547660)</text>
+<text x="16.0" y="406" fill="#e7e5ee">  renter-05  </text>
+<text x="117.4" y="406" fill="#facc15">422 </text>
+<rect x="156.4" y="395" width="265.2" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="406" fill="#e7e5ee">     0.4 →  135.0 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="424" fill="#e7e5ee">  renter-06  </text>
+<text x="117.4" y="424" fill="#4ade80">201 </text>
+<rect x="156.4" y="413" width="195.0" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="424" fill="#e7e5ee">     0.4 →   95.7 ms  hold on Bed B (Room 547660)</text>
+<text x="31.6" y="442" fill="#4ade80">overlap: all 6 requests were in the server at once from 1.3 to 83.4 ms</text>
+</g>
+<g class="f f12">
+<text x="16.0" y="46" fill="#e7e5ee">  renter-05  </text>
+<text x="117.4" y="46" fill="#facc15">422 </text>
+<rect x="156.4" y="35" width="280.8" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="46" fill="#e7e5ee">     0.3 →  162.1 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="64" fill="#e7e5ee">  renter-06  </text>
+<text x="117.4" y="64" fill="#4ade80">201 </text>
+<rect x="156.4" y="53" width="226.2" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="64" fill="#e7e5ee">     0.3 →  130.3 ms  hold on Bed C (Room 157029)</text>
+<text x="31.6" y="82" fill="#4ade80">overlap: all 6 requests were in the server at once from 0.3 to 98.9 ms</text>
+<text x="31.6" y="118" fill="#e7e5ee" font-weight="700">T2 round 3/5: 6 renters, a 4-bed shared room, same dates</text>
+<text x="16.0" y="136" fill="#e7e5ee">  racer      HTTP in the server (0 → 143 ms)          outcome</text>
+<text x="16.0" y="154" fill="#e7e5ee">  renter-01  </text>
+<text x="117.4" y="154" fill="#4ade80">201 </text>
+<rect x="156.4" y="143" width="226.2" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="154" fill="#e7e5ee">     0.0 →  111.8 ms  hold on Bed C (Room 547660)</text>
+<text x="16.0" y="172" fill="#e7e5ee">  renter-02  </text>
+<text x="117.4" y="172" fill="#facc15">422 </text>
+<rect x="156.4" y="161" width="280.8" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="172" fill="#e7e5ee">     0.0 →  143.5 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="190" fill="#e7e5ee">  renter-03  </text>
+<text x="117.4" y="190" fill="#4ade80">201 </text>
+<rect x="156.4" y="179" width="163.8" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="190" fill="#e7e5ee">     0.4 →   83.4 ms  hold on Bed A (Room 547660)</text>
+<text x="16.0" y="208" fill="#e7e5ee">  renter-04  </text>
+<text x="117.4" y="208" fill="#4ade80">201 </text>
+<rect x="156.4" y="197" width="257.4" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="208" fill="#e7e5ee">     1.3 →  127.7 ms  hold on Bed D (Room 547660)</text>
+<text x="16.0" y="226" fill="#e7e5ee">  renter-05  </text>
+<text x="117.4" y="226" fill="#facc15">422 </text>
+<rect x="156.4" y="215" width="265.2" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="226" fill="#e7e5ee">     0.4 →  135.0 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="244" fill="#e7e5ee">  renter-06  </text>
+<text x="117.4" y="244" fill="#4ade80">201 </text>
+<rect x="156.4" y="233" width="195.0" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="244" fill="#e7e5ee">     0.4 →   95.7 ms  hold on Bed B (Room 547660)</text>
+<text x="31.6" y="262" fill="#4ade80">overlap: all 6 requests were in the server at once from 1.3 to 83.4 ms</text>
+<text x="31.6" y="298" fill="#e7e5ee" font-weight="700">T2 round 4/5: 6 renters, a 4-bed shared room, same dates</text>
+<text x="16.0" y="316" fill="#e7e5ee">  racer      HTTP in the server (0 → 141 ms)          outcome</text>
+<text x="16.0" y="334" fill="#e7e5ee">  renter-01  </text>
+<text x="117.4" y="334" fill="#facc15">422 </text>
+<rect x="156.4" y="323" width="280.8" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="334" fill="#e7e5ee">     0.0 →  141.0 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="352" fill="#e7e5ee">  renter-02  </text>
+<text x="117.4" y="352" fill="#4ade80">201 </text>
+<rect x="156.4" y="341" width="226.2" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="352" fill="#e7e5ee">     0.0 →  112.0 ms  hold on Bed C (Room 762826)</text>
+<text x="16.0" y="370" fill="#e7e5ee">  renter-03  </text>
+<text x="117.4" y="370" fill="#facc15">422 </text>
+<rect x="156.4" y="359" width="273.0" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="370" fill="#e7e5ee">     0.3 →  133.9 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="388" fill="#e7e5ee">  renter-04  </text>
+<text x="117.4" y="388" fill="#4ade80">201 </text>
+<rect x="156.4" y="377" width="195.0" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="388" fill="#e7e5ee">     0.2 →   96.3 ms  hold on Bed B (Room 762826)</text>
+<text x="16.0" y="406" fill="#e7e5ee">  renter-05  </text>
+<text x="117.4" y="406" fill="#4ade80">201 </text>
+<rect x="156.4" y="395" width="163.8" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="406" fill="#e7e5ee">     0.4 →   80.9 ms  hold on Bed A (Room 762826)</text>
+<text x="16.0" y="424" fill="#e7e5ee">  renter-06  </text>
+<text x="117.4" y="424" fill="#4ade80">201 </text>
+<rect x="156.4" y="413" width="249.6" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="424" fill="#e7e5ee">     1.3 →  125.4 ms  hold on Bed D (Room 762826)</text>
+<text x="31.6" y="442" fill="#4ade80">overlap: all 6 requests were in the server at once from 1.3 to 80.9 ms</text>
+</g>
+<g class="f f13">
+<text x="16.0" y="46" fill="#e7e5ee">  renter-06  </text>
+<text x="117.4" y="46" fill="#4ade80">201 </text>
+<rect x="156.4" y="35" width="249.6" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="46" fill="#e7e5ee">     1.3 →  125.4 ms  hold on Bed D (Room 762826)</text>
+<text x="31.6" y="64" fill="#4ade80">overlap: all 6 requests were in the server at once from 1.3 to 80.9 ms</text>
+<text x="31.6" y="100" fill="#e7e5ee" font-weight="700">T2 round 5/5: 6 renters, a 4-bed shared room, same dates</text>
+<text x="16.0" y="118" fill="#e7e5ee">  racer      HTTP in the server (0 → 147 ms)          outcome</text>
+<text x="16.0" y="136" fill="#e7e5ee">  renter-01  </text>
+<text x="117.4" y="136" fill="#facc15">422 </text>
+<rect x="156.4" y="125" width="273.0" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="136" fill="#e7e5ee">     0.0 →  139.6 ms  This room has no free space for those dates. Try other d...</text>
+<text x="16.0" y="154" fill="#e7e5ee">  renter-02  </text>
+<text x="117.4" y="154" fill="#4ade80">201 </text>
+<rect x="156.4" y="143" width="156.0" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="154" fill="#e7e5ee">     0.0 →   80.8 ms  hold on Bed A (Room 185265)</text>
+<text x="16.0" y="172" fill="#e7e5ee">  renter-03  </text>
+<text x="117.4" y="172" fill="#4ade80">201 </text>
+<rect x="156.4" y="161" width="195.0" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="172" fill="#e7e5ee">     0.3 →   99.3 ms  hold on Bed B (Room 185265)</text>
+<text x="16.0" y="190" fill="#e7e5ee">  renter-04  </text>
+<text x="117.4" y="190" fill="#4ade80">201 </text>
+<rect x="156.4" y="179" width="218.4" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="190" fill="#e7e5ee">     0.3 →  112.2 ms  hold on Bed C (Room 185265)</text>
+<text x="16.0" y="208" fill="#e7e5ee">  renter-05  </text>
+<text x="117.4" y="208" fill="#4ade80">201 </text>
+<rect x="156.4" y="197" width="257.4" height="12" rx="2" fill="#4ade80"/>
+<text x="437.2" y="208" fill="#e7e5ee">     0.1 →  131.9 ms  hold on Bed D (Room 185265)</text>
+<text x="16.0" y="226" fill="#e7e5ee">  renter-06  </text>
+<text x="117.4" y="226" fill="#facc15">422 </text>
+<rect x="156.4" y="215" width="280.8" height="12" rx="2" fill="#facc15"/>
+<text x="437.2" y="226" fill="#e7e5ee">     0.3 →  147.0 ms  This room has no free space for those dates. Try other d...</text>
+<text x="31.6" y="244" fill="#4ade80">overlap: all 6 requests were in the server at once from 0.3 to 80.8 ms</text>
+<rect x="31.6" y="267" width="46.8" height="17" fill="#4ade80"/>
+<text x="31.6" y="280" fill="#3b3846" font-weight="700"> PASS </text>
+<text x="78.4" y="280" fill="#e7e5ee"> Tests\Concurrency\ReservationRaceTest</text>
+<text x="31.6" y="298" fill="#4ade80" font-weight="700">✓</text>
+<text x="39.4" y="298" fill="#9893a8"> it T2: 6 renters race for a 4-bed shared room @ repetition 1 of 5                                                           </text>
+<text x="1022.2" y="298" fill="#9893a8">5.31s</text>
+<text x="31.6" y="316" fill="#4ade80" font-weight="700">✓</text>
+<text x="39.4" y="316" fill="#9893a8"> it T2: 6 renters race for a 4-bed shared room @ repetition 2 of 5                                                           </text>
+<text x="1022.2" y="316" fill="#9893a8">0.65s</text>
+<text x="31.6" y="334" fill="#4ade80" font-weight="700">✓</text>
+<text x="39.4" y="334" fill="#9893a8"> it T2: 6 renters race for a 4-bed shared room @ repetition 3 of 5                                                           </text>
+<text x="1022.2" y="334" fill="#9893a8">0.59s</text>
+<text x="31.6" y="352" fill="#4ade80" font-weight="700">✓</text>
+<text x="39.4" y="352" fill="#9893a8"> it T2: 6 renters race for a 4-bed shared room @ repetition 4 of 5                                                           </text>
+<text x="1022.2" y="352" fill="#9893a8">0.59s</text>
+<text x="31.6" y="370" fill="#4ade80" font-weight="700">✓</text>
+<text x="39.4" y="370" fill="#9893a8"> it T2: 6 renters race for a 4-bed shared room @ repetition 5 of 5                                                           </text>
+<text x="1022.2" y="370" fill="#9893a8">0.59s</text>
+<text x="31.6" y="406" fill="#9893a8">Tests:</text>
+<text x="109.6" y="406" fill="#4ade80" font-weight="700">5 passed</text>
+<text x="172.0" y="406" fill="#9893a8"> (50 assertions)</text>
+<text x="31.6" y="424" fill="#9893a8">Duration:</text>
+<text x="101.8" y="424" fill="#e7e5ee"> 7.81s</text>
+</g>
+</svg>

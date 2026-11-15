@@ -63,6 +63,13 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
                 </Container>
             </header>
             <main id="main" tabIndex={-1}>
+                {flash.error && (
+                    <Container className="pt-3">
+                        <Alert variant="danger" className="mb-0" role="alert">
+                            {flash.error}
+                        </Alert>
+                    </Container>
+                )}
                 {flash.status && (
                     <Container className="pt-3">
                         <Alert variant="success" className="mb-0" role="status">
