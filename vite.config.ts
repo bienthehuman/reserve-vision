@@ -4,7 +4,7 @@ import laravel from 'laravel-vite-plugin';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
     // The dev server runs in the `ssr` container; the browser reaches it on the
     // same port through the compose port mapping.
@@ -37,6 +37,10 @@ export default defineConfig(({ mode }) => {
                 'react-bootstrap-icons',
             ],
         },
+        // Production SSR bundle (`vite build --ssr`) is self-contained, so the
+        // production image needs only the node binary, no node_modules (slice 1.3).
+        // The dev server keeps dependencies external.
+        ssr: command === 'build' ? { noExternal: true } : undefined,
         css: {
             preprocessorOptions: {
                 scss: {

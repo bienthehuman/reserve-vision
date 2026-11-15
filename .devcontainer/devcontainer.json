@@ -1,0 +1,48 @@
+// GitHub Codespaces and VS Code Dev Containers. One command: bin/setup (postCreateCommand).
+// See .devcontainer/compose.devcontainer.yaml for how this differs from the plain dev stack.
+{
+    "name": "ReserveVision",
+    "dockerComposeFile": ["../compose.yaml", "compose.devcontainer.yaml"],
+    "service": "app",
+    "runServices": ["app", "ssr", "worker", "scheduler", "db", "mail"],
+    "workspaceFolder": "/app",
+    "shutdownAction": "stopCompose",
+    "remoteUser": "app",
+    "updateRemoteUserUID": false,
+
+    // Node in the workspace container, for npm, the TypeScript server and Playwright.
+    "features": {
+        "ghcr.io/devcontainers/features/node:1": { "version": "24.22.2", "nodeGypDependencies": false }
+    },
+
+    "postCreateCommand": "bin/setup",
+
+    "forwardPorts": [8000, "mail:8025"],
+    "portsAttributes": {
+        "8000": { "label": "ReserveVision", "onAutoForward": "openBrowser" },
+        "mail:8025": { "label": "Mailpit (mail inbox)", "onAutoForward": "silent" }
+    },
+    "otherPortsAttributes": { "onAutoForward": "ignore" },
+
+    // Measured on the full stack after bin/setup: see the slice 1.3 PR. 4 cores keep
+    // `npm run build` and the MySQL start quick; the stack itself needs about 1.5 GB.
+    "hostRequirements": { "cpus": 4, "memory": "8gb", "storage": "32gb" },
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "bmewburn.vscode-intelephense-client",
+                "laravel.vscode-laravel",
+                "open-southeners.laravel-pint",
+                "m1guelpf.better-pest",
+                "ms-playwright.playwright",
+                "vitest.explorer",
+                "editorconfig.editorconfig",
+                "mikestead.dotenv"
+            ],
+            "settings": {
+                "php.validate.executablePath": "/usr/local/bin/php"
+            }
+        }
+    }
+}

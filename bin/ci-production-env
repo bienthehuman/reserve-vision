@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Writes .env.production for a throwaway production stack (CI, or a local trial
+# run): .env.production.example with random secrets and Caddy on plain HTTP.
+#
+#   bin/ci-production-env [http-port]     default 8280
+#
+# Then:  ./deploy.sh --current   and   bin/smoke-production http://localhost:<http-port>
+# Never use the result for a real deployment (no HTTPS, placeholder SMTP).
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+port="${1:-8280}"
+out=.env.production
+
+if [[ -f "$out" ]] && ! grep -q '^# Throwaway' "$out"; then
+    echo "$out exists and was not written by this script; refusing to overwrite it." >&2
+    exit 1
+fi
+
+secret() { openssl rand -hex 16; }
+
+declare -A values=(
+    [DOMAIN]=":80"
+    [ACME_EMAIL]="ci@example.invalid"
+    [HTTP_PORT]="$port"
+    [HTTPS_PORT]="$((port + 1))"
+    [APP_KEY]="base64:$(openssl rand -base64 32)"
+    [APP_URL]="http://localhost:${port}"
+    [DB_PASSWORD]="$(secret)"
+    [DB_MIGRATOR_PASSWORD]="$(secret)"
+    [DB_ROOT_PASSWORD]="$(secret)"
+    [MINIO_ROOT_USER]="rv-admin"
+    [MINIO_ROOT_PASSWORD]="$(secret)"
+    [AWS_ACCESS_KEY_ID]="rv-app"
+    [AWS_SECRET_ACCESS_KEY]="$(secret)"
+    [AWS_PHOTOS_URL]="http://localhost:${port}/media/photos"
+    # Nothing sends mail yet, and app:doctor checks only that the config is complete.
+    [MAIL_HOST]="smtp.example.invalid"
+    [MAIL_FROM_ADDRESS]="hello@example.invalid"
+)
+
+{
+    echo "# Throwaway production env from bin/ci-production-env. Not for real deployments."
+    while IFS= read -r line; do
+        key="${line%%=*}"
+        if [[ "$line" =~ ^[A-Z_]+= && -v "values[$key]" ]]; then
+            printf '%s=%s\n' "$key" "${values[$key]}"
+        else
+            printf '%s\n' "$line"
+        fi
+    done < .env.production.example
+} > "$out"
+chmod 600 "$out"
+
+echo "Wrote $out (Caddy on http://localhost:${port})"

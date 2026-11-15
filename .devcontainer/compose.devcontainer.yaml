@@ -1,0 +1,36 @@
+# Dev container / Codespaces override for compose.yaml (.devcontainer/devcontainer.json).
+#
+# The workspace is the `app` container. Differences from the plain dev stack:
+# - Built assets instead of the Vite dev server: the browser reaches the app only
+#   through the forwarded app port, and a Vite origin on another forwarded port
+#   would need public ports and CORS. bin/setup runs `npm run build`; run it again
+#   after frontend changes (the ssr service reloads the SSR bundle by itself).
+# - The ssr service runs the production SSR bundle, as in CI and production.
+# - No host ports: Codespaces forwards ports itself, and a local run must not
+#   clash with a dev stack that is already running.
+name: reservevision-devcontainer
+
+services:
+  app:
+    environment:
+      RV_DEVCONTAINER: "1"
+      INERTIA_SSR_HOT_URL: ""
+      INERTIA_SSR_URL: http://ssr:13714
+    ports: !reset []
+
+  ssr:
+    # Waits for bin/setup's first build, then serves it; --watch-path restarts on rebuilds.
+    command: ["sh", "-c", "until [ -f bootstrap/ssr/app.js ]; do sleep 2; done; exec node --watch-path=bootstrap/ssr bootstrap/ssr/app.js"]
+    init: true
+    ports: !reset []
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:13714/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+
+  db:
+    ports: !reset []
+
+  mail:
+    ports: !reset []

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Smoke test of a running production stack over HTTP (ADR 0007). Black box: only
+# curl against Caddy. Used by .github/workflows/production.yml.
+#
+#   bin/smoke-production http://localhost:8280
+set -euo pipefail
+
+base="${1:?usage: bin/smoke-production <base-url>}"
+base="${base%/}"
+failures=0
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+pass() { printf '  \033[32mpass\033[0m  %s\n' "$*"; }
+fail() { printf '  \033[31mFAIL\033[0m  %s\n' "$*"; failures=$((failures + 1)); }
+
+# fetch <path>: body to $tmp/body, headers to $tmp/headers, prints the status code.
+fetch() {
+    curl -sS -o "$tmp/body" -D "$tmp/headers" -w '%{http_code}' "${base}$1"
+}
+
+expect_status() {
+    local path="$1" want="$2" got
+    got="$(fetch "$path")"
+    if [[ "$got" == "$want" ]]; then pass "GET $path is $want"; else fail "GET $path is $got, expected $want"; fi
+}
+
+expect_body() {
+    if grep -qF -- "$2" "$tmp/body"; then pass "$1"; else fail "$1 (missing: $2)"; fi
+}
+
+expect_header() {
+    local name="$1" want="$2" line
+    line="$(grep -i "^${name}:" "$tmp/headers" | tail -n1 | tr -d '\r' || true)"
+    if [[ -n "$line" && "$line" == *"$want"* ]]; then
+        pass "$name: ${line#*: }"
+    else
+        fail "header $name should contain '$want' (got: ${line:-nothing})"
+    fi
+}
+
+echo "Smoke test against $base"
+
+echo "Home page (server-rendered)"
+expect_status / 200
+expect_body "the pitch is in the raw HTML" "Reserve apartments and boarding-house beds online, with no double bookings."
+expect_body "the page was rendered by the SSR server" 'data-server-rendered="true"'
+expect_body "built assets, not the Vite dev server" '/build/assets/app-'
+
+echo "Security headers on /"
+expect_header Strict-Transport-Security "max-age=31536000"
+expect_header Content-Security-Policy "default-src 'self'"
+expect_header Content-Security-Policy "upgrade-insecure-requests"
+expect_header X-Frame-Options DENY
+expect_header X-Content-Type-Options nosniff
+expect_header Referrer-Policy strict-origin-when-cross-origin
+expect_header Permissions-Policy "camera=()"
+if grep -qi '^Server:' "$tmp/headers"; then fail "a Server header is sent"; else pass "no Server header"; fi
+
+echo "Health and dev-only pages"
+expect_status /up 200
+expect_status /styleguide 404
+
+# TODO(slice 3.1): smoke a public listing page (200, listing title in the raw HTML).
+# TODO(slice 5.1): smoke the login page (200, form in the raw HTML) and a login as a demo user.
+
+if [[ "$failures" -gt 0 ]]; then
+    echo "$failures smoke check(s) failed." >&2
+    exit 1
+fi
+echo "All smoke checks passed."

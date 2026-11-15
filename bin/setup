@@ -1,15 +1,72 @@
 #!/usr/bin/env bash
 # One command from a clean clone to a running dev stack.
-# Non-interactive and idempotent: safe to run again at any time (Codespaces reuses it in 1.3).
+# Non-interactive and idempotent: safe to run again at any time.
 #
 #   bin/setup            build, install, migrate, seed, start
 #
-# Needs only Docker with Compose v2 on the host.
+# Two modes:
+# - On the host (default): needs only Docker with Compose v2; drives `docker compose`.
+# - Inside the dev container (RV_DEVCONTAINER=1, set by .devcontainer/compose.devcontainer.yaml):
+#   the devcontainer has already started the stack, so this runs the same steps
+#   directly in the workspace (`app`) container, and builds the assets instead
+#   of relying on the Vite dev server.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 step() { printf '\n\033[1;35m==> %s\033[0m\n' "$*"; }
+
+# Waits until the page at $1 is server-rendered (an <h1> in the raw HTML), not just a 200:
+# right after the ssr service starts, Inertia falls back to client rendering.
+wait_for_ssr() {
+    local url="$1"
+    step "Waiting for the home page to be server-rendered"
+    for _ in $(seq 1 60); do
+        if curl -fsS "$url" 2>/dev/null | grep -q '<h1'; then
+            return 0
+        fi
+        sleep 2
+    done
+    echo "The home page was not server-rendered at ${url} (check the ssr service logs)" >&2
+    return 1
+}
+
+if [[ "${RV_DEVCONTAINER:-}" == 1 ]]; then
+    step "Environment file"
+    [[ -f .env ]] || cp .env.example .env
+    if [[ "${CODESPACES:-}" == true ]]; then
+        # Absolute URLs (redirects, mail links) must use the forwarded address.
+        app_url="https://${CODESPACE_NAME}-8000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+    else
+        app_url="http://localhost:8000"
+    fi
+    sed -i "s|^APP_URL=.*|APP_URL=${app_url}|" .env
+    echo "APP_URL=${app_url}"
+
+    step "Installing PHP dependencies"
+    composer install --no-interaction --prefer-dist --no-progress
+
+    step "Installing JavaScript dependencies"
+    npm ci --no-audit --no-fund
+
+    step "Building the client and SSR bundles"
+    # A stale public/hot would point the app at a Vite dev server that isn't running here.
+    rm -f public/hot
+    npm run build
+
+    if ! grep -qE '^APP_KEY=.+' .env; then
+        step "Generating the application key"
+        php artisan key:generate --force --no-interaction
+    fi
+
+    step "Migrating (as migrator) and seeding (as app)"
+    php artisan migrate --database=mysql_migrator --force --no-interaction
+    php artisan db:seed --force --no-interaction
+
+    wait_for_ssr "http://localhost:8000/"
+    echo "ReserveVision is running: open the forwarded port 8000 (Ports tab) or ${app_url}"
+    exit 0
+fi
 
 compose() { docker compose "$@"; }
 # One-off commands in the app image, without starting the stack.
@@ -51,17 +108,9 @@ compose up -d --wait
 app_port="$(grep -E '^APP_PORT=' .env | cut -d= -f2)"
 app_port="${app_port:-8180}"
 
-step "Waiting for the home page to be server-rendered"
-# Ready means SSR works, not just HTTP 200: right after the ssr service starts,
-# Inertia falls back to client rendering until Vite's SSR module graph is warm.
-for _ in $(seq 1 60); do
-    if curl -fsS "http://localhost:${app_port}/" 2>/dev/null | grep -q '<h1'; then
-        echo "ReserveVision is running at http://localhost:${app_port}"
-        exit 0
-    fi
-    sleep 2
-done
-
-echo "The home page was not server-rendered at http://localhost:${app_port}/ (check: docker compose logs ssr)" >&2
+if wait_for_ssr "http://localhost:${app_port}/"; then
+    echo "ReserveVision is running at http://localhost:${app_port}"
+    exit 0
+fi
 compose ps >&2
 exit 1

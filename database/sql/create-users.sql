@@ -2,7 +2,7 @@
 --
 -- Plain SQL for the mysql or mariadb client, run as an administrative user.
 -- No Docker assumptions: dev (docker/mysql/initdb.d), CI (1.2) and production
--- (1.3) all run this same file. Run it once per schema, after setting:
+-- (1.3, compose.prod.yaml) all run this same file. Run it once per schema, after setting:
 --
 --   SET @db_name           = 'reservevision',
 --       @app_password      = '…',
