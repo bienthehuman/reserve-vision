@@ -159,3 +159,19 @@ async function verificationLink(request: APIRequestContext, email: string): Prom
 
     return link as string;
 }
+
+test('the show-password button reveals and hides the password', async ({ page }) => {
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
+
+    const password = page.getByLabel('Password', { exact: true });
+    await password.fill('secret words');
+    const toggle = page.getByRole('button', { name: 'Show password' });
+
+    await toggle.click();
+    await expect(password).toHaveAttribute('type', 'text');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+
+    await toggle.click();
+    await expect(password).toHaveAttribute('type', 'password');
+});

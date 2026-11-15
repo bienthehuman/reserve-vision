@@ -57,6 +57,7 @@ export default function Register() {
             <Head title="Sign up" />
             <AuthCard
                 title="Sign up"
+                wide
                 intro="One account to reserve rooms and beds, or to list your property."
                 footer={
                     <>
@@ -181,53 +182,64 @@ export default function Register() {
                         />
                     )}
 
-                    <TextField
-                        name="email"
-                        type="email"
-                        label="Email"
-                        autoComplete="email"
-                        inputMode="email"
-                        help="We'll send a link to confirm it."
-                        value={form.data.email}
-                        onChange={(value) => form.setData('email', value)}
-                        error={form.errors.email}
-                        required
-                    />
-                    <TextField
-                        name="phone"
-                        type="tel"
-                        label="Mobile number"
-                        autoComplete="tel-national"
-                        inputMode="tel"
-                        placeholder="e.g. 0917 123 4567"
-                        help={isLandlord ? 'Renters with a reservation can call or text you on it.' : 'Landlords you reserve with can call or text you on it.'}
-                        value={form.data.phone}
-                        onChange={(value) => form.setData('phone', value)}
-                        error={form.errors.phone}
-                        required
-                    />
-                    <TextField
-                        name="password"
-                        type="password"
-                        label="Password"
-                        autoComplete="new-password"
-                        help="At least 8 characters."
-                        value={form.data.password}
-                        onChange={(value) => form.setData('password', value)}
-                        error={form.errors.password}
-                        required
-                    />
-                    <TextField
-                        name="password_confirmation"
-                        type="password"
-                        label="Type the password again"
-                        autoComplete="new-password"
-                        className="mb-4"
-                        value={form.data.password_confirmation}
-                        onChange={(value) => form.setData('password_confirmation', value)}
-                        error={form.errors.password_confirmation}
-                        required
-                    />
+                    <Row className="g-0 gx-sm-3">
+                        <Col xs={12} sm={6}>
+                        <TextField
+                            name="email"
+                            type="email"
+                            label="Email"
+                            autoComplete="email"
+                            inputMode="email"
+                            help="We'll send a link to confirm it."
+                            value={form.data.email}
+                            onChange={(value) => form.setData('email', value)}
+                            error={form.errors.email}
+                            required
+                        />
+                        </Col>
+                        <Col xs={12} sm={6}>
+                        <TextField
+                            name="phone"
+                            type="tel"
+                            label="Mobile number"
+                            autoComplete="tel-national"
+                            inputMode="tel"
+                            placeholder="e.g. 0917 123 4567"
+                            help={isLandlord ? 'Renters with a reservation can call or text you on it.' : 'Landlords you reserve with can call or text you on it.'}
+                            value={form.data.phone}
+                            onChange={(value) => form.setData('phone', value)}
+                            error={form.errors.phone}
+                            required
+                        />
+                        </Col>
+                    </Row>
+                    <Row className="g-0 gx-sm-3">
+                        <Col xs={12} sm={6}>
+                        <TextField
+                            name="password"
+                            type="password"
+                            label="Password"
+                            autoComplete="new-password"
+                            help="At least 8 characters."
+                            value={form.data.password}
+                            onChange={(value) => form.setData('password', value)}
+                            error={form.errors.password}
+                            required
+                        />
+                        </Col>
+                        <Col xs={12} sm={6}>
+                        <TextField
+                            name="password_confirmation"
+                            type="password"
+                            label="Type the password again"
+                            autoComplete="new-password"
+                            value={form.data.password_confirmation}
+                            onChange={(value) => form.setData('password_confirmation', value)}
+                            error={form.errors.password_confirmation}
+                            required
+                        />
+                        </Col>
+                    </Row>
                     <SubmitButton processing={form.processing} pendingLabel="Creating your account…">
                         Create my account
                     </SubmitButton>
