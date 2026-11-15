@@ -33,13 +33,13 @@ final class SpacePolicy
         return $this->landlordOn($user, $space->landlord_account_id, self::OWNERS);
     }
 
-    /** Archive or unarchive a room or space. */
+    /** Archive or unarchive a property, room or space. */
     public function archive(User $user, Space $space): Response
     {
         return $this->landlordOn($user, $space->landlord_account_id, self::OWNERS);
     }
 
-    /** Archive or unarchive a room or space. */
+    /** Archive or unarchive a property, room or space. */
     public function unarchive(User $user, Space $space): Response
     {
         return $this->landlordOn($user, $space->landlord_account_id, self::OWNERS);

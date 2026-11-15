@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** The account's properties (read-only until 4.1). The isolation scope limits the query. */
+/** The account's properties. The isolation scope limits the query; owners also get the "Add a property" button. */
 final class ListProperties
 {
     public function __invoke(): Response
@@ -23,6 +23,7 @@ final class ListProperties
             ->get();
 
         return Inertia::render('Landlord/Properties/Index', [
+            'can_create' => Gate::allows('create', Property::class),
             'properties' => $properties->map(fn (Property $property): array => [
                 'id' => $property->id,
                 'name' => $property->name,

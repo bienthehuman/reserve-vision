@@ -49,4 +49,16 @@ final class PropertyPolicy
     {
         return $this->landlordOn($user, $property->landlord_account_id, self::OWNERS);
     }
+
+    /** Archive or unarchive a property, room or space. */
+    public function archive(User $user, Property $property): Response
+    {
+        return $this->landlordOn($user, $property->landlord_account_id, self::OWNERS);
+    }
+
+    /** Archive or unarchive a property, room or space. */
+    public function unarchive(User $user, Property $property): Response
+    {
+        return $this->landlordOn($user, $property->landlord_account_id, self::OWNERS);
+    }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatPeso } from './money';
+import { formatPeso, pesosText } from './money';
 
 describe('formatPeso', () => {
     it('formats a fee with two decimals', () => {
@@ -26,5 +26,14 @@ describe('formatPeso', () => {
     it('rejects non-integer centavos', () => {
         expect(() => formatPeso(1500.5)).toThrow(RangeError);
         expect(() => formatPeso(Number.NaN)).toThrow(RangeError);
+    });
+});
+
+describe('pesosText', () => {
+    it('writes whole pesos without decimals and keeps centavos', () => {
+        expect(pesosText(650000)).toBe('6500');
+        expect(pesosText(650050)).toBe('6500.50');
+        expect(pesosText(0)).toBe('0');
+        expect(pesosText(5)).toBe('0.05');
     });
 });

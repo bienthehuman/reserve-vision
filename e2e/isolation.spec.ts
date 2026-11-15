@@ -99,7 +99,7 @@ test('Phase 3 demo: the owner sees the account\'s reservations, with the last-be
     await openProperty(page);
     await expect(page.getByRole('heading', { level: 1, name: 'Santos Bedspace House' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 3, name: /Last Bed Room/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save rate' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Edit room Last Bed Room' })).toBeVisible();
     await expectCleanPage(owner);
 
     await page.goto('/landlord/members');
@@ -137,8 +137,8 @@ test('Phase 3 demo: the caretaker sees the same reservations, but cannot change 
 
     await openProperty(page);
     await expect(page.getByRole('heading', { level: 3, name: /Last Bed Room/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save rate' })).toHaveCount(0);
-    await expect(page.getByLabel('Monthly rate (₱)')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /^Edit / })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^(Archive|Rename|Add a bed)/ })).toHaveCount(0);
     await expectCleanPage(caretaker);
 
     // Absent from the page is not the same as refused by the server: ask the server directly, as the page would.
@@ -154,7 +154,7 @@ test('Phase 3 demo: the caretaker sees the same reservations, but cannot change 
             ).status;
 
         return {
-            rate: await send('PATCH', '/landlord/rooms/1/rate', { monthly_rate: '1' }),
+            rate: await send('PUT', '/landlord/rooms/1', { name: 'x', room_type: 'shared', monthly_rate: '1', reservation_fee: '0', deposit_months: 1, advance_months: 1 }),
             invite: await send('POST', '/landlord/invitations', { email: 'nobody@example.com' }),
         };
     });

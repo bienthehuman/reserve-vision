@@ -6,7 +6,7 @@ use App\Enums\LandlordRole;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia;
 
-it('shows a verified owner the placeholder dashboard', function (): void {
+it('shows a verified owner the dashboard', function (): void {
     $owner = landlordUser();
     $account = $owner->landlordMember()->sole()->landlordAccount()->sole();
 
@@ -19,7 +19,7 @@ it('shows a verified owner the placeholder dashboard', function (): void {
         ->where('role', 'owner'));
 
     expect($response->getContent())
-        ->toContain('Dashboard arrives in phase 4')
+        ->toContain('Proofs to review')->toContain('Occupancy today')
         ->not->toContain('awaiting verification');
 });
 

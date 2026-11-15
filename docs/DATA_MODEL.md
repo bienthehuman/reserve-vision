@@ -27,7 +27,7 @@ The source of truth for the schema. Migrations must match it.
 
 | Table | Columns | Constraints / notes |
 | --- | --- | --- |
-| `properties` | id, landlord_account_id, kind, name, slug, city, city_slug\*, barangay, address, lat, lng, gender_policy, house_rules, is_published, archived_at\*, timestamps | `kind IN ('apartment','boarding_house')`, `gender_policy IN ('any','male_only','female_only')`. Unique `(city_slug, slug)` for `/listings/{city}/{slug}`. Unique `(id, landlord_account_id)` as the composite FK target. `lat`/`lng` are `DECIMAL(9,6)`, nullable, with range CHECKs (±90, ±180). Index `(landlord_account_id, is_published)` |
+| `properties` | id, landlord_account_id, kind, name, slug, city, city_slug\*, barangay, address, lat, lng, gender_policy, house_rules, payment_instructions\*, is_published, first_published_at\*, archived_at\*, timestamps | `kind IN ('apartment','boarding_house')`, `gender_policy IN ('any','male_only','female_only')`. Unique `(city_slug, slug)` for `/listings/{city}/{slug}`. Unique `(id, landlord_account_id)` as the composite FK target. `lat`/`lng` are `DECIMAL(9,6)`, nullable, with range CHECKs (±90, ±180). Index `(landlord_account_id, is_published)`. `payment_instructions` (text, null while a draft) is where the renter sends the reservation fee, e.g. "GCash 0917 123 4567 (J. Santos) or BPI 1234-5678-90"; the hold page and email show it (ACCESS flow B), and publishing requires it (4.3). `first_published_at` is set the first time the property is published and never cleared (4.3 sets it): from then on the public URL `/listings/{city_slug}/{slug}` exists, so **`slug` and `city` are locked** (`UpdateProperty`). `landlord:verify --revoke` and archiving unpublish but don't clear it |
 | `amenities` | id, name, slug | Seeded catalogue |
 | `property_amenity` | property_id, amenity_id | Composite PK |
 | `property_photos` | id, property_id, landlord_account_id\*, path, sort, status\*, timestamps | `status IN ('processing','ready','failed')`. Set by the resize job. Public disk |
@@ -49,8 +49,8 @@ Each write action lists how a mistake is undone, so no flow is a dead end.
 
 | Write action | Who | Correction path |
 | --- | --- | --- |
-| Create or edit property, room, space | owner | Edit again; archive instead of delete. Rates already snapshotted on reservations don't change |
-| Archive room or space | owner | Unarchive. Archiving is blocked while a blocking reservation exists on it |
+| Create or edit property, room, space | owner | Edit again; archive instead of delete. Rates already snapshotted on reservations don't change. A room's type can change only while no reservation has ever pointed at its spaces; a published property's slug and city can't change |
+| Archive property, room or space | owner | Unarchive (a property comes back as a draft). Archiving is blocked while a blocking reservation exists on it, now or in the future, and the message names the reservations to resolve. Archiving a property also unpublishes it. The one space of a private room can't be archived alone: archive the room |
 | Publish property | owner | Unpublish. Existing reservations are unaffected |
 | Upload photo | owner | Delete photo, reorder |
 | Invite caretaker | owner | Revoke the invite; remove the member |
@@ -67,6 +67,7 @@ Each write action lists how a mistake is undone, so no flow is a dead end.
 | `move_in < move_out`, non-negative money, valid statuses | `CHECK` constraints (MySQL ≥ 8.0.16, MariaDB ≥ 10.2), all named (`reservations_move_in_before_move_out`, `<table>_<column>_valid` for enums). A test compares each enum CHECK with its PHP enum |
 | Audit log can't be edited or deleted | Triggers on `audit_logs` reject `UPDATE` and `DELETE` (`SQLSTATE 45000`). `app` has no `TRIGGER` or `DROP` privilege, so it can't remove them or `TRUNCATE`. Needs `log_bin_trust_function_creators=1` on the server; see [ADR 0008](adr/0008-least-privilege-database-users.md) |
 | The app can't change the schema | Separate `migrator` and `app` DB users; see [ADR 0008](adr/0008-least-privilege-database-users.md) |
+| A hold can't land on a space that is being archived | `ArchiveSpace`, `ArchiveRoom` and `ArchiveProperty` take the room row's lock first (ReserveSpace's lock), then check with locking reads. Changing a room's fee or type and adding, renaming or unarchiving a space take it too. Proven by `tests/Feature/Landlord/ArchiveLockingTest.php` and the archive race in `tests/Concurrency` |
 | No two blocking reservations overlap on a space | **Not expressible** in MySQL or MariaDB. Enforced by the room lock in `ReserveSpace`; see [ADR 0001](adr/0001-room-lock-vs-exclusion-constraint.md) and tests 1–4 |
 
 ## Entity relationships

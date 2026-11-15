@@ -26,3 +26,11 @@ export function formatPeso(centavos: number, style: PesoStyle = 'fee'): string {
 
     return formatter.format(centavos / 100);
 }
+
+/** Centavos as the text of a pesos field: 650000 → "6500", 650050 → "6500.50". */
+export function pesosText(centavos: number): string {
+    const pesos = Math.floor(centavos / 100);
+    const rest = centavos % 100;
+
+    return rest === 0 ? String(pesos) : `${pesos}.${String(rest).padStart(2, '0')}`;
+}

@@ -65,7 +65,7 @@ The seeder self-checks are in `tests/Feature/Seeding/DemoSeederTest.php`; each t
 | Pint | `docker compose exec app composer lint` (`make lint`) | `composer format` fixes. Laravel preset + `declare_strict_types` |
 | Larastan | `docker compose exec app composer analyse` (`make analyse`) | Level max, no baseline. Covers `app`, `bootstrap/app.php`, `config`, `database`, `routes` |
 | Pest | `docker compose exec app composer test` (`make test`); in parallel like CI: `docker compose exec app composer test -- --parallel --processes=4` | Runs as `app` on `reservevision_test`; in parallel, worker N uses `reservevision_test_N` (1–4, created by the init script). `tests/TestCase.php` runs `migrate:fresh` once per process as `migrator` (refuses any schema not ending in `_test` or `_test_N`), then each Feature test runs in a `DatabaseTransactions` transaction. **Never use `RefreshDatabase`.** Feature tests that render pages need SSR: in dev that's the running `ssr` service; `INERTIA_SSR_THROW_ON_ERROR=true` makes a missing SSR server fail loudly |
-| Concurrency | `docker compose exec app composer test:concurrency` (`-- --filter=T2` for one scenario) | T1, T2, T8b over real parallel HTTP; about 15 s. Starts its own server: see [Concurrency suite](#concurrency-suite-slice-25). Never with `--parallel` |
+| Concurrency | `docker compose exec app composer test:concurrency` (`-- --filter=T2` for one scenario) | T1, T2, T8b and (4.1) archive-versus-reserve over real parallel HTTP; about 20 s. Starts its own server: see [Concurrency suite](#concurrency-suite-slice-25). Never with `--parallel` |
 | Vitest | `docker compose exec ssr npm run test` (`make vitest`) | jsdom; `resources/js/**/*.test.{ts,tsx}` |
 | TypeScript | `docker compose exec ssr npm run types` (`make types`) | TS 7 (`tsc --noEmit`) |
 | Playwright + axe | `npm run e2e` on the host (`make e2e`) | Needs the stack running and `npx playwright install chromium` once. `E2E_BASE_URL` (default `http://localhost:8180`) points it at another stack; `E2E_SKIP_DEV_PAGES=1` skips `/styleguide` against production |
@@ -213,15 +213,41 @@ Tests: `tests/Feature/Isolation/` (scope per model, fail closed, joins, relation
 
 | Piece | Where |
 | --- | --- |
-| Routes | `routes/web.php`, group `landlord.`: `reservations.index/show`, `properties.index/show`, `rooms.rate.update`, `members.index`, `invitations.store`. Invokable controllers in `app/Http/Controllers/Landlord` (`ListReservations`, `ViewReservation`, `ListProperties`, `ViewProperty`, `UpdateRoomRate`, `ListMembers`, `StoreInvitation`); record parameters are implicitly bound, so the scope makes another account's id a 404 |
-| Actions | `ChangeRoomRate` (centavos in `1…4294967295`, locks the room, audit `room.rate_changed`, none if unchanged), `CreateInvitation` (locks the account row, returns `App\Data\NewInvitation` with the one-time plain token, audit `invitation.created`). Exceptions: `InvalidRate`, `CannotInvite` |
-| Requests | `ChangeRoomRateRequest` (pesos string → centavos without floats), `StoreInvitationRequest`; both authorize in `authorize()`, which runs before validation |
+| Routes | `routes/web.php`, group `landlord.`: `reservations.index/show`, `properties.index/show`, `members.index`, `invitations.store`. Invokable controllers in `app/Http/Controllers/Landlord` (`ListReservations`, `ViewReservation`, `ListProperties`, `ViewProperty`, `UpdateRoomRate`, `ListMembers`, `StoreInvitation`); record parameters are implicitly bound, so the scope makes another account's id a 404 |
+| Actions | `CreateInvitation` (locks the account row, returns `App\Data\NewInvitation` with the one-time plain token, audit `invitation.created`). Exceptions: `CannotInvite` |
+| Requests | `StoreInvitationRequest` (3.2's `ChangeRoomRate` and its request became `UpdateRoom` in 4.1); it authorizes in `authorize()`, which runs before validation |
 | Pages | `resources/js/Pages/Landlord/{Reservations,Properties,Members}`, `Layouts/LandlordLayout.tsx` (menu from the shared `auth.user.landlord_role`), `Components/PropertyState.tsx`. Tables use `.stack-table` (`_components.scss`): one `<table>` that becomes stacked cards below `md`, each `<td data-label="…">` |
 | Policies | New `viewAny` on `PropertyPolicy` and `LandlordInvitationPolicy` (the members page), mapped in `PermissionMatrixTest` |
 
 **T6** ([tests/Feature/Isolation/T6CrossAccessTest.php](tests/Feature/Isolation/T6CrossAccessTest.php)) walks `Route::getRoutes()`, takes every route behind the `landlord` middleware and every one behind `renter`, and for each one with a record parameter calls it with another account's (or renter's) record: 404, none of B's identifying text in the response, every table byte-for-byte unchanged (audit log included). A positive control calls the same route on the actor's own record, so a typo can't pass as a 404. It runs as owner A, caretaker A (404, not 403) and renter A, and prints the routes covered. **To extend it** (every slice that adds a record route): add the parameter name to `T6_PARAMETERS` (a `foreign` and an `own` record per context, built in `t6World()`), a valid body to `T6_BODIES` for any non-GET route, and any new secret text to `t6Secrets()`. An unmapped parameter or body **fails the test** with that instruction (`T6: fails for a route parameter nobody mapped…` proves it). A test also pins today's record-route list, so adding one makes you update it on purpose. **T7** is [T7RoleLimitsTest](tests/Feature/Isolation/T7RoleLimitsTest.php). Helpers in `tests/Pest.php`: `landlordUserOf($account, $role)`, `accountIdOf($user)`, `auditRows($action)`.
 
 Phase 3 demo: [e2e/isolation.spec.ts](e2e/isolation.spec.ts) (read-only, both viewports, runs against the production stack too); `bin/smoke-production` checks owner2 gets 404 on `SMOKE_OWNER_RESERVATION_ID`, which the Production workflow reads from the seeded data.
+
+### Landlord editing (slice 4.1)
+
+[docs/ACCESS.md](docs/ACCESS.md#the-landlord-pages-slice-32) lists the pages and rows; [docs/DATA_MODEL.md](docs/DATA_MODEL.md) the new columns (`properties.payment_instructions`, `properties.first_published_at`).
+
+| Piece | Where |
+| --- | --- |
+| Dashboard | `DashboardController`: four figures built from `Reservation` scopes `holdExpiringWithin`, `movingInWithin`, `proofWaitingOver`, `underWayToday`, each linking to `ListReservations` (`?status=` / `?show=`, thresholds are constants there). Indexes were enough (EXPLAIN in the PR) |
+| Actions | `CreateProperty`, `UpdateProperty`, `CreateRoom`, `UpdateRoom` (replaces `ChangeRoomRate`), `AddSpace`, `RenameSpace`, `ArchiveSpace/Room/Property`, `UnarchiveSpace/Room/Property`. Value objects `App\Data\PropertyDetails`, `RoomDetails`; trait `Actions\Concerns\ManagesSpaces` (bed labels, 2–12); `Support\BlockingReservations` (locking reads for the archive guard), `Support\Pesos`, `Support\Places` |
+| Locks | Every action that archives, changes a fee or type, or adds, renames or unarchives a space takes the **room row `FOR UPDATE` first**, then reads with locking reads (`ArchiveLockingTest` pins the first statement). `ArchiveProperty` locks all its rooms by id, then the property |
+| Routes | `routes/web.php`, 16 new routes under `landlord.`; controllers named `New…`/`Edit…`/`Store…`/`Save…` and `Archive…Controller`/`Unarchive…Controller` (the `Controller` suffix only where the name would clash with the action) |
+| Forms | `Pages/Landlord/Properties/Form.tsx`, `Rooms/Form.tsx`; `Components/Form/{SelectField,TextAreaField,CheckboxGroup}`, `Components/ActionButton`. Props from `Support\PropertyFormProps` / `RoomFormProps` |
+
+**T6/T7** are extended: T6's world has a shared `roomA` and a Cebu `propertyA`; `T6_OWN_REFUSED` lists the archive routes whose own-record control is the business rule's `422` (the world's records carry a blocking reservation). T7 walks every non-GET `landlord` route and fails for one it doesn't list. **Concurrency:** `tests/Concurrency/ArchiveRaceTest.php`, with `Exchange::after()` to sample both orders.
+
+### Quirks hit in 4.1
+
+- **Validation `between` on a `string` field compares the length.** `lat`/`lng` are `numeric` (not `string`) so `between:-90,90` is a value check.
+- **A slug can't be checked for uniqueness through the scope**, which hides other accounts' properties and `withoutGlobalScope` is forbidden: `CreateProperty` lets the database's unique key decide and retries `-2`, `-3`… on `UniqueConstraintViolationException` (inside a savepoint).
+- **Slug and city lock together** once `first_published_at` is set: the city is in the public URL too.
+- **Axe `label-content-name-mismatch`**: a button's `aria-label` must contain its visible text ("Archive room Room 1" for "Archive room"), or the page fails.
+- **The CSP forbids `style=` attributes** (`style-src-attr`): use a class (`.pre-line`), never `style={{…}}`.
+- **`Button as={Link}` doesn't type-check** with Inertia's `Link`: use `<Link className="btn btn-primary">`.
+- **`tinker /path/script.php` hangs** in the container; run a standalone script that boots the kernel.
+- **Don't run a negative-control `sed` on an untracked file**: `git checkout` can't restore it.
+- **Pest tests that call `ownerWithRoom()` twice** need a different `name:` (the slug is unique per city).
 
 ### Quirks hit in 3.2
 

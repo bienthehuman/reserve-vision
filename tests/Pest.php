@@ -16,6 +16,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Concurrency\ConcurrencyTestCase;
 use Tests\TestCase;
 
@@ -152,3 +153,55 @@ function registrationForm(array $overrides = []): array
 | Not part of `composer test`: phpunit.xml doesn't list the directory.
 */
 pest()->extend(ConcurrencyTestCase::class)->in('Concurrency');
+
+/*
+| Landlord editing (tests/Feature/Landlord, slice 4.1).
+*/
+
+/**
+ * An owner of a verified account with a published property and a room in it.
+ * Create fixtures before actingAs() (CLAUDE.md, quirks in 3.1).
+ *
+ * @return array{0: User, 1: Property, 2: Room}
+ */
+function ownerWithRoom(int $beds = 0, string $name = 'Alpha Home'): array
+{
+    $owner = landlordUser();
+    $property = Property::factory()->published()->create([
+        'landlord_account_id' => accountIdOf($owner), 'name' => $name, 'city' => 'Manila', 'city_slug' => 'manila', 'slug' => Str::slug($name),
+    ]);
+    $room = ($beds > 0 ? Room::factory()->shared(beds: $beds) : Room::factory())->for($property)->create(['name' => 'Room 1', 'monthly_rate' => 650000, 'reservation_fee' => 150000]);
+
+    return [$owner, $property, $room];
+}
+
+/**
+ * A valid property form body; override any field.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function propertyForm(array $overrides = []): array
+{
+    return [
+        'kind' => 'boarding_house', 'name' => 'Santos Bedspace House', 'city' => 'quezon-city', 'barangay' => 'Loyola Heights',
+        'address' => '12 Mabini Street', 'gender_policy' => 'any', 'amenities' => [], 'house_rules' => 'Quiet hours 10 PM.',
+        'payment_instructions' => 'GCash 0917 123 4567 (J. Santos).',
+        ...$overrides,
+    ];
+}
+
+/**
+ * A valid room form body; override any field.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function roomForm(array $overrides = []): array
+{
+    return [
+        'name' => 'Room 2', 'room_type' => 'private', 'monthly_rate' => '6,500', 'reservation_fee' => '1500.50',
+        'deposit_months' => 1, 'advance_months' => 2,
+        ...$overrides,
+    ];
+}

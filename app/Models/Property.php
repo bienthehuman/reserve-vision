@@ -32,14 +32,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $lng
  * @property GenderPolicy $gender_policy
  * @property string|null $house_rules
+ * @property string|null $payment_instructions
  * @property bool $is_published
+ * @property CarbonImmutable|null $first_published_at
  * @property CarbonImmutable|null $archived_at
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
  */
 #[Fillable([
     'landlord_account_id', 'kind', 'name', 'slug', 'city', 'city_slug', 'barangay', 'address',
-    'lat', 'lng', 'gender_policy', 'house_rules', 'is_published', 'archived_at',
+    'lat', 'lng', 'gender_policy', 'house_rules', 'payment_instructions', 'is_published', 'first_published_at', 'archived_at',
 ])]
 final class Property extends Model
 {
@@ -57,10 +59,17 @@ final class Property extends Model
             'kind' => PropertyKind::class,
             'gender_policy' => GenderPolicy::class,
             'is_published' => 'boolean',
+            'first_published_at' => 'immutable_datetime',
             'archived_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
+    }
+
+    /** The public URL has existed: the slug and the city can no longer change (UpdateProperty). */
+    public function hasBeenPublished(): bool
+    {
+        return $this->first_published_at !== null;
     }
 
     /**

@@ -39,7 +39,9 @@ class PropertyFactory extends Factory
             'lng' => fake()->randomFloat(6, 120, 126),
             'gender_policy' => GenderPolicy::Any,
             'house_rules' => 'No smoking. Quiet hours 10pm to 6am. The reservation fee is refundable if declined.',
+            'payment_instructions' => 'GCash 0917 123 4567 (J. Santos) or BPI 1234-5678-90.',
             'is_published' => false,
+            'first_published_at' => null,
             'archived_at' => null,
         ];
     }
@@ -50,7 +52,7 @@ class PropertyFactory extends Factory
      */
     public function published(): static
     {
-        return $this->state(['is_published' => true])
+        return $this->state(['is_published' => true, 'first_published_at' => now()])
             ->afterCreating(function (Property $property): void {
                 LandlordAccount::query()
                     ->whereKey($property->landlord_account_id)

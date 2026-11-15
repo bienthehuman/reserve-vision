@@ -324,7 +324,9 @@ final class DemoSeeder extends Seeder
             'lng' => number_format($place['lng'] + ($this->int(-1000, 1000) / 1000) * $place['spread'], 6, '.', ''),
             'gender_policy' => $gender,
             'house_rules' => $this->houseRules($boarding),
+            'payment_instructions' => $this->paymentInstructions($id, $surname),
             'is_published' => $published,
+            'first_published_at' => $published ? $this->ts($created) : null,
             'archived_at' => null,
             'created_at' => $this->ts($created), 'updated_at' => $this->ts($created),
         ];
@@ -397,6 +399,23 @@ final class DemoSeeder extends Seeder
             ];
             $this->spaceRefs[] = ['id' => $spaceId, 'room' => $roomId, 'account' => $accountId, 'property' => $propertyId, 'label' => $label, 'fee' => $fee, 'special' => $special];
         }
+    }
+
+    /**
+     * Where to send the reservation fee. Derived from the property id, not drawn
+     * from the random generator, so adding it didn't change any other seeded value.
+     */
+    private function paymentInstructions(int $id, string $surname): string
+    {
+        $mobile = sprintf('09%02d %03d %04d', 17 + $id % 9, ($id * 37) % 1000, ($id * 7919) % 10000);
+        $bank = sprintf('%04d-%04d-%02d', 1000 + ($id * 13) % 9000, 1000 + ($id * 29) % 9000, ($id * 7) % 100);
+        $holder = chr(ord('A') + $id % 26).'. '.$surname;
+
+        return match ($id % 3) {
+            0 => "GCash {$mobile} ({$holder}).",
+            1 => "GCash {$mobile} ({$holder}) or BPI {$bank}.",
+            default => "Maya {$mobile} ({$holder}). Send the exact reservation fee, then upload the screenshot here.",
+        };
     }
 
     private function houseRules(bool $boarding): string

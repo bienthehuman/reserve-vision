@@ -78,11 +78,17 @@ Every `/landlord` page is behind `auth`, `verified` and `landlord`, shows the la
 | Reservations | `GET /landlord/reservations` (`?status=`, 15 a page, newest first) | View reservations for own account (`viewAny`) | owner, caretaker |
 | Reservation | `GET /landlord/reservations/{reservation}` | View reservations for own account (`view`); **the only page with the renter's email and phone** (`viewRenterContact`); payment proofs by amount, reference and status, never the file (signed URLs come in 5.3) | owner, caretaker |
 | Properties | `GET /landlord/properties`, `GET /landlord/properties/{property}` | View own account's properties, rooms, spaces and photos (`viewAny`, `view`) | owner, caretaker |
-| Change a rate | `PATCH /landlord/rooms/{room}/rate` → `ChangeRoomRate`, audit `room.rate_changed` | Create or edit properties, rooms, spaces, rates (`updateRate`) | owner; a caretaker gets `403` and no form |
+| Dashboard | `GET /landlord` | (the landlord menu's first page) | owner, caretaker |
+| Add or edit a property | `GET /landlord/properties/create`, `POST /landlord/properties` → `CreateProperty` (`property.created`); `GET …/{property}/edit`, `PUT …/{property}` → `UpdateProperty` (`property.updated`) | Create or edit properties, rooms, spaces, rates (`create`, `update`) | owner; a caretaker gets `403` on all four and no button |
+| Add or edit a room | `GET …/properties/{property}/rooms/create`, `POST …/rooms` → `CreateRoom` (`room.created`); `GET /landlord/rooms/{room}/edit`, `PUT …/{room}` → `UpdateRoom` (`room.updated`). It replaced 3.2's rate form: the rate is one field | same (`create` on a room in a property, `update`) | owner |
+| Add or rename a space | `POST /landlord/rooms/{room}/spaces` → `AddSpace` (`space.added`); `PATCH /landlord/spaces/{space}` → `RenameSpace` (`space.renamed`) | same (`create` on a space in a room, `update`) | owner |
+| Archive or unarchive | `POST` and `DELETE` on `/landlord/{properties,rooms,spaces}/{id}/archive` → `Archive…` / `Unarchive…` (`property.archived`, `room.unarchived`, …) | Archive or unarchive a property, room or space (`archive`, `unarchive`) | owner |
 | Members | `GET /landlord/members` | Invite or remove caretakers, revoke invites (`viewAny`): the page where that happens | owner; a caretaker gets `403` and no link |
 | Invite a caretaker | `POST /landlord/invitations` → `CreateInvitation`, audit `invitation.created` | Invite or remove caretakers, revoke invites (`create`) | owner |
 
-A form request asks the policy before it validates, so a caretaker gets `403` and never a validation message. An invitation is saved with a random token **stored as a SHA-256 hash** and valid for 7 days. **No email is sent and there is no acceptance page** until 4.3, and the page says so. It is rejected for an email that belongs to a member of any account, to a renter (a person is one type), or that already has a pending invitation on this account. Changing a rate touches nothing else: reservations keep the fee they were made with.
+A form request asks the policy before it validates, so a caretaker gets `403` and never a validation message. An invitation is saved with a random token **stored as a SHA-256 hash** and valid for 7 days. **No email is sent and there is no acceptance page** until 4.3, and the page says so. It is rejected for an email that belongs to a member of any account, to a renter (a person is one type), or that already has a pending invitation on this account. Changing a rate or fee touches nothing else: reservations keep the fee they were made with.
+
+**Editing (slice 4.1).** The dashboard shows four figures, each linking to the reservations list that shows what was counted (`?status=proof_uploaded`, `?show=proofs_overdue`, `?show=holds_expiring`, `?show=moving_in`): proofs to review (and how many waited over 24 hours), live holds that run out within 6 hours, confirmed move-ins from today to 7 days ahead, and occupancy (spaces with a confirmed or active stay today, out of the spaces that aren't archived in a room and property that aren't either). Every query is scoped to the account. Owners edit; a caretaker sees the same pages without a single button, and every write route and edit form answers `403` before validating (T7 walks the route list, so a new write route can't be missed). The city is chosen from `database/data/places.php` and starts the coordinates at its centre. The slug is generated from the name, unique per city (`-2`, `-3` on a clash), editable only until the property is first published. A room's type changes only while it has never had a reservation. Archiving is refused while a reservation still holds the space (`Reservation::blocking()`), naming it. The room row is locked first by every action that archives, changes a fee or type, or adds or renames spaces ([RESERVATIONS.md](RESERVATIONS.md#concurrency)).
 
 T6 and T7 ([tests](../tests/Feature/Isolation/T6CrossAccessTest.php)) prove all this on every route: see [CLAUDE.md](../CLAUDE.md#landlord-pages-slice-32).
 
@@ -95,7 +101,7 @@ T6 and T7 ([tests](../tests/Feature/Isolation/T6CrossAccessTest.php)) prove all 
 | Create or edit properties, rooms, spaces, rates | ✓ | — | — | — |
 | Upload, reorder or delete photos | ✓ | — | — | — |
 | Publish or unpublish a property | ✓ | — | — | — |
-| Archive or unarchive a room or space | ✓ | — | — | — |
+| Archive or unarchive a property, room or space | ✓ | — | — | — |
 | View reservations for own account | ✓ | ✓ | — | — |
 | View own reservations | — | — | own only | — |
 | View a payment proof | ✓ | ✓ | own only | — |

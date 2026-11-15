@@ -12,8 +12,9 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * One property with its rooms and spaces, read-only except the rate form
- * (owners only; `can_change_rate` is the policy's answer, and the endpoint asks again).
+ * One property with its rooms and spaces. Read-only for a caretaker; for an owner the
+ * `can_*` flags (the policies' answers; every endpoint asks again) switch on the edit,
+ * add and archive buttons.
  */
 final class ViewProperty
 {
@@ -31,8 +32,14 @@ final class ViewProperty
                 'address' => $property->address,
                 'barangay' => $property->barangay,
                 'city' => $property->city,
+                'gender_policy' => $property->gender_policy->value,
+                'house_rules' => $property->house_rules,
+                'payment_instructions' => $property->payment_instructions,
                 'is_published' => $property->is_published,
                 'is_archived' => $property->archived_at !== null,
+                'can_edit' => Gate::allows('update', $property),
+                'can_add_room' => Gate::allows('create', [Room::class, $property]),
+                'can_archive' => Gate::allows('archive', $property),
             ],
             'rooms' => $rooms->map(fn (Room $room): array => [
                 'id' => $room->id,
@@ -43,11 +50,15 @@ final class ViewProperty
                 'deposit_months' => $room->deposit_months,
                 'advance_months' => $room->advance_months,
                 'is_archived' => $room->archived_at !== null,
-                'can_change_rate' => Gate::allows('updateRate', $room),
-                'spaces' => $room->spaces->sortBy('label')->values()->map(fn (Space $space): array => [
+                'can_edit' => Gate::allows('update', $room),
+                'can_archive' => Gate::allows('archive', $room),
+                'can_add_space' => $room->room_type->value === 'shared' && Gate::allows('create', [Space::class, $room]),
+                'spaces' => $room->spaces->sortBy('label', SORT_NATURAL)->values()->map(fn (Space $space): array => [
                     'id' => $space->id,
                     'label' => $space->label,
                     'is_archived' => $space->archived_at !== null,
+                    'can_edit' => Gate::allows('update', $space),
+                    'can_archive' => Gate::allows('archive', $space) && $room->room_type->value === 'shared',
                 ])->all(),
             ])->all(),
         ]);

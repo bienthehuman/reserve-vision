@@ -40,15 +40,16 @@ const MATRIX_ABILITIES = [
     ],
     'Create or edit properties, rooms, spaces, rates' => [
         ['create', Property::class], ['update', 'property'],
-        ['create', Room::class, 'property'], ['update', 'room'], ['updateRate', 'room'],
+        ['create', Room::class, 'property'], ['update', 'room'],
         ['create', Space::class, 'room'], ['update', 'space'],
     ],
     'Upload, reorder or delete photos' => [
         ['upload', PropertyPhoto::class, 'property'], ['reorder', PropertyPhoto::class, 'property'], ['delete', 'photo'],
     ],
     'Publish or unpublish a property' => [['publish', 'property'], ['unpublish', 'property']],
-    'Archive or unarchive a room or space' => [
-        ['archive', 'room'], ['unarchive', 'room'], ['archive', 'space'], ['unarchive', 'space'],
+    'Archive or unarchive a property, room or space' => [
+        ['archive', 'property'], ['unarchive', 'property'], ['archive', 'room'], ['unarchive', 'room'],
+        ['archive', 'space'], ['unarchive', 'space'],
     ],
     'View reservations for own account' => [['viewAny', Reservation::class], ['view', 'reservation']],
     'View own reservations' => [['viewOwn', 'reservation']],

@@ -29,6 +29,9 @@ final class Exchange
 
     public float $released = 0.0;
 
+    /** Seconds after the batch is released that this request is sent (0: with the others). See after(). */
+    public float $delay = 0.0;
+
     public float $received = 0.0;
 
     /**
@@ -41,6 +44,18 @@ final class Exchange
         public readonly array $payload = [],
         public readonly bool $json = false,
     ) {}
+
+    /**
+     * Sends this request `$seconds` after the others in its batch, to sample different
+     * orderings of two requests that both take the same lock (the archive race). The
+     * server's own clock still has to show them overlapping (Race::assertRanConcurrently()).
+     */
+    public function after(float $seconds): self
+    {
+        $this->delay = $seconds;
+
+        return $this;
+    }
 
     public function header(string $name): ?string
     {
