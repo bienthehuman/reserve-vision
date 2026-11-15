@@ -29,7 +29,7 @@ flowchart LR
 | Maps | Leaflet + OSM tiles, one pin per property, loaded only on the listing page after interaction or in view; follows the OSM tile policy | slice 5.1 |
 | Quality | Pest 5.3, Larastan 3.15 (level max, with a baseline only if forced), Pint 1.32, Vitest 5.1, Playwright 1.65 + axe-core 4.14. Installed and runnable locally in 1.1; CI in 1.2 | slice 1.2 |
 
-**PHP server: FrankenPHP** (classic mode, not worker mode) instead of nginx + PHP-FPM. One process per container serves static files and PHP, so there's no supervisor and no nginx config to keep in sync, and the same image covers `app`, `worker` and `scheduler`. Production (1.3) can run it behind Caddy or let FrankenPHP's built-in Caddy terminate TLS.
+**PHP server: FrankenPHP** (classic mode, not worker mode) instead of nginx + PHP-FPM. One process per container serves static files and PHP, so there's no supervisor and no nginx config to keep in sync, and the same image covers `app`, `worker` and `scheduler`. In production it serves plain HTTP behind a separate Caddy container, which terminates TLS (slice 1.3), so certificates and the proxy config stay out of the app image.
 
 ## Code organization
 
@@ -57,15 +57,17 @@ Controllers don't touch the query builder for writes. Actions don't know about H
 | Service | Dev (`compose.yaml`) | Production (`compose.prod.yaml`) |
 | --- | --- | --- |
 | app | FrankenPHP (PHP 8.4), source mounted | Built image, OPcache, `php artisan optimize` |
-| ssr | Vite dev server | `php artisan inertia:start-ssr` |
-| worker | `queue:work` | `queue:work` with `--max-time` |
+| ssr | Vite dev server | `node bootstrap/ssr/app.js` (self-contained bundle, same image) |
+| worker | `queue:work` | `queue:work --max-time=3600` |
 | scheduler | `schedule:work` | `schedule:work` |
 | db | MySQL 8.4 | MySQL 8.4, volume, `app` + `migrator` users |
 | mail | Mailpit | external SMTP |
-| storage | local disk | MinIO (or any S3) |
-| proxy | — | Caddy, automatic HTTPS |
+| storage | local disk (`MEDIA_STORAGE=local`) | MinIO (or any S3): public photos bucket, private proofs bucket |
+| proxy | — | Caddy, automatic HTTPS; serves public photos at `/media/photos` |
 
-**Deployable, not hosted** ([ADR 0007](adr/0007-deployable-not-hosted.md)). CI builds the production image, boots `compose.prod.yaml`, runs migrations as `migrator`, and smoke-tests a listing page and login over HTTP on every PR to `main`. The deploy path is proven continuously even without a live host.
+`app`, `worker`, `scheduler` and `ssr` run one image ([Dockerfile](../Dockerfile)) with different commands. Only Caddy publishes ports. The dev container (Codespaces) runs the dev stack with built assets and the production SSR bundle instead of the Vite dev server. Details: [DEPLOY.md](../DEPLOY.md) and [CLAUDE.md](../CLAUDE.md#production-stack-slice-13).
+
+**Deployable, not hosted** ([ADR 0007](adr/0007-deployable-not-hosted.md)). On every PR to `main`, CI builds the production image, boots `compose.prod.yaml` with `deploy.sh`, runs migrations as `migrator`, runs `php artisan app:doctor`, and smoke-tests the home page over HTTP (SSR, security headers, no dev pages), then runs the Playwright + axe suite against it. A listing page (slice 3.1) and login (slice 5.1) join the smoke test when they exist. The deploy path is proven continuously even without a live host.
 
 ## Production constraints from the first slice
 

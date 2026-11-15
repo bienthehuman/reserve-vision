@@ -1,0 +1,38 @@
+# Reverse proxy in front of the app (compose.prod.yaml).
+#
+# DOMAIN=reservevision.example.com  automatic HTTPS (Let's Encrypt / ZeroSSL),
+#                                   HTTP redirects to HTTPS
+# DOMAIN=:80                        plain HTTP, no certificates (CI and local runs)
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Public listing photos straight from the public bucket, on the same origin
+	# (so the CSP's img-src 'self' covers them). Read-only, photos bucket only;
+	# the proofs bucket is never reachable through the proxy.
+	handle_path /media/photos/* {
+		@read method GET HEAD
+		handle @read {
+			rewrite * /{$AWS_PHOTOS_BUCKET}{path}
+			reverse_proxy minio:9000 {
+				header_down -Server
+				header_down -X-Amz-*
+			}
+		}
+		respond 405
+	}
+
+	handle {
+		reverse_proxy app:8000 {
+			header_down -Server
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

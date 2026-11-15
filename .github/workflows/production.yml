@@ -1,0 +1,100 @@
+# The ADR 0007 guard: every PR builds the production image, boots compose.prod.yaml
+# with deploy.sh, and smoke-tests it over HTTP, then runs the e2e suite against it.
+# Caddy serves plain HTTP on :80 here (DOMAIN=:80, bin/ci-production-env) with
+# throwaway secrets; real TLS issuance and email delivery are in DEPLOY.md,
+# "Not covered by CI".
+name: Production
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  BASE_URL: http://localhost:8280
+  COMPOSE_FILE: compose.prod.yaml
+
+jobs:
+  production:
+    name: Production stack
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # deploy.sh names the release with `git describe --tags`.
+          fetch-depth: 0
+
+      - name: ShellCheck
+        run: shellcheck deploy.sh bin/setup bin/ci-production-env bin/smoke-production docker/minio/setup.sh docker/mysql/initdb.d/*.sh
+
+      - name: Throwaway .env.production (Caddy on plain HTTP)
+        run: bin/ci-production-env 8280
+
+      - name: Deploy (build, migrate as migrator, up, optimize, app:doctor, /up)
+        run: ./deploy.sh --current
+
+      - name: Image size
+        run: |
+          size="$(docker image inspect reservevision:current --format '{{.Size}}' | numfmt --to=iec)"
+          echo "Production image: ${size}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke test over HTTP
+        # TODO(slice 3.1, 5.1): bin/smoke-production gains a listing page (3.1) and login (5.1).
+        run: bin/smoke-production "$BASE_URL"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22'
+          cache: npm
+
+      - name: Install JavaScript dependencies (Playwright)
+        run: npm ci --no-audit --no-fund
+
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Chromium system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Playwright + axe against the production stack
+        run: npm run e2e
+        env:
+          E2E_BASE_URL: ${{ env.BASE_URL }}
+          E2E_SKIP_DEV_PAGES: '1'
+
+      - name: Upload the Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-production
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      - name: Stack status and logs
+        if: failure()
+        run: |
+          docker compose --env-file .env.production ps -a
+          docker compose --env-file .env.production logs --no-color --tail=200

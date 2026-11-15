@@ -24,6 +24,7 @@ A PR merges only when every one of these checks is green (the CI workflows are d
 | `Pint + Larastan` | Quality | Code style, static analysis at max level |
 | `TypeScript + Vitest + build` | Quality | `tsc --noEmit`, Vitest, production build (client + SSR), CSS budget |
 | `Playwright + axe` | E2E | Smoke and accessibility on the dev stack, phone and desktop |
+| `Production stack` | Production | Production image and `compose.prod.yaml` via `deploy.sh`, `app:doctor`, HTTP smoke test, Playwright + axe against it ([ADR 0007](adr/0007-deployable-not-hosted.md)) |
 
 A failing check is fixed in the PR, not skipped or retried until it passes.
 

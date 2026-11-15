@@ -112,4 +112,9 @@ Ideas that came up and are deliberately not in any slice.
 | Filipino translation of the UI | DESIGN_SYSTEM |
 | Drop the `brianium/paratest` `<7.28` conflict in composer.json once Pest supports ParaTest 7.28 | Slice 1.2 |
 | Frontend strings through translation helpers (today only server-side strings use `__()`) | Slice 1.1 |
+| Smaller production image: the FrankenPHP bookworm base is 805 MB of the 1.09 GB, mostly compilers it keeps. Options: the Alpine variant (musl, differs from dev) or a static FrankenPHP build | Slice 1.3 |
+| `deploy.sh` takes a database backup before migrating | Slice 1.3 |
+| Cache the production image build in CI (Buildx with the GitHub Actions cache) | Slice 1.3 |
+| Make the Vite dev server (HMR) work in Codespaces; today the dev container uses built assets | Slice 1.3 |
+| CSP `img-src` for a photos origin other than the app (external S3 or CDN) | Slice 1.3, for 4.2 |
 | Trim the entry chunk (`app.js`, 112 KB gzipped, mostly React DOM + Inertia) and add a JS budget next to the CSS budget | Slice 1.1 build output |

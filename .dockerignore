@@ -1,0 +1,68 @@
+# Keeps the production image (Dockerfile) free of secrets, dev files and build output.
+# The dev image has its own (docker/dev/app.Dockerfile.dockerignore), but the Dev
+# Containers CLI builds it from a generated Dockerfile with this file, so docker/dev stays in.
+# The image builds its own vendor/, public/build and bootstrap/ssr.
+
+# Secrets and local state
+.env
+.env.*
+auth.json
+storage/*.key
+
+# VCS, editors, CI, dev container
+.git
+.github
+.devcontainer
+.idea
+.vscode
+.zed
+.cursor
+.editorconfig
+.gitattributes
+**/.DS_Store
+
+# Local only
+prompts
+CLAUDE.md
+
+# Dependencies and build output (rebuilt inside the image)
+node_modules
+vendor
+public/build
+public/hot
+public/storage
+bootstrap/ssr
+bootstrap/cache/*.php
+
+# Runtime state
+storage/app/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+storage/pail
+
+# Tests and tooling (not needed at runtime)
+tests
+e2e
+test-results
+playwright-report
+blob-report
+playwright.config.ts
+vitest.config.ts
+phpunit.xml
+phpstan.neon
+pint.json
+.phpunit.cache
+.phpunit.result.cache
+**/*.test.ts
+**/*.test.tsx
+**/*.map
+
+# Docs and ops files
+docs
+*.md
+Makefile
+compose*.yaml
+deploy.sh
+bin

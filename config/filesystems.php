@@ -49,6 +49,55 @@ return [
             'report' => false,
         ],
 
+        /*
+        | Media disks (slice 1.3; first used by slice 4.2). MEDIA_STORAGE picks the
+        | backend for both: `local` (dev and tests, under storage/app) or `s3`
+        | (production: MinIO in compose.prod.yaml, or any S3-compatible service).
+        |
+        |   photos  public bucket: listing photos, served without signing
+        |   proofs  private bucket: payment proofs, never public (ADR 0003)
+        */
+        'photos' => env('MEDIA_STORAGE', 'local') === 's3' ? [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+            'bucket' => env('AWS_PHOTOS_BUCKET'),
+            'url' => env('AWS_PHOTOS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => (bool) env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'visibility' => 'public',
+            'throw' => true,
+            'report' => false,
+        ] : [
+            'driver' => 'local',
+            'root' => storage_path('app/public/photos'),
+            'url' => rtrim((string) env('APP_URL', 'http://localhost'), '/').'/storage/photos',
+            'visibility' => 'public',
+            'throw' => true,
+            'report' => false,
+        ],
+
+        'proofs' => env('MEDIA_STORAGE', 'local') === 's3' ? [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+            'bucket' => env('AWS_PROOFS_BUCKET'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => (bool) env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => false,
+        ] : [
+            'driver' => 'local',
+            'root' => storage_path('app/private/proofs'),
+            'visibility' => 'private',
+            'serve' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

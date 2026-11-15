@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Production runs behind Caddy (compose.prod.yaml), Codespaces behind GitHub's
+        // port forwarding. The app port is reachable only from those proxies (it is
+        // never published in production), so the X-Forwarded-* headers are trusted.
+        $middleware->trustProxies(at: '*');
+
         // Global, so error pages and /up get the headers too.
         $middleware->append(SecurityHeaders::class);
 

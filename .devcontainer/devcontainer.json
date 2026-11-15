@@ -1,0 +1,49 @@
+// GitHub Codespaces and VS Code Dev Containers. One command: bin/setup (postCreateCommand).
+// See .devcontainer/compose.devcontainer.yaml for how this differs from the plain dev stack.
+{
+    "name": "ReserveVision",
+    "dockerComposeFile": ["../compose.yaml", "compose.devcontainer.yaml"],
+    "service": "app",
+    "runServices": ["app", "ssr", "worker", "scheduler", "db", "mail"],
+    "workspaceFolder": "/app",
+    "shutdownAction": "stopCompose",
+    "remoteUser": "app",
+    "updateRemoteUserUID": false,
+
+    // Node in the workspace container, for npm, the TypeScript server and Playwright.
+    "features": {
+        "ghcr.io/devcontainers/features/node:1": { "version": "24.22.2", "nodeGypDependencies": false }
+    },
+
+    "postCreateCommand": "bin/setup",
+
+    "forwardPorts": [8000, "mail:8025"],
+    "portsAttributes": {
+        "8000": { "label": "ReserveVision", "onAutoForward": "openBrowser" },
+        "mail:8025": { "label": "Mailpit (mail inbox)", "onAutoForward": "silent" }
+    },
+    "otherPortsAttributes": { "onAutoForward": "ignore" },
+
+    // Measured with the Dev Containers CLI (slice 1.3): the stack uses about 0.8 GB at
+    // rest and peaks at about 1.7 GB during `npm run build` (9 s). The default
+    // 2-core / 8 GB codespace leaves room for the editor and Playwright.
+    "hostRequirements": { "cpus": 2, "memory": "8gb", "storage": "32gb" },
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "bmewburn.vscode-intelephense-client",
+                "laravel.vscode-laravel",
+                "open-southeners.laravel-pint",
+                "m1guelpf.better-pest",
+                "ms-playwright.playwright",
+                "vitest.explorer",
+                "editorconfig.editorconfig",
+                "mikestead.dotenv"
+            ],
+            "settings": {
+                "php.validate.executablePath": "/usr/local/bin/php"
+            }
+        }
+    }
+}

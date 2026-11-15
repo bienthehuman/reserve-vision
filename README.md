@@ -8,6 +8,9 @@ Multi-landlord reservations for apartments and boarding-house beds, with a guara
 [![Tests (MariaDB 11.4)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml)
 [![Quality](https://github.com/bienthehuman/reserve-vision/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/quality.yml)
 [![E2E](https://github.com/bienthehuman/reserve-vision/actions/workflows/e2e.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/e2e.yml)
+[![Production](https://github.com/bienthehuman/reserve-vision/actions/workflows/production.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/production.yml)
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/bienthehuman/reserve-vision)
 <!-- GIF of the renter flow on a phone (slice 7.1) -->
 
 ## What it does
@@ -50,7 +53,11 @@ bin/setup
 
 It builds the dev image, installs dependencies, creates the database users, migrates and seeds, then starts the stack at http://localhost:8180 (styleguide at `/styleguide`, mail at http://localhost:8126). It's safe to run again. Ports, test commands and the database users are listed in [CLAUDE.md](CLAUDE.md#environment).
 
-_The Codespaces button arrives in slice 1.3._
+Or, with nothing installed: [open it in GitHub Codespaces](https://codespaces.new/bienthehuman/reserve-vision). The same setup runs inside the codespace and the app opens in the browser when it's ready (a few minutes). Demo logins arrive with the demo data in slice 2.2.
+
+## Deploy
+
+ReserveVision is deployable, not hosted: every PR boots the production stack in CI and smoke-tests it ([ADR 0007](docs/adr/0007-deployable-not-hosted.md)). To run it on your own server (one Docker host, automatic HTTPS, MySQL, S3-compatible storage), see [DEPLOY.md](DEPLOY.md).
 
 ## Next (out of scope for v1)
 
