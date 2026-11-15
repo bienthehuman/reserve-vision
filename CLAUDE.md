@@ -46,7 +46,7 @@ URLs: app http://localhost:8180, styleguide http://localhost:8180/styleguide, he
 - [database/sql/create-users.sql](database/sql/create-users.sql) is plain SQL with no Docker assumptions. CI and production run it with the `mysql` client after `SET @db_name = …, @app_password = …, @migrator_password = …;`. Idempotent.
 - The init script only runs on an **empty** `db-data` volume. After changing it, run `docker compose down -v && bin/setup`.
 - Plain `php artisan migrate` (without `--database=mysql_migrator`) fails with error 1142 on purpose.
-- `audit_logs` (slice 2.1) needs an INSERT-only grant; see the marked TODO in the SQL file for the two options.
+- **`audit_logs` is append-only by triggers, not grants** (slice 2.1, [ADR 0008](docs/adr/0008-least-privilege-database-users.md)): `audit_logs_no_update` and `audit_logs_no_delete` reject `UPDATE` and `DELETE` from `app` with error 1644. `app` can't drop them (no `TRIGGER`) or `TRUNCATE` (no `DROP`). The database server needs `log_bin_trust_function_creators=1` for the migrator to create them: `compose.yaml` and `compose.prod.yaml` pass it, and `_tests.yml` runs `SET GLOBAL` as root. An existing dev `db` container started before 2.1 needs `docker compose up -d db` (recreates it with the flag), or the migration fails with a message that says so.
 
 ### Running the checks
 
@@ -110,7 +110,7 @@ Proxies: `bootstrap/app.php` trusts `X-Forwarded-*` from any address (`trustProx
 
 ### `php artisan app:doctor`
 
-[app/Console/Commands/DoctorCommand.php](app/Console/Commands/DoctorCommand.php). Prints a pass/fail table and exits 1 if anything fails. Checks: connected as `DB_USERNAME`; `CREATE TABLE` denied (1142); queue table readable (in production the queue must be `database`); write/read/delete a temp file on `photos` and `proofs`; mail config complete (in production `log`/`array` mailers fail). Run by `deploy.sh` and so by the production workflow; works in dev too (`docker compose exec app php artisan app:doctor`).
+[app/Console/Commands/DoctorCommand.php](app/Console/Commands/DoctorCommand.php). Prints a pass/fail table and exits 1 if anything fails. Checks: connected as `DB_USERNAME`; `CREATE TABLE` denied (1142); `UPDATE` on `audit_logs` rejected by the trigger (probe row in a rolled-back transaction); queue table readable (in production the queue must be `database`); write/read/delete a temp file on `photos` and `proofs`; mail config complete (in production `log`/`array` mailers fail). Run by `deploy.sh` and so by the production workflow; works in dev too (`docker compose exec app php artisan app:doctor`).
 
 ### Dev container and Codespaces
 
@@ -128,6 +128,21 @@ docker compose -p reservevision-devcontainer down -v
 ```
 
 Measured: about 0.8 GB at rest and 1.7 GB peak (during `npm run build`), so `hostRequirements` is 2 cores and 8 GB.
+
+### Schema (slice 2.1)
+
+[docs/DATA_MODEL.md](docs/DATA_MODEL.md) is the spec, with an ERD. Migrations are `database/migrations/2026_11_15_*`; CHECKs go through `App\Database\Constraints` (named, `<table>_<column>_valid` for enums). People's names are `first_name` + optional `middle_name` + `last_name` + optional `suffix` ([CONVENTIONS](docs/CONVENTIONS.md#names)); use `$user->full_name`. Enums are in `app/Enums` (values equal the CHECKs: `tests/Feature/Schema/EnumChecksTest.php`), models in `app/Models` (typed casts, `#[Fillable]`, no scopes or policies yet), factories in `database/factories` (`Property::factory()->published()`, `Room::factory()->shared(beds: 4)`, `Reservation::factory()->expiredHold()`, `->proofUploaded()`, `->confirmed()`…, always deriving `landlord_account_id` from the parent). `ReservationStatus::transitions()` is compared with the table in `docs/RESERVATIONS.md` by `tests/Feature/Docs/TransitionTableTest.php`; `tests/Arch/ReservationWritesTest.php` forbids writing a reservation's status outside `app/Actions`.
+
+Tests assert driver error codes, not messages (`dbErrorCode()` in `tests/Pest.php`): 1452 foreign key, 1062 duplicate, 1264 out of range, 3819 (MySQL) or 4025 (MariaDB) CHECK, 1644 trigger, 1142 denied.
+
+### Quirks hit in 2.1
+
+- **State closures see unresolved attributes** in Laravel factories (nested factories and closures are not yet evaluated). Derive from a parent in a *definition* closure (`fn (array $attributes)`, after the parent key), and do lookups that need real ids in `afterCreating`.
+- **`information_schema.TRIGGERS` and `SHOW TRIGGERS` need the `TRIGGER` privilege**, which `app` lacks, so the suite checks the triggers by behaviour, not by listing them.
+- **MySQL stores CHECK clauses with escaped literals** (`_utf8mb4\'renter\'`), MariaDB with plain quotes: the enum test's regex accepts both.
+- **A CHECK can't use a column whose foreign key has a referential action** (`ON DELETE CASCADE`…). No foreign key here has one; keep it that way.
+- **MySQL's CHECK violation is `HY000`/3819, MariaDB's `23000`/4025**: compare driver codes, and use `CHECK_VIOLATION` from `tests/Pest.php`.
+- **`migrate:fresh` repeats** because the triggers die with the table.
 
 ### Quirks hit in 1.1
 

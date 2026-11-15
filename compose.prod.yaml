@@ -89,6 +89,9 @@ services:
 
   db:
     image: mysql:26.10
+    # Triggers need this while binary logging is on (the default): migrations
+    # create the append-only triggers on audit_logs (ADR 0008).
+    command: ["--log-bin-trust-function-creators=1"]
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env.production}
       RV_DB_DATABASE: ${DB_DATABASE:?Set DB_DATABASE in .env.production}
