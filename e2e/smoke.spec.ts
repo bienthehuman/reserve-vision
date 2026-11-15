@@ -1,32 +1,14 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { collectConsoleErrors, expectNoAxeViolations, isProductionRun } from './support';
 
 const pages = [
     { path: '/', heading: 'ReserveVision', devOnly: false },
     { path: '/styleguide', heading: 'Styleguide', devOnly: true },
 ];
 
-/** Fails the test on any console error, including CSP violations. */
-async function collectConsoleErrors(page: Page): Promise<string[]> {
-    const errors: string[] = [];
-    await page.addInitScript(() => {
-        document.addEventListener('securitypolicyviolation', (event) => {
-            console.error(`CSP violation: ${event.violatedDirective} at ${event.sourceFile}:${event.lineNumber} sample=${event.sample}`);
-        });
-    });
-    page.on('console', (message) => {
-        if (message.type() === 'error') {
-            errors.push(message.text());
-        }
-    });
-    page.on('pageerror', (error) => errors.push(error.message));
-
-    return errors;
-}
-
 for (const { path, heading, devOnly } of pages) {
     test.describe(path, () => {
-        test.skip(devOnly && process.env.E2E_SKIP_DEV_PAGES === '1', 'dev-only page');
+        test.skip(devOnly && isProductionRun, 'dev-only page');
 
         test('renders, hydrates and has zero axe violations', async ({ page }) => {
             const errors = await collectConsoleErrors(page);
@@ -39,11 +21,7 @@ for (const { path, heading, devOnly } of pages) {
             // Checked before axe runs: axe-core injects its own <style>, which the CSP rightly blocks.
             expect(errors).toEqual([]);
 
-            const results = await new AxeBuilder({ page })
-                .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
-                .analyze();
-
-            expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
+            await expectNoAxeViolations(page);
         });
     });
 }

@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Actions\ReserveSpace;
+use App\Enums\LandlordRole;
+use App\Models\LandlordAccount;
+use App\Models\LandlordMember;
 use App\Models\Property;
 use App\Models\Reservation;
 use App\Models\Room;
@@ -72,4 +75,40 @@ function reserve(User $renter, Room $room, string $moveIn, int $months = 6): Res
 function onlySpace(Room $room): Space
 {
     return $room->spaces()->sole();
+}
+
+/*
+| Auth (tests/Feature/Auth).
+*/
+
+/** A landlord user with a membership: owner of a verified account unless told otherwise. */
+function landlordUser(bool $verifiedAccount = true, LandlordRole $role = LandlordRole::Owner, bool $verifiedEmail = true): User
+{
+    $account = LandlordAccount::factory()->state($verifiedAccount ? ['is_verified' => true, 'verified_at' => now()] : [])->create();
+    $user = User::factory()->landlord()->state($verifiedEmail ? [] : ['email_verified_at' => null])->create();
+    LandlordMember::factory()->for($account)->for($user)->state(['role' => $role])->create();
+
+    return $user;
+}
+
+/**
+ * A valid sign-up form; override any field.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function registrationForm(array $overrides = []): array
+{
+    return [
+        'type' => 'renter',
+        'first_name' => 'Maria Cristina',
+        'middle_name' => '',
+        'last_name' => 'Dela Cruz',
+        'suffix' => null,
+        'email' => 'maria@example.com',
+        'phone' => '0917 123 4567',
+        'password' => 'correct horse battery',
+        'password_confirmation' => 'correct horse battery',
+        ...$overrides,
+    ];
 }
