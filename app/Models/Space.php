@@ -1,0 +1,59 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use Carbon\CarbonImmutable;
+use Database\Factories\SpaceFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+/**
+ * The reservable unit (ADR 0004).
+ *
+ * @property int $id
+ * @property int $room_id
+ * @property int $landlord_account_id
+ * @property string $label
+ * @property CarbonImmutable|null $archived_at
+ * @property CarbonImmutable $created_at
+ * @property CarbonImmutable $updated_at
+ */
+#[Fillable(['room_id', 'landlord_account_id', 'label', 'archived_at'])]
+final class Space extends Model
+{
+    /** @use HasFactory<SpaceFactory> */
+    use HasFactory;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'archived_at' => 'immutable_datetime',
+            'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
+        ];
+    }
+
+    /**
+     * @return BelongsTo<Room, $this>
+     */
+    public function room(): BelongsTo
+    {
+        return $this->belongsTo(Room::class);
+    }
+
+    /**
+     * @return HasMany<Reservation, $this>
+     */
+    public function reservations(): HasMany
+    {
+        return $this->hasMany(Reservation::class);
+    }
+}
