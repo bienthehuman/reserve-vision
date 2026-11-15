@@ -97,6 +97,20 @@ fi
 step "Starting the database"
 compose up -d --wait db
 
+# The init script creates the schemas only on an empty volume; volumes from
+# before slice 2.5 lack the concurrency suite's schema. Idempotent.
+step "Making sure the concurrency suite's schema exists"
+concurrency_db="$(grep -E '^DB_CONCURRENCY_DATABASE=' .env | cut -d= -f2 || true)"
+concurrency_db="${concurrency_db:-reservevision_concurrency}"
+# Runs inside the db container with its own passwords (single quotes on purpose).
+# shellcheck disable=SC2016
+compose exec -T db sh -c '{
+    printf "SET @db_name = '"'"'%s'"'"', @app_password = '"'"'%s'"'"', @migrator_password = '"'"'%s'"'"';\n" \
+        "$1" "$RV_DB_APP_PASSWORD" "$RV_DB_MIGRATOR_PASSWORD"
+    cat /rv-sql/create-users.sql
+} | mysql -u root -p"$MYSQL_ROOT_PASSWORD" 2> /dev/null' sh "$concurrency_db"
+echo "${concurrency_db} is ready"
+
 # Before the rest of the stack: the queue worker needs the cache and jobs tables.
 step "Migrating (as migrator) and seeding (as app)"
 run_app php artisan migrate --database=mysql_migrator --force --no-interaction

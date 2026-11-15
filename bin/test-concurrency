@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# The concurrency suite (tests/Concurrency): starts a multi-threaded FrankenPHP
+# server on the concurrency schema, runs the suite against it, stops it.
+#
+#   docker compose exec app composer test:concurrency      (dev)
+#   bin/test-concurrency [pest options]                    (inside the app image; CI does this)
+#
+# Settings (environment):
+#   CONCURRENCY_THREADS=16         FrankenPHP threads; must exceed the largest race (10)
+#   CONCURRENCY_PORT=8001          the server listens on 127.0.0.1 only
+#   CONCURRENCY_DB_DATABASE=reservevision_concurrency
+set -Eeuo pipefail
+
+cd "$(dirname "$0")/.."
+
+export CONCURRENCY_THREADS="${CONCURRENCY_THREADS:-16}"
+export CONCURRENCY_PORT="${CONCURRENCY_PORT:-8001}"
+export CONCURRENCY_DB_DATABASE="${CONCURRENCY_DB_DATABASE:-reservevision_concurrency}"
+export CONCURRENCY_BASE_URL="http://127.0.0.1:${CONCURRENCY_PORT}"
+
+if [[ -f bootstrap/cache/config.php ]]; then
+    echo "bootstrap/cache/config.php exists: a cached config ignores the server's DB_DATABASE. Run 'php artisan config:clear' first." >&2
+    exit 1
+fi
+
+if ! command -v frankenphp > /dev/null; then
+    echo "frankenphp not found: run this inside the app image (docker compose exec app composer test:concurrency)." >&2
+    exit 1
+fi
+
+log="storage/logs/concurrency-server.log"
+: > "$log"
+frankenphp run --config docker/concurrency/Caddyfile --adapter caddyfile >> "$log" 2>&1 &
+server_pid=$!
+
+stop_server() {
+    kill "$server_pid" 2> /dev/null || true
+    wait "$server_pid" 2> /dev/null || true
+}
+trap stop_server EXIT
+
+for _ in $(seq 1 60); do
+    if curl -fsS "${CONCURRENCY_BASE_URL}/up" > /dev/null 2>&1; then
+        break
+    fi
+    if ! kill -0 "$server_pid" 2> /dev/null; then
+        cat "$log" >&2
+        echo "The concurrency server exited (log above)." >&2
+        exit 1
+    fi
+    sleep 0.5
+done
+curl -fsS "${CONCURRENCY_BASE_URL}/up" > /dev/null || { cat "$log" >&2; echo "The concurrency server did not answer /up." >&2; exit 1; }
+
+printf 'Concurrency server: %s, FrankenPHP %s, %s threads, schema %s\n' \
+    "$CONCURRENCY_BASE_URL" "$(frankenphp version | awk '{print $2}')" "$CONCURRENCY_THREADS" "$CONCURRENCY_DB_DATABASE"
+
+DB_DATABASE="$CONCURRENCY_DB_DATABASE" php vendor/bin/pest --configuration=phpunit.concurrency.xml "$@"

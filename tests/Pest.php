@@ -14,6 +14,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Tests\Concurrency\ConcurrencyTestCase;
 use Tests\TestCase;
 
 /*
@@ -112,3 +113,10 @@ function registrationForm(array $overrides = []): array
         ...$overrides,
     ];
 }
+
+/*
+| Concurrency suite (tests/Concurrency, `composer test:concurrency`): real
+| parallel HTTP against a running server, fixtures committed, no transaction.
+| Not part of `composer test`: phpunit.xml doesn't list the directory.
+*/
+pest()->extend(ConcurrencyTestCase::class)->in('Concurrency');

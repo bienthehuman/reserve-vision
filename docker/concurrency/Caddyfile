@@ -1,0 +1,30 @@
+# The server the concurrency suite races against (bin/test-concurrency starts it,
+# in the dev `app` container and in CI). FrankenPHP, as in dev and production,
+# with a fixed thread pool: more threads than the largest race (T1: 10 requests),
+# whatever the machine's CPU count (FrankenPHP's default is 2 per CPU, which is
+# 8 on a 4-vCPU CI runner). CLAUDE.md "Concurrency suite" explains the settings.
+{
+	admin off
+	auto_https off
+	skip_install_trust
+	frankenphp {
+		num_threads {$CONCURRENCY_THREADS:16}
+	}
+}
+
+http://127.0.0.1:{$CONCURRENCY_PORT:8001} {
+	root public/
+	php_server {
+		# Same schema as the suite (phpunit.concurrency.xml), never the dev data.
+		env DB_DATABASE {$CONCURRENCY_DB_DATABASE:reservevision_concurrency}
+		env APP_URL http://127.0.0.1:{$CONCURRENCY_PORT:8001}
+		# Test-only timing headers (config/concurrency.php); ignored when APP_ENV=production.
+		env CONCURRENCY_PROBE true
+		# The suite reads JSON and cookies, not rendered pages.
+		env INERTIA_SSR_ENABLED false
+		# The fixtures' passwords are hashed cheaply; don't rehash them at a high cost on login.
+		env BCRYPT_ROUNDS 4
+		env MAIL_MAILER array
+		env QUEUE_CONNECTION sync
+	}
+}

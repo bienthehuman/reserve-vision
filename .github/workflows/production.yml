@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
 
       - name: ShellCheck
-        run: shellcheck deploy.sh bin/setup bin/ci-production-env bin/smoke-production docker/minio/setup.sh docker/mysql/initdb.d/*.sh
+        run: shellcheck deploy.sh bin/setup bin/ci-production-env bin/smoke-production bin/test-concurrency docker/minio/setup.sh docker/mysql/initdb.d/*.sh
 
       - name: Throwaway .env.production (Caddy on plain HTTP)
         run: bin/ci-production-env 8280
