@@ -165,7 +165,7 @@ Tests assert driver error codes, not messages (`dbErrorCode()` in `tests/Pest.ph
 | --- | --- |
 | Config | [config/fortify.php](config/fortify.php): features `registration`, `resetPasswords`, `emailVerification` only; `lowercase_usernames`; `limiters.login` **null** on purpose (see quirks) |
 | Wiring | [app/Providers/FortifyServiceProvider.php](app/Providers/FortifyServiceProvider.php): `Fortify::ignoreRoutes()`, Inertia views, `CreateNewUser`/`ResetUserPassword`, our `LoginResponse` / `RegisterResponse` / `VerifyEmailResponse` / `FailedPasswordResetLinkRequestResponse` (`app/Http/Responses`), `Password::defaults()` (8–255), the `registration` and `password-reset-link` rate limiters |
-| Routes | [routes/auth.php](routes/auth.php) on Fortify's controllers: the complete list (no 2FA, passkey, profile or password-confirmation routes exist). Landlord pages: `Route::middleware(['auth', 'verified', 'landlord'])` in `routes/web.php` (`landlord` = `EnsureUserIsLandlord`, 403 for renters) |
+| Routes | [routes/auth.php](routes/auth.php) on Fortify's controllers: the complete list (no 2FA, passkey, profile or password-confirmation routes exist). Landlord pages: `Route::middleware(['auth', 'verified', 'landlord'])` in `routes/web.php` (`landlord` = `EnsureUserIsLandlord`, 403 for renters and for landlord users without a membership) |
 | Actions | `App\Actions\RegisterRenter`, `App\Actions\RegisterLandlord` (user + unverified account + owner membership in one transaction, retried on a slug clash) take `App\Data\RegistrationDetails`; `App\Actions\Fortify\CreateNewUser` validates and normalizes the phone (`App\Support\PhilippineMobile` → `09XXXXXXXXX`) |
 | Pages | `resources/js/Pages/Auth/{Login,Register,ForgotPassword,ResetPassword,VerifyEmail}.tsx`, `Pages/Landlord/Dashboard.tsx` (placeholder). Form pieces in `resources/js/Components/Form/` (`TextField`, `ErrorSummary`, `SubmitButton`, `useFocusOnError`). Shared props: `auth.user` (id, names, type, `email_verified`, never email or phone) and `flash.status` |
 | Mail | `User::sendEmailVerificationNotification()` / `sendPasswordResetNotification()` → queued notifications in `app/Notifications/Auth` → Markdown mailables in `app/Mail/Auth` with views in `resources/views/mail/auth`, themed by [resources/views/mail/reservevision.css](resources/views/mail/reservevision.css) (`mail.markdown.theme`) |
@@ -190,6 +190,32 @@ T1, T2 and T8b over **real parallel HTTP**: [tests/Concurrency/ReservationRaceTe
 | CI | The `concurrency` job in `_tests.yml`: builds the dev image (`--build-arg UID=$(id -u)`), `composer install` in it, `npm run build` on the runner (racers GET `/login`, which needs built assets), creates the schema with the SQL file, then `docker run --network host … bin/test-concurrency`, so the server reaches the database service on 127.0.0.1. About 4 minutes, most of it the image build |
 
 Each scenario repeats 5 times (`->repeat(ROUNDS)`) with new rooms and renters; move-in is today + 14 days. A failure names what broke: `DOUBLE-BOOKED: …`, `LIMIT BROKEN: …`, `Unexpected response: … HTTP 500`, or the no-overlap message.
+
+### Isolation (slice 3.1)
+
+[docs/ACCESS.md](docs/ACCESS.md#how-it-works-slice-31) is the spec: when the scope applies, the named escapes, the write guard, the policies.
+
+| Piece | Where |
+| --- | --- |
+| Current account | `App\Support\CurrentLandlordAccount` (scoped binding in `AppServiceProvider`): `account()`, `id()`, `role()`, `isOwner()`, `exists()`, `applies()`. From the logged-in user's membership only (`App\Support\LandlordMembership::of($user)`, cached on the user's `landlordMember` relation). Throws `App\Exceptions\Isolation\NoCurrentLandlordAccount` without one |
+| Scope | `App\Models\Scopes\LandlordAccountScope`, added by `App\Models\Concerns\BelongsToLandlordAccount` on the nine models ACCESS.md lists. Landlord user → `where <table>.landlord_account_id = ?`; landlord user without a membership → `1 = 0`; anyone else → nothing. The trait's `saving` hook fills the account and throws `CrossAccountWrite` for another account |
+| Escapes | `Property::published()`, `Room::listed()`, `Space::listed()`, `Reservation::onListedSpaces()`, `Reservation::ownedByRenter($user)`. Anything else that calls `withoutGlobalScope(s)` fails `tests/Arch/LandlordScopeTest.php` (lists `NAMED_ESCAPES` and an empty system allowlist) |
+| Policies | `app/Policies/*Policy.php`, one per landlord-owned model plus `LandlordMemberPolicy`, built from `App\Policies\Concerns\ChecksAccess` (`landlordOn`, `landlordRole`, `renterOwns`, `renter`). Cross-account / cross-renter → `denyAsNotFound()`; wrong role → `deny()` (403). Ability names follow the matrix rows; `ShowReservation` authorizes `viewOwn` |
+| Matrix test | `tests/Feature/Docs/PermissionMatrixTest.php`: `MATRIX_ABILITIES` maps each ACCESS.md row to abilities; `MATRIX_CELLS` lists the cell texts it understands. Adding a policy method without mapping it fails the test |
+| Audit | `App\Support\AuditLogger::record($action, $subject, $before, $after)`: `subject.verb` names, only changed fields, `SECRET_FIELDS` stored as `[redacted]`, returns null when nothing changed. `landlord:verify` records `account.verified` / `account.verification_revoked` and one `property.unpublished` per property, actor null |
+| Worker | `Queue::looping` → `Auth::forgetGuards()` in `AppServiceProvider`, so a job can't leave a user logged in for the next one |
+
+Tests: `tests/Feature/Isolation/` (scope per model, fail closed, joins, relations, route binding, console and worker; write guard; current account from input and across requests and jobs; audit logger; the pre-3.1 queries with a landlord logged in). The worker tests run `queue:work database --stop-when-empty` inside the test transaction, with the probe job in `tests/Feature/Isolation/Support`.
+
+### Quirks hit in 3.1
+
+- **Factories are isolated too**: with a landlord logged in (`actingAs`), a factory's lookup of its parent's account (`Property::query()->whereKey(…)->value('landlord_account_id')`) is scoped, and the write guard refuses another account's rows with `CrossAccountWrite`. Create fixtures **before** `actingAs()` (or `$this->app['auth']->forgetGuards()` first).
+- **The queue worker resets scoped instances between jobs, but not the auth guards**: a job that logs a user in leaves them logged in for the next job, and the scope follows. Hence the `Queue::looping` reset. `Looping` fires only in the daemon loop (not for `sync` jobs inside a request, not for `--once`).
+- **The test HTTP kernel doesn't flush scoped instances between `$this->get()` calls**, so `CurrentLandlordAccount` re-resolves whenever the logged-in user changes instead of trusting its first answer.
+- **`withoutGlobalScope()` inside a `whereHas()` callback works**: the has-query's scopes are applied when it is compiled, after the callback. That's how `Room::listed()` uses `Property::published()`.
+- **Larastan and global scopes**: a `Scope` needs `@implements Scope<Model>` and `apply()` takes `Builder<covariant Model>`, or Larastan reports a generics or parameter-compatibility error.
+- **Pest `arch()->expect('App\Models')->toExtend(Model::class)`** also sees `App\Models\Scopes` and `App\Models\Concerns`: the test ignores both.
+- **Artisan output expectations**: each output line satisfies at most one `expectsOutput(ToContain)`, so print one value per line. And Pest's `toContain()` is variadic: a second argument is another expected value, not a failure message.
 
 ### Quirks hit in 2.5
 
