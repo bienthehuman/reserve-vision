@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToLandlordAccount;
 use Carbon\CarbonImmutable;
 use Database\Factories\AuditLogFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -29,7 +30,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 final class AuditLog extends Model
 {
     /** @use HasFactory<AuditLogFactory> */
-    use HasFactory;
+    use BelongsToLandlordAccount, HasFactory;
 
     public const UPDATED_AT = null;
 

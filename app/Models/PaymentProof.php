@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\PaymentProofStatus;
+use App\Models\Concerns\BelongsToLandlordAccount;
 use Carbon\CarbonImmutable;
 use Database\Factories\PaymentProofFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -32,7 +33,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 final class PaymentProof extends Model
 {
     /** @use HasFactory<PaymentProofFactory> */
-    use HasFactory;
+    use BelongsToLandlordAccount, HasFactory;
 
     public $timestamps = false;
 

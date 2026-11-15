@@ -78,4 +78,5 @@ arch('enums are enums')
 
 arch('models are Eloquent models')
     ->expect('App\\Models')
-    ->toExtend(Model::class);
+    ->toExtend(Model::class)
+    ->ignoring(['App\\Models\\Scopes', 'App\\Models\\Concerns']);

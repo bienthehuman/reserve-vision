@@ -124,7 +124,6 @@ Ideas that came up and are deliberately not in any slice.
 | Make the Vite dev server (HMR) work in Codespaces; today the dev container uses built assets | Slice 1.3 |
 | CSP `img-src` for a photos origin other than the app (external S3 or CDN) | Slice 1.3, for 4.2 |
 | Trim the entry chunk (`app.js`, 112 KB gzipped, mostly React DOM + Inertia) and add a JS budget next to the CSS budget | Slice 1.1 build output |
-| Audit-log rows (actor null) for `landlord:verify` and `--revoke`, which unpublishes properties | Slice 2.2, for 3.1 |
 | Seed viewing requests and property photos (photos need real files, so after 4.2) | Slice 2.2 |
 | Narrow the "status is written only in `App\Actions`" arch test to reservations if it gets noisy for `PropertyPhoto`/`PaymentProof` status writes | Slice 2.1 |
 | Landlord edits that archive a space or room (or change its fee) lock the room row first, so they queue behind `ReserveSpace` like renters do | Slice 2.3, for 4.x |
@@ -136,3 +135,6 @@ Ideas that came up and are deliberately not in any slice.
 | Lowercase emails on save everywhere (today Fortify lowercases at login and registration only) | Slice 2.4 |
 | A reservation transaction that deadlocks on all 3 attempts is a bare `500`. Answer it as a domain-style "busy, try again" (`503` + `Retry-After`, or the `error` flash) instead. Seen only in the 2.5 negative controls (no room lock), but neighbouring rooms can deadlock under load (ADR 0001) | Slice 2.5 |
 | Make `flash.error` dismissible and focus it after a failed post (2.5 renders it as a plain `role="alert"` alert) | Slice 2.5 |
+| Extend the scope arch test to raw `DB::select()` / `DB::statement()` naming a landlord-owned table (today only `DB::table()` is caught) | Slice 3.1 |
+| Policies for `LandlordAccount` (account settings) and `User` (profile) once those pages exist, with matrix rows | Slice 3.1 |
+| Factories that work while a landlord is logged in (today fixtures must be created before `actingAs()`, or the write guard refuses them) | Slice 3.1 |

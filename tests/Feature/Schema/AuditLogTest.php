@@ -11,11 +11,11 @@ use Illuminate\Support\Facades\DB;
 // privileges `app` doesn't have (1142).
 
 it('lets the app user insert and read audit rows', function (): void {
-    $log = AuditLog::factory()->create(['action' => 'ConfirmReservation', 'before' => ['status' => 'proof_uploaded']]);
+    $log = AuditLog::factory()->create(['action' => 'reservation.confirmed', 'before' => ['status' => 'proof_uploaded']]);
 
     $found = AuditLog::query()->findOrFail($log->id);
 
-    expect($found->action)->toBe('ConfirmReservation')
+    expect($found->action)->toBe('reservation.confirmed')
         ->and($found->before)->toBe(['status' => 'proof_uploaded'])
         ->and($found->created_at)->toBeInstanceOf(CarbonImmutable::class);
 });
@@ -25,7 +25,7 @@ it('rejects UPDATE on audit_logs', function (): void {
 
     expect(dbErrorCode(fn () => DB::table('audit_logs')->where('id', $log->id)->update(['action' => 'edited'])))->toBe(1644)
         ->and(dbErrorCode(fn () => DB::table('audit_logs')->update(['action' => 'edited'])))->toBe(1644)
-        ->and(AuditLog::query()->findOrFail($log->id)->action)->toBe('ConfirmReservation');
+        ->and(AuditLog::query()->findOrFail($log->id)->action)->toBe('reservation.confirmed');
 });
 
 it('rejects an upsert that would update an existing row', function (): void {

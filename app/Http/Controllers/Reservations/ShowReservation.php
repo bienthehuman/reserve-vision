@@ -7,12 +7,15 @@ namespace App\Http\Controllers\Reservations;
 use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
  * The renter's "your hold" page (slice 2.5, minimal). Someone else's
- * reservation is a 404, never a 403 (ACCESS.md). Proof upload comes in 5.3.
+ * reservation is a 404, never a 403 (ACCESS.md): the renter's own-reservations
+ * scope finds nothing, and ReservationPolicy::viewOwn denies as not found
+ * behind it. Proof upload comes in 5.3.
  */
 final class ShowReservation
 {
@@ -21,9 +24,8 @@ final class ShowReservation
         /** @var User $renter (auth + renter middleware) */
         $renter = $request->user();
 
-        $reservation = Reservation::query()
-            ->where('renter_id', $renter->id)
-            ->findOrFail($reservation);
+        $reservation = Reservation::query()->ownedByRenter($renter)->findOrFail($reservation);
+        Gate::authorize('viewOwn', $reservation);
 
         $space = $reservation->space()->firstOrFail();
         $room = $space->room()->firstOrFail();

@@ -7,6 +7,8 @@ namespace App\Models;
 use App\Enums\ReservationStatus;
 use App\Exceptions\Domain\HoldExpired;
 use App\Exceptions\Domain\InvalidTransition;
+use App\Models\Concerns\BelongsToLandlordAccount;
+use App\Models\Scopes\LandlordAccountScope;
 use Carbon\CarbonImmutable;
 use Database\Factories\ReservationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -55,7 +57,7 @@ use Illuminate\Support\Facades\Date;
 final class Reservation extends Model
 {
     /** @use HasFactory<ReservationFactory> */
-    use HasFactory;
+    use BelongsToLandlordAccount, HasFactory;
 
     /**
      * @return array<string, string>
@@ -153,10 +155,35 @@ final class Reservation extends Model
      */
     public function scopeOpenForRenter(Builder $query, User $renter): void
     {
-        $query->where($query->qualifyColumn('renter_id'), $renter->id)
+        $query->ownedByRenter($renter)
             ->where(fn (Builder $q) => $q
                 ->where($q->qualifyColumn('status'), ReservationStatus::ProofUploaded)
                 ->orWhere(fn (Builder $held) => self::whereLiveHold($held)));
+    }
+
+    /**
+     * The renter's own reservations, whatever the account. A named escape from
+     * the isolation scope (ACCESS.md "Isolation"), for renter pages and actions.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeOwnedByRenter(Builder $query, User $renter): void
+    {
+        $query->withoutGlobalScope(LandlordAccountScope::class)
+            ->where($query->qualifyColumn('renter_id'), $renter->id);
+    }
+
+    /**
+     * Reservations on spaces of listed rooms (Space::listed()), whatever the
+     * account. A named escape from the isolation scope for availability counts
+     * on public pages, which show only how many spaces are free, never a reservation.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeOnListedSpaces(Builder $query): void
+    {
+        $query->withoutGlobalScope(LandlordAccountScope::class)
+            ->whereHas('space', fn (Builder $space) => $space->listed());
     }
 
     /** `held` and `hold_expires_at` is still in the future. */

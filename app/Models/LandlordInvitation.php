@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\LandlordRole;
+use App\Models\Concerns\BelongsToLandlordAccount;
 use Carbon\CarbonImmutable;
 use Database\Factories\LandlordInvitationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -31,7 +32,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 final class LandlordInvitation extends Model
 {
     /** @use HasFactory<LandlordInvitationFactory> */
-    use HasFactory;
+    use BelongsToLandlordAccount, HasFactory;
 
     /**
      * @return array<string, string>

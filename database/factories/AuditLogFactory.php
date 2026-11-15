@@ -22,7 +22,7 @@ class AuditLogFactory extends Factory
         return [
             'actor_id' => User::factory()->landlord(),
             'landlord_account_id' => LandlordAccount::factory(),
-            'action' => 'ConfirmReservation',
+            'action' => 'reservation.confirmed',
             'subject_type' => 'reservation',
             'subject_id' => fake()->numberBetween(1, 9999),
             'before' => ['status' => 'proof_uploaded'],

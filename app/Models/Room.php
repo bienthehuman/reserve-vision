@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\RoomType;
+use App\Models\Concerns\BelongsToLandlordAccount;
+use App\Models\Scopes\LandlordAccountScope;
 use Carbon\CarbonImmutable;
 use Database\Factories\RoomFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -37,7 +39,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 final class Room extends Model
 {
     /** @use HasFactory<RoomFactory> */
-    use HasFactory;
+    use BelongsToLandlordAccount, HasFactory;
 
     /**
      * @return array<string, string>
@@ -73,32 +75,34 @@ final class Room extends Model
     }
 
     /**
-     * Rooms the public may see and renters may reserve: the room isn't archived,
-     * its property is published and not archived, and the landlord account is
-     * verified (RESERVATIONS.md "Booking rules"). Anything else is a 404.
-     * ReserveSpace re-checks the same under its locks.
+     * Rooms the public may see and renters may reserve, of every account: the
+     * room isn't archived and its property is published (Property::published():
+     * not archived, verified account). RESERVATIONS.md "Booking rules"; anything
+     * else is a 404. ReserveSpace re-checks the same under its locks. A named
+     * escape from the isolation scope: landlords browse listings through it too.
      *
      * @param  Builder<self>  $query
      */
     public function scopeListed(Builder $query): void
     {
-        $query->whereNull($query->qualifyColumn('archived_at'))
-            ->whereHas('property', fn (Builder $property) => $property
-                ->where('is_published', true)
-                ->whereNull('archived_at')
-                ->whereHas('landlordAccount', fn (Builder $account) => $account->where('is_verified', true)));
+        $query->withoutGlobalScope(LandlordAccountScope::class)
+            ->whereNull($query->qualifyColumn('archived_at'))
+            ->whereHas('property', fn (Builder $property) => $property->published());
     }
 
     /**
-     * Non-archived spaces with no blocking reservation overlapping
-     * `[$moveIn, $moveOut)`. A plain read, for display only: ReserveSpace
-     * decides under its locks.
+     * Listed, non-archived spaces of this room with no blocking reservation
+     * overlapping `[$moveIn, $moveOut)`. A plain read for the public room page,
+     * through the public scopes, so a landlord looking at another account's
+     * listing sees the same count as everyone; ReserveSpace decides under its locks.
      */
     public function freeSpaceCount(CarbonImmutable $moveIn, CarbonImmutable $moveOut): int
     {
-        return $this->spaces()
-            ->whereNull('archived_at')
+        return Space::query()
+            ->listed()
+            ->where('spaces.room_id', $this->id)
             ->whereDoesntHave('reservations', fn (Builder $reservations) => $reservations
+                ->onListedSpaces()
                 ->blocking()
                 ->overlapping($moveIn, $moveOut))
             ->count();
