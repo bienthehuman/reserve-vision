@@ -14,7 +14,7 @@ COPY --from=composer:2.9 /usr/bin/composer /usr/bin/composer
 ARG UID=1000
 ARG GID=1000
 RUN groupadd --gid "${GID}" app \
-    && useradd --uid "${UID}" --gid "${GID}" --create-home app \
+    && useradd --uid "${UID}" --gid "${GID}" --create-home --shell /bin/bash app \
     && mkdir -p /data/caddy /config/caddy \
     && chown -R app:app /data /config /app
 
