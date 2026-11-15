@@ -1,5 +1,6 @@
 # Keeps the production image (Dockerfile) free of secrets, dev files and build output.
-# The dev image has its own: docker/dev/app.Dockerfile.dockerignore.
+# The dev image has its own (docker/dev/app.Dockerfile.dockerignore), but the Dev
+# Containers CLI builds it from a generated Dockerfile with this file, so docker/dev stays in.
 # The image builds its own vendor/, public/build and bootstrap/ssr.
 
 # Secrets and local state
@@ -65,4 +66,3 @@ Makefile
 compose*.yaml
 deploy.sh
 bin
-docker/dev
