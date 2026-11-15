@@ -40,9 +40,10 @@ A failing check is fixed in the PR, not skipped or retried until it passes.
 
 - PHP: `declare(strict_types=1)`, `final` classes by default, Pint (Laravel preset), Larastan at max level.
 - An **action** is a `final` class with one public `handle()` method. It takes models and value objects, not requests. Anything that changes state runs in a transaction.
-- **Status changes** go through `ReservationStatus::assertCanTransitionTo()`. There's no `$reservation->update(['status' => …])` outside actions; a Larastan rule or an architecture test (Pest `arch()`) enforces this.
+- **Status changes** go through `Reservation::assertCanMoveTo()` (the transition table plus the hold-expiry guards), called on the row the action has just locked. There's no `$reservation->update(['status' => …])` outside actions; a Larastan rule or an architecture test (Pest `arch()`) enforces this.
 - Money is an `int` of centavos in PHP, and a `number` in TypeScript formatted only at the view edge (`formatPeso()`).
-- Domain exceptions carry a user-facing message, are rendered as `422` (or a flash on Inertia redirects), and are never shown as raw exceptions.
+- Domain exceptions live in `app/Exceptions/Domain/`, extend `BusinessRuleException`, carry a user-facing message, are rendered as `422` (or the `error` flash on Inertia redirects), aren't logged, and are never shown as raw exceptions.
+- Business "today" comes from `BusinessDate::today()`, never `today()` or `now()->toDateString()` (those are UTC).
 - TypeScript is `strict`. Page props are typed from shared `resources/js/types`.
 - Naming: **landlord account**, **landlord member**, **renter**. Never "tenant" (an architecture test greps for it).
 

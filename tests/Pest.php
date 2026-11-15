@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Actions\ReserveSpace;
+use App\Models\Property;
+use App\Models\Reservation;
+use App\Models\Room;
+use App\Models\Space;
+use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
@@ -42,3 +49,27 @@ function dbErrorCode(Closure $statement): int
 
 /** The error codes MySQL and MariaDB give a violated CHECK constraint. */
 const CHECK_VIOLATION = [3819, 4025];
+
+/*
+| Reservations (tests/Feature/Reservations). "Now" is frozen by each test file.
+*/
+
+/** A private room (one "Whole room" space) in a published property of a verified account. */
+function reservableRoom(?Property $property = null): Room
+{
+    return Room::factory()
+        ->for($property ?? Property::factory()->published()->create())
+        ->create();
+}
+
+/** ReserveSpace for a "Y-m-d" move-in date. */
+function reserve(User $renter, Room $room, string $moveIn, int $months = 6): Reservation
+{
+    return app(ReserveSpace::class)->handle($renter, $room, CarbonImmutable::parse($moveIn), $months);
+}
+
+/** The single space of a private room. */
+function onlySpace(Room $room): Space
+{
+    return $room->spaces()->sole();
+}

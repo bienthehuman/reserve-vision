@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\ReservationStatus as S;
-use App\Exceptions\InvalidTransition;
+use App\Exceptions\Domain\InvalidTransition;
 
 it('allows exactly the transitions in the table', function (): void {
     $allowed = [];

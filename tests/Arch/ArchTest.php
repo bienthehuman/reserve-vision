@@ -1,15 +1,29 @@
 <?php
 
 declare(strict_types=1);
+use App\Exceptions\Domain\BusinessRuleException;
 
 arch('app code declares strict types')
     ->expect('App')
     ->toUseStrictTypes();
 
+// The one exception: abstract bases meant to be extended.
 arch('app classes are final by default')
     ->expect('App')
     ->classes()
-    ->toBeFinal();
+    ->toBeFinal()
+    ->ignoring(BusinessRuleException::class);
+
+arch('the domain exceptions base is abstract')
+    ->expect(BusinessRuleException::class)
+    ->toBeAbstract();
+
+// CONVENTIONS.md: domain exceptions carry a user-facing message and render as 422.
+arch('domain exceptions extend BusinessRuleException')
+    ->expect('App\\Exceptions\\Domain')
+    ->classes()
+    ->toExtend(BusinessRuleException::class)
+    ->ignoring(BusinessRuleException::class);
 
 arch('no debugging or unsafe PHP functions')
     ->preset()->php();

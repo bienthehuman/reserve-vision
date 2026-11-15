@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-use App\Exceptions\InvalidTransition;
+use App\Exceptions\Domain\InvalidTransition;
 
 /**
  * Mirrors the `reservations.status` CHECK and the lifecycle in docs/RESERVATIONS.md.
