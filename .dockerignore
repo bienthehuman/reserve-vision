@@ -1,4 +1,5 @@
 # Keeps the production image (Dockerfile) free of secrets, dev files and build output.
+# The dev image has its own: docker/dev/app.Dockerfile.dockerignore.
 # The image builds its own vendor/, public/build and bootstrap/ssr.
 
 # Secrets and local state

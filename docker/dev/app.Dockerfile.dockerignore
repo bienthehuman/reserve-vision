@@ -1,0 +1,5 @@
+# Build context of the dev image (docker/dev/app.Dockerfile). BuildKit uses this
+# file instead of the root .dockerignore, which belongs to the production image.
+# The dev image copies only its php.ini; the source is bind-mounted at runtime.
+*
+!docker/dev/php.ini
