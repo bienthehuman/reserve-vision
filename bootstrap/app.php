@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Exceptions\Domain\BusinessRuleException;
 use App\Http\Middleware\EnsureUserIsLandlord;
+use App\Http\Middleware\EnsureUserIsRenter;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SecurityHeaders;
 use App\Models\User;
@@ -33,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'landlord' => EnsureUserIsLandlord::class,
+            'renter' => EnsureUserIsRenter::class,
         ]);
 
         // Guests on a members-only page go to /login (the URL is kept as "intended");

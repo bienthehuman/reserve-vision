@@ -4,23 +4,39 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Symfony\Component\HttpFoundation\Response;
 
 final class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
-    public function register(): void
+    /** Reserve requests per renter per minute (RESERVATIONS.md "Booking rules"). */
+    public const int RESERVATIONS_PER_MINUTE = 10;
+
+    public function boot(): void
     {
-        //
+        RateLimiter::for('reservations', fn (Request $request): Limit => Limit::perMinute(self::RESERVATIONS_PER_MINUTE)
+            ->by('reservations|'.($request->user() instanceof User ? $request->user()->id : $request->ip()))
+            ->response($this->tooManyReservations(...)));
     }
 
     /**
-     * Bootstrap any application services.
+     * Same shape as a broken business rule: JSON gets the message, a form post
+     * goes back with it in the `error` flash (a bare 429 would be an error page).
+     *
+     * @param  array<array-key, mixed>  $headers
      */
-    public function boot(): void
+    private function tooManyReservations(Request $request, array $headers): Response
     {
-        //
+        $message = __('You\'ve tried to reserve too many times in a minute. Wait a moment, then try again.');
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => $message], 429, $headers);
+        }
+
+        return back(303)->with('error', $message)->withHeaders($headers);
     }
 }
