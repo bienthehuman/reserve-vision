@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { collectConsoleErrors, expectNoAxeViolations, isProductionRun, mailpitUrl } from './support';
+import { collectConsoleErrors, expectNoAxeViolations, isProductionRun, logIn, mailpitUrl } from './support';
 
 /** Slice 2.4: every auth page, the renter sign-up flow through Mailpit, and the demo logins. */
 
@@ -130,12 +130,6 @@ test('the demo panel (APP_DEMO=true only) fills the form in one tap', async ({ p
     await expect(page).toHaveURL(/\/landlord$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Cruz Lettings' })).toBeVisible();
 });
-
-async function logIn(page: Page, email: string, password: string): Promise<void> {
-    await page.getByLabel('Email', { exact: true }).fill(email);
-    await page.getByLabel('Password', { exact: true }).fill(password);
-    await page.getByRole('button', { name: 'Log in', exact: true }).click();
-}
 
 /** The verification link from the newest mail to `email` in Mailpit (the queue worker sends it within seconds). */
 async function verificationLink(request: APIRequestContext, email: string): Promise<string> {

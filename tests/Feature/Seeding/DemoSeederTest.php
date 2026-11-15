@@ -173,7 +173,9 @@ it('creates the demo logins and the last-bed room', function (): void {
     $property = DB::table('properties')->where('id', $room->property_id)->first();
     $firstOfNextMonth = '2026-12-01';
     $spaces = DB::table('spaces')->where('room_id', $room->id)->orderBy('label')->get();
-    expect($room->landlord_account_id)->toBe($owner->landlord_account_id)
+    // Its URL, /rooms/1, is in the README and the Phase 2 demo test (e2e/reserve.spec.ts).
+    expect($room->id)->toBe(1)
+        ->and($room->landlord_account_id)->toBe($owner->landlord_account_id)
         ->and($room->room_type)->toBe('shared')
         ->and((bool) $property->is_published)->toBeTrue()
         ->and($property->name)->toBe(DemoSeeder::LAST_BED_PROPERTY)
