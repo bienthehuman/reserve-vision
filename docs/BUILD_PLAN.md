@@ -6,15 +6,15 @@ Planned in **review batches**, not weeks. A batch is one or more slices you revi
 
 | # | Scenario | Pass condition | Slice |
 | --- | --- | --- | --- |
-| T1 | 10 renters reserve the same single-space room for the same dates at once | Exactly 1 hold; 9 get "no space available" | 2.4 |
-| T2 | 6 renters reserve a 4-bed shared room at once | Exactly 4 holds, each on a different bed | 2.4 |
+| T1 | 10 renters reserve the same single-space room for the same dates at once | Exactly 1 hold; 9 get "no space available" | 2.5 |
+| T2 | 6 renters reserve a 4-bed shared room at once | Exactly 4 holds, each on a different bed | 2.5 |
 | T3 | Lease ends Jun 1, next starts Jun 1 | Allowed | 2.3 |
 | T4 | Overlap of a single day | Rejected | 2.3 |
 | T5 | Hold passes its expiry without proof (expiry job not run) | Space reservable again; old hold can't take a proof or be confirmed | 2.3 |
 | T6 | Landlord A requests landlord B's property, room, reservation or proof by ID, on every landlord route | `404`, no data | 3.1 |
 | T7 | Caretaker tries to change a rate or invite a member | `403` | 3.1 |
 | T8 | Renter tries a third open reservation, or a second in the same property | Rejected with a clear message | 2.3 |
-| T8b | One renter fires 3 parallel reserve requests on different properties | At most 2 succeed | 2.4 |
+| T8b | One renter fires 3 parallel reserve requests on different properties | At most 2 succeed | 2.5 |
 | T9 | Signed proof URL used by another user, or after it expires | Denied | 5.3 |
 | T10 | Availability search against seeded data | Matches a brute-force check exactly | 5.2 |
 | T11 | Listing page fetched without JavaScript | HTML contains title, price and location; passes axe | 5.1 |
@@ -41,21 +41,23 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | 1.3 | Production + Codespaces | `Dockerfile` (multi-stage), `compose.prod.yaml` (Caddy, MinIO), `deploy.sh`, `DEPLOY.md`; CI job that boots the production stack and smoke-tests it; `.devcontainer/` that runs the app with one command |
 | — | **Phase demo** | Playwright smoke passes against both the dev stack and the production stack; tag `v0.1.0` |
 
-### Phase 2: Core (batch 2)
+### Phase 2: Core (batch 2). Tag `v0.2.0`
 
 | # | Slice | Definition of done |
 | --- | --- | --- |
-| 2.1 | Schema | All migrations from DATA_MODEL, with CHECKs, composite FKs and grants; models, enums, factories; a migration test that inserts a cross-landlord room and expects the FK to reject it |
+| 2.1 | Schema | All migrations from DATA_MODEL, with CHECKs, composite FKs and the append-only `audit_logs` grant; models, enums (with the reservation transition table), factories; a migration test that inserts a cross-landlord room and expects the FK to reject it; transition-table doc test |
 | 2.2 | Demo data | Seeder: 15 landlords, 60 properties across several cities, about 400 spaces, historical reservations; demo logins (owner, caretaker, renter-1, renter-2); `landlord:verify` command |
 | 2.3 | `ReserveSpace` | Action + `blocking()` scope + renter/room lock order + `BusinessDate`; T3, T4, T5, T8 |
-| 2.4 | Concurrency harness | Minimal reserve endpoint; `tests/Concurrency` driving real parallel HTTP against the Compose stack; T1, T2, T8b on both databases |
+| 2.4 | Auth | Login, logout, registration as renter or landlord (landlord registration creates the landlord account + owner membership), password reset and email verification via Mailpit, rate limits, intended-URL redirect; demo-login panel when `APP_DEMO=true`; production smoke logs in |
+| 2.5 | Concurrency harness | Minimal room page + reserve endpoint; `tests/Concurrency` driving real parallel HTTP against a running server; T1, T2, T8b on both databases in CI |
+| — | **Phase demo** | Concurrency suite green on MySQL and MariaDB; Playwright logs in as each demo user and renter-1 reserves through the minimal room page; tag `v0.2.0` |
 
-### Phase 3: Isolation (batch 3). **PoC gate**, tag `v0.2.0-poc`
+### Phase 3: Isolation (batch 3). **PoC gate**, tag `v0.3.0-poc`
 
 | # | Slice | Definition of done |
 | --- | --- | --- |
 | 3.1 | Landlord isolation | `CurrentLandlordAccount`, `BelongsToLandlordAccount` scope, policies, 404-across-accounts, audit log writes; permission-matrix doc test; T6 (generated over every landlord route), T7 |
-| — | **Phase demo** | Playwright: renter-1 and renter-2 race for the last bed through the minimal UI; owner and caretaker see only their own data; tag `v0.2.0-poc` |
+| — | **Phase demo** | Playwright: renter-1 and renter-2 race for the last bed through the minimal UI; owner and caretaker see only their own data; tag `v0.3.0-poc` |
 
 ### Phase 4: Landlord side (batch 4)
 
@@ -77,7 +79,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 
 | # | Slice | Definition of done |
 | --- | --- | --- |
-| 6.1 | Landlord decisions | Confirm, reject proof, decline, undo, withdraw, mark moved in, end stay, refund record; transition-table doc test |
+| 6.1 | Landlord decisions | Confirm, reject proof, decline, undo, withdraw, mark moved in, end stay, refund record |
 | 6.2 | Viewing requests | Request, accept/decline, done, cancel |
 | 6.3 | Jobs + email | `ExpireHolds`, `EndStays`, proof reminders, every status email (Markdown mailables); T12 on a mobile viewport |
 | — | **Phase demo** | Full T12 Playwright run as each role; tag `v1.0.0-rc` |
@@ -95,6 +97,8 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | 2026-11-14 | Deployable, not hosted; CI proves the production stack instead | [ADR 0007](adr/0007-deployable-not-hosted.md) |
 | 2026-11-14 | Landlord verification by artisan command; no admin web role | [ACCESS.md](ACCESS.md#actors) |
 | 2026-11-14 | Design system: ube primary (also prices), mango highlight, Plus Jakarta Sans headings; hue chosen to differ from Hilom/PesoTrack teal and the portfolio's orange, light mode only in v1 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
+| 2026-11-15 | Auth gets its own slice (2.4), before the concurrency harness (now 2.5), which needs logged-in renters. Phase 2 ends with tag `v0.2.0`; the PoC tag becomes `v0.3.0-poc` | this file |
+| 2026-11-15 | Transition-table doc test moves from 6.1 to 2.1, so the lifecycle is locked before any action uses it | this file |
 | 2026-11-14 | Keep Inertia + React with SSR after comparing Blade + Livewire and a Blade/Inertia hybrid | [ADR 0002](adr/0002-inertia-monolith.md) |
 | 2026-11-14 | Hilom conventions: `feat/<phase>.<slice>-name` branches, phase.slice numbering, `UPPER_SNAKE.md` doc names | [CONVENTIONS.md](CONVENTIONS.md#workflow) |
 | 2026-11-14 | Public GitHub repo from day one; no AI attribution in commits or PRs | [CONVENTIONS.md](CONVENTIONS.md#workflow) |
