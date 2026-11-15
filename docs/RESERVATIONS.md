@@ -8,25 +8,44 @@ The source of truth for how a reservation behaves. Action classes, the transitio
 - **Stay**: the date range `[move_in, move_out)`. `move_out` is exclusive, so a lease ending Jun 1 and one starting Jun 1 don't overlap.
 - **Overlap**: `existing.move_in < new.move_out AND new.move_in < existing.move_out`.
 - **Blocking reservation**: one that makes its space unavailable for overlapping dates:
-  - `held` **and** `hold_expires_at > now()`
+  - `held` **and** `hold_expires_at > now()` (a **live hold**; at exactly `hold_expires_at` it no longer blocks)
   - `proof_uploaded`, `confirmed`, `active`
 
-  This lives in one place, `Reservation::scopeBlocking()`, and the availability search reuses the same predicate. Correctness never depends on a job running on time.
-- **Open reservation** (for the per-renter limits): a live `held` or a `proof_uploaded` reservation.
+  This lives in one place, `Reservation::scopeBlocking()`, and the availability search reuses the same predicate. Correctness never depends on a job running on time. "Now" is bound from Laravel's clock, never SQL `NOW()`, so tests that freeze time see the same thing as the database.
+- **Open reservation** (for the per-renter limits): a live `held` or a `proof_uploaded` reservation (`Reservation::scopeOpenForRenter()`). Expired holds (whether or not the job has run), `confirmed`, `active` and final reservations don't count.
+- **Business date**: "today" is the calendar date in `Asia/Manila`, from `BusinessDate::today()` ([ARCHITECTURE](ARCHITECTURE.md#time)).
 
 ## Booking rules
 
 | Rule | Value | Enforced in |
 | --- | --- | --- |
-| Renter picks a room, not a space | Server assigns the lowest-id free space | `ReserveSpace` |
-| Move-in window | today … today + 90 days, with "today" in `Asia/Manila` | `ReserveSpace` (form request validates shape only) |
-| Lease length | 1–12 whole months; `move_out = move_in->addMonthsNoOverflow(n)` | `ReserveSpace` |
+| Renter picks a room, not a space | Server assigns the lowest-id non-archived space with no blocking overlapping reservation | `ReserveSpace` |
+| Only renters reserve | A landlord user is rejected | `ReserveSpace` |
+| Move-in window | today … today + 90 days, both inclusive, with "today" in `Asia/Manila` | `ReserveSpace` (form request validates shape only) |
+| Lease length | 1–12 whole months; `move_out = move_in->addMonthsNoOverflow(n)` (Jan 31 + 1 month = Feb 28, or 29 in a leap year) | `ReserveSpace` |
 | Hold length | 24 hours from creation | `ReserveSpace` |
 | Open reservations per renter | at most 2 | `ReserveSpace`, under the renter lock |
 | Open reservations per renter per property | at most 1 | `ReserveSpace`, under the renter lock |
 | Reservation fee | Snapshot of `rooms.reservation_fee` (centavos) at reservation time | `ReserveSpace` |
-| Property must be published, account verified | Otherwise the room is 404 to renters | Query scope + `ReserveSpace` |
+| Property must be published and not archived, account verified, room not archived | Otherwise the room is 404 to renters | Query scope + `ReserveSpace` |
 | Gender policy | Not enforced by the system. Shown on the listing; the landlord declines if it doesn't fit | (decision to check) |
+
+When a renter breaks both limits at once, the per-property message wins: it's the one that tells them which reservation to cancel.
+
+### Rejections
+
+Each broken rule is a domain exception in `app/Exceptions/Domain/` with a user-facing message. They extend `BusinessRuleException`, which renders `422 {"message": …}` for JSON requests and redirects Inertia requests back with the message in the `error` flash (`flash.error`). They aren't logged.
+
+| Exception | When |
+| --- | --- |
+| `NotARenter` | The user isn't a renter |
+| `InvalidLeaseLength` | Not 1–12 months |
+| `MoveInOutOfRange` | Move-in before today or after today + 90 (the message names both dates) |
+| `RoomNotReservable` | Room archived; property unpublished or archived; account unverified |
+| `HoldLimitReached` | Already 2 open reservations, or already 1 open in this property (two messages) |
+| `NoSpaceAvailable` | Every non-archived space has a blocking reservation overlapping the dates |
+| `HoldExpired` | A renter acts on a `held` reservation past `hold_expires_at` (proof upload) |
+| `InvalidTransition` | A status move the [transition table](#transition-table) doesn't have, or expiring a hold that is still live |
 
 ## Concurrency
 
@@ -35,7 +54,9 @@ Two locks inside one transaction, always taken in the same order to avoid deadlo
 1. **Renter row** (`users` `FOR UPDATE`). This serializes one renter's own requests, so two parallel requests can't both pass the 2-open / 1-per-property check.
 2. **Room row** (`rooms` `FOR UPDATE`). This serializes every reservation for the room, so two renters queue at the lock instead of racing for the last space.
 
-Then: check the renter limits, find the first free space, insert the hold. The transaction retries up to 3 times on deadlock. This works the same on MySQL, MariaDB, PostgreSQL and SQL Server. [ADR 0001](adr/0001-room-lock-vs-exclusion-constraint.md) compares it with a PostgreSQL exclusion constraint.
+Then: check the room is reservable, check the renter limits, find the first free space, insert the hold. The transaction makes up to 3 attempts on a deadlock or lock wait timeout.
+
+**Every read inside the transaction is a locking read** (`FOR UPDATE` or `LOCK IN SHARE MODE`), and the two locks come first. Under InnoDB's `REPEATABLE READ`, a plain `SELECT` would fix a read snapshot; a request that then waited at the room lock would keep reading that snapshot and miss the hold the lock holder just inserted. Locking reads always see the latest committed rows. For the same reason the checks are separate queries, not `NOT EXISTS (…)` subqueries: a locking clause on the outer query doesn't make its subquery a locking read. [ADR 0001](adr/0001-room-lock-vs-exclusion-constraint.md) has why this instead of `READ COMMITTED`; `tests/Feature/Reservations/LockingTest.php` pins the rules down. This works the same on MySQL, MariaDB, PostgreSQL and SQL Server. [ADR 0001](adr/0001-room-lock-vs-exclusion-constraint.md) compares it with a PostgreSQL exclusion constraint.
 
 Every other action that changes a reservation's status (confirm, decline, cancel, upload proof…) locks the **reservation row** and re-reads its status before applying the transition. Two caretakers confirming and declining at the same moment can't both win.
 
@@ -65,7 +86,7 @@ stateDiagram-v2
 
 ### Transition table
 
-Every arrow is one action class. The transition table (`ReservationStatus::canTransitionTo()`) rejects any move not listed here with a `422` and a clear message.
+Every arrow is one action class. The transition table (`ReservationStatus::canTransitionTo()`) rejects any move not listed here with a `422` and a clear message. Actions call `Reservation::assertCanMoveTo()` on the locked row, which applies the table plus the guards that depend on the hold's expiry: `held` → `proof_uploaded` needs a live hold (`HoldExpired` otherwise), `held` → `expired` needs an expired one. `held` → `cancelled` is allowed either way.
 
 | From | To | Action | Actor | Guard | Side effects |
 | --- | --- | --- | --- | --- | --- |

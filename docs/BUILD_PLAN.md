@@ -124,5 +124,6 @@ Ideas that came up and are deliberately not in any slice.
 | Trim the entry chunk (`app.js`, 112 KB gzipped, mostly React DOM + Inertia) and add a JS budget next to the CSS budget | Slice 1.1 build output |
 | Audit-log rows (actor null) for `landlord:verify` and `--revoke`, which unpublishes properties | Slice 2.2, for 3.1 |
 | Seed viewing requests and property photos (photos need real files, so after 4.2) | Slice 2.2 |
-| Render `InvalidTransition` (and other domain exceptions) as `422` / an Inertia flash, per CONVENTIONS | Slice 2.1 |
 | Narrow the "status is written only in `App\Actions`" arch test to reservations if it gets noisy for `PropertyPhoto`/`PaymentProof` status writes | Slice 2.1 |
+| Landlord edits that archive a space or room (or change its fee) lock the room row first, so they queue behind `ReserveSpace` like renters do | Slice 2.3, for 4.x |
+| Show `flash.error` in the layouts (a dismissible alert); today it's shared but not rendered | Slice 2.3, for 2.5 |

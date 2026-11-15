@@ -143,6 +143,23 @@ Measured: about 0.8 GB at rest and 1.7 GB peak (during `npm run build`), so `hos
 
 Tests assert driver error codes, not messages (`dbErrorCode()` in `tests/Pest.php`): 1452 foreign key, 1062 duplicate, 1264 out of range, 3819 (MySQL) or 4025 (MariaDB) CHECK, 1644 trigger, 1142 denied.
 
+### Reservations (slice 2.3)
+
+[docs/RESERVATIONS.md](docs/RESERVATIONS.md) is the spec. `App\Actions\ReserveSpace::handle($renter, $room, $moveIn, $months)` creates a 24-hour hold: cheap checks first, then one transaction (3 attempts on deadlock) that locks the renter row, then the room row, and only then reads, **every read a locking read** (the snapshot pitfall: comment in `ReserveSpace::reserve()`, [ADR 0001](docs/adr/0001-room-lock-vs-exclusion-constraint.md#the-read-snapshot-added-in-slice-23)). `tests/Feature/Reservations/LockingTest.php` fails if a non-locking `SELECT` or a subquery sneaks in.
+
+- `Reservation::scopeBlocking()`, `scopeOverlapping($in, $out)` and `scopeOpenForRenter($renter)` are the only definitions of those words; they qualify their columns, so they work on joins. "Now" is a PHP binding from Laravel's clock.
+- `Reservation::assertCanMoveTo($to)` = transition table + hold-expiry guards. Status-changing actions (5.3, 6.1, 6.3…) call it on the row they've just locked.
+- `App\Support\BusinessDate::today()`: the Manila calendar date as midnight **UTC**, the same shape as the `immutable_date` casts, so it compares with `move_in` directly. `BusinessDate::of($date)` drops the time and timezone of any date.
+- Domain exceptions: `app/Exceptions/Domain/`, extending the abstract `BusinessRuleException` (the only non-final class, exempted in `tests/Arch/ArchTest.php`). JSON → 422 `{message}`; Inertia (`X-Inertia`) → 303 back with the `error` flash, shared as `flash.error`; otherwise the 422 page. Not logged.
+- Tests in `tests/Feature/Reservations/` freeze "now" at 2027-03-15 10:00 Manila, so the window is Mar 15 – Jun 13, 2027 and T3 can use Jun 1. Helpers `reservableRoom()`, `reserve()` and `onlySpace()` are in `tests/Pest.php`.
+
+### Quirks hit in 2.3
+
+- **A locking clause doesn't reach subqueries**: in `SELECT … WHERE NOT EXISTS (SELECT …) FOR UPDATE` the subquery is a plain snapshot read. Keep each check its own locking query.
+- **`SET TRANSACTION ISOLATION LEVEL` inside an open transaction** fails on MySQL (1568), and every Pest test is inside one (`DatabaseTransactions`). That's why `ReserveSpace` uses locking reads, not `READ COMMITTED`.
+- **Laravel's `exists()` wraps the query in `select exists(…)`**, which would put the lock clause in a subquery; use `->sharedLock()->count()` instead.
+- **Pest resolves closures in datasets** before calling the test, so a dataset entry `fn () => Room::factory()->create()` arrives as a `Room`, not a closure.
+
 ### Quirks hit in 2.1
 
 - **State closures see unresolved attributes** in Laravel factories (nested factories and closures are not yet evaluated). Derive from a parent in a *definition* closure (`fn (array $attributes)`, after the parent key), and do lookups that need real ids in `afterCreating`.
