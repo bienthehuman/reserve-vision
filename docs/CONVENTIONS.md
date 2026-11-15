@@ -45,6 +45,8 @@ A failing check is fixed in the PR, not skipped or retried until it passes.
 - **Status changes** go through `Reservation::assertCanMoveTo()` (the transition table plus the hold-expiry guards), called on the row the action has just locked. There's no `$reservation->update(['status' => …])` outside actions; a Larastan rule or an architecture test (Pest `arch()`) enforces this.
 - Money is an `int` of centavos in PHP, and a `number` in TypeScript formatted only at the view edge (`formatPeso()`).
 - Domain exceptions live in `app/Exceptions/Domain/`, extend `BusinessRuleException`, carry a user-facing message, are rendered as `422` (or the `error` flash on Inertia redirects), aren't logged, and are never shown as raw exceptions.
+- **Every landlord-side action records exactly one audit row per change it makes**, through `App\Support\AuditLogger::record($action, $subject, $before, $after)`, inside the action's transaction (a rolled-back action leaves no row). Action names are `subject.verb` in snake_case (`room.rate_changed`, `invitation.created`, `account.verification_revoked`); `actor_id` is the logged-in user, null for the operator and the system. Only changed fields are stored, and secrets (`password`, `remember_token`, `token`, `token_hash`) never are: a changed secret is stored as `[redacted]`. Each action's tests assert its rows.
+- **Landlord-owned data** is reached through the isolation scope, the named public and renter scopes, and the policies ([ACCESS.md](ACCESS.md#how-it-works-slice-31)). Controllers authorize with the policy ability named after the matrix row. No `withoutGlobalScope` outside the named scopes (an architecture test enforces it).
 - Business "today" comes from `BusinessDate::today()`, never `today()` or `now()->toDateString()` (those are UTC).
 - TypeScript is `strict`. Page props are typed from shared `resources/js/types`.
 - Naming: **landlord account**, **landlord member**, **renter**. Never "tenant" (an architecture test greps for it).
@@ -64,7 +66,8 @@ A failing check is fixed in the PR, not skipped or retried until it passes.
 
 ## Docs that are tested
 
-- The permission matrix in [ACCESS.md](ACCESS.md#permission-matrix) is parsed by a test and compared with what the policies actually allow for each role.
+- The permission matrix in [ACCESS.md](ACCESS.md#permission-matrix) is parsed by a test (`tests/Feature/Docs/PermissionMatrixTest.php`) and compared with what the policies actually allow for each role, on the actor's own records and on another account's. A new policy ability, row or cell text needs a matching entry in the test's mapping.
+- The list of isolated models in [ACCESS.md](ACCESS.md#isolation-three-layers) is compared with the models that use `BelongsToLandlordAccount` (`tests/Feature/Isolation/ScopeTest.php`).
 - The transition table in [RESERVATIONS.md](RESERVATIONS.md#transition-table) is parsed by a test and compared with `ReservationStatus::transitions()`.
 
 ## ADRs

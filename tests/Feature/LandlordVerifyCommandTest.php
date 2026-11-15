@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\AuditLog;
 use App\Models\LandlordAccount;
 use App\Models\Property;
 use Illuminate\Support\Facades\DB;
@@ -112,4 +113,56 @@ it('says so when nothing is waiting for verification', function (): void {
 it('rejects --list combined with a slug or --revoke', function (): void {
     $this->artisan('landlord:verify', ['slug' => 'x', '--list' => true])->assertExitCode(1);
     $this->artisan('landlord:verify', ['--revoke' => true, '--list' => true])->assertExitCode(1);
+});
+
+// Audit (slice 3.1): one row per change, actor null (the operator).
+
+it('records the verification in the audit log, with no actor', function (): void {
+    $account = LandlordAccount::factory()->create(['slug' => 'casa-audit', 'is_verified' => false, 'verified_at' => null]);
+
+    $this->artisan('landlord:verify', ['slug' => 'casa-audit'])->assertExitCode(0);
+
+    $entry = AuditLog::query()->where('landlord_account_id', $account->id)->sole();
+    expect($entry->action)->toBe('account.verified')
+        ->and($entry->actor_id)->toBeNull()
+        ->and($entry->subject_type)->toBe('landlord_account')
+        ->and($entry->subject_id)->toBe($account->id)
+        ->and($entry->before)->toBe(['is_verified' => false, 'verified_at' => null])
+        ->and($entry->after['is_verified'] ?? null)->toBeTrue()
+        ->and($entry->after['verified_at'] ?? null)->toBeString();
+
+    // Already verified: nothing changes, nothing is recorded.
+    $this->artisan('landlord:verify', ['slug' => 'casa-audit'])->assertExitCode(0);
+    expect(AuditLog::query()->where('landlord_account_id', $account->id)->count())->toBe(1);
+});
+
+it('records the revocation and each property it unpublishes, one row per change', function (): void {
+    $account = LandlordAccount::factory()->create(['slug' => 'casa-revoke', 'is_verified' => true, 'verified_at' => now()]);
+    $published = Property::factory()->count(2)->published()->create(['landlord_account_id' => $account->id]);
+    Property::factory()->create(['landlord_account_id' => $account->id, 'is_published' => false]);
+
+    $this->artisan('landlord:verify', ['slug' => 'casa-revoke', '--revoke' => true])->assertExitCode(0);
+
+    $entries = AuditLog::query()->where('landlord_account_id', $account->id)->orderBy('id')->get();
+    expect($entries->pluck('action')->all())->toBe(['account.verification_revoked', 'property.unpublished', 'property.unpublished'])
+        ->and($entries->pluck('actor_id')->unique()->all())->toBe([null])
+        ->and($entries->first()?->after)->toBe(['is_verified' => false, 'verified_at' => null])
+        ->and($entries->where('action', 'property.unpublished')->pluck('subject_id')->sort()->values()->all())->toBe($published->pluck('id')->sort()->values()->all())
+        ->and($entries->where('action', 'property.unpublished')->pluck('after')->unique()->values()->all())->toBe([['is_published' => false]]);
+});
+
+it('leaves no audit row when the revoke rolls back', function (): void {
+    $account = LandlordAccount::factory()->create(['slug' => 'casa-seis', 'is_verified' => true, 'verified_at' => now()]);
+    Property::factory()->published()->create(['landlord_account_id' => $account->id]);
+
+    DB::listen(function ($query): void {
+        if (str_starts_with($query->sql, 'update `properties`')) {
+            throw new RuntimeException('boom');
+        }
+    });
+
+    expect(fn () => $this->artisan('landlord:verify', ['slug' => 'casa-seis', '--revoke' => true])->run())
+        ->toThrow(RuntimeException::class);
+
+    expect(AuditLog::query()->where('landlord_account_id', $account->id)->count())->toBe(0);
 });
