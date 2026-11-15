@@ -54,3 +54,5 @@ Route::middleware(['auth', 'verified', 'landlord'])->prefix('landlord')->name('l
     Route::get('/members', ListMembers::class)->name('members.index');
     Route::post('/invitations', StoreInvitation::class)->name('invitations.store');
 });
+
+Route::middleware(['auth', 'verified', 'landlord'])->get('/landlord/widgets/{widget}', fn (string $widget): string => $widget)->name('landlord.widgets.show');
