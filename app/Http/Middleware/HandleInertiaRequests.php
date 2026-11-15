@@ -26,6 +26,10 @@ final class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'appName' => config('app.name'),
+            // A broken business rule on a form post (BusinessRuleException::render()).
+            'flash' => [
+                'error' => fn (): mixed => $request->hasSession() ? $request->session()->get('error') : null,
+            ],
         ];
     }
 }

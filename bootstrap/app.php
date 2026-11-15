@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Exceptions\Domain\BusinessRuleException;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
@@ -29,6 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Expected outcomes with a user-facing message (BusinessRuleException::render()).
+        $exceptions->dontReport(BusinessRuleException::class);
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
