@@ -16,7 +16,9 @@ Dev runs entirely in Docker Compose ([compose.yaml](compose.yaml)). The host nee
 
 ### Setup
 
-`bin/setup` (or `make setup`): creates `.env` from `.env.example` if missing, builds the image, `composer install`, `npm ci`, generates `APP_KEY` if empty, starts `db`, migrates as `migrator` and seeds as `app` (before the worker, which needs the `cache` and `jobs` tables), `docker compose up -d --wait`, then waits until `/` is server-rendered. Non-interactive and idempotent; slice 1.3 reuses it for Codespaces.
+`bin/setup` (or `make setup`): creates `.env` from `.env.example` if missing, builds the image, `composer install`, `npm ci`, generates `APP_KEY` if empty, starts `db`, migrates as `migrator` and seeds as `app` (before the worker, which needs the `cache` and `jobs` tables), `docker compose up -d --wait`, then waits until `/` is server-rendered. Non-interactive and idempotent.
+
+Inside the dev container (`RV_DEVCONTAINER=1`, see [Dev container](#dev-container-and-codespaces)) the same script runs the steps directly in the workspace container instead of through `docker compose`, and runs `npm run build` instead of relying on the Vite dev server.
 
 ### Services and ports
 
@@ -60,7 +62,7 @@ URLs: app http://localhost:8180, styleguide http://localhost:8180/styleguide, he
 
 ### CI (GitHub Actions)
 
-Every PR and every push to `main` runs four workflows ([.github/workflows](.github/workflows)). Each cancels a superseded run on the same branch, runs with `contents: read`, and has a job timeout.
+Every PR and every push to `main` runs five workflows ([.github/workflows](.github/workflows)). Each cancels a superseded run on the same branch, runs with `contents: read`, and has a job timeout.
 
 | Workflow | File | Check name(s) | What it runs |
 | --- | --- | --- | --- |
@@ -68,10 +70,11 @@ Every PR and every push to `main` runs four workflows ([.github/workflows](.gith
 | Tests (MariaDB 11.4) | `tests-mariadb.yml` | `MariaDB 11.4 / Pest` | Same, with `mariadb:11.4` |
 | Quality | `quality.yml` | `Pint + Larastan`, `TypeScript + Vitest + build` | `composer lint`, `composer analyse`, `npm run types`, `npm run test`, `npm run build`, then the CSS budget ([bin/check-css-budget.mjs](bin/check-css-budget.mjs): `app.css` ≤ 35 kB gzipped, size in the job summary) |
 | E2E | `e2e.yml` | `Playwright + axe` | `bin/setup` (the dev Compose stack, MySQL), then `npm run e2e`. On failure: the Playwright report and traces as the `playwright-report` artifact, and the stack logs |
+| Production | `production.yml` | `Production stack` | The ADR 0007 guard. ShellCheck, `bin/ci-production-env` (throwaway secrets, Caddy on plain HTTP `:80` published at 8280), `./deploy.sh --current` (build, migrate as `migrator`, up, optimize, `app:doctor`, `/up`), image size in the job summary, `bin/smoke-production` (SSR'd pitch text, `/up` 200, `/styleguide` 404, security headers incl. HSTS), then `npm run e2e` against it with `E2E_SKIP_DEV_PAGES=1`. On failure: `playwright-report-production` artifact and the stack logs |
 
 How `_tests.yml` differs from dev: PHP comes from `setup-php` on the runner (no app container) and the database is a service container. Root runs [database/sql/create-users.sql](database/sql/create-users.sql) with the `mysql` client for `reservevision_test` and `reservevision_test_1`…`_4`, `composer migrate` runs as `migrator`, `npm run build` plus `php artisan inertia:start-ssr` replace the Vite dev server for SSR, and Pest runs as `app` with `--parallel --processes=4`.
 
-Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens weekly PRs for Composer, npm and Actions, with minor and patch updates grouped into one PR per ecosystem.
+Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens weekly PRs for Composer, npm, Actions, Dockerfiles, Compose images (including the pinned MinIO digest) and dev container features, with minor and patch updates grouped into one PR per ecosystem.
 
 **Reproducing a CI failure locally** (stack running):
 
@@ -81,10 +84,50 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens weekly PRs f
 | `Pint + Larastan` | `make lint` (`composer format` fixes) and `make analyse` |
 | `TypeScript + Vitest + build` | `make types`, `make vitest`, `docker compose exec ssr npm run build && docker compose exec ssr node bin/check-css-budget.mjs`, then `rm -rf public/build bootstrap/ssr` |
 | `Playwright + axe` | `make e2e`, or download the `playwright-report` artifact and open a trace with `npx playwright show-trace test-results/<test>/trace.zip` |
+| `Production stack` | The same steps locally (port 8280 must be free): `bin/ci-production-env 8280 && ./deploy.sh --current && bin/smoke-production http://localhost:8280`, then `E2E_BASE_URL=http://localhost:8280 E2E_SKIP_DEV_PAGES=1 npm run e2e`. Tear down with `docker compose -f compose.prod.yaml --env-file .env.production down -v && rm .env.production` |
 
 ### Pinned versions
 
-PHP 8.4.27 (FrankenPHP 1.13.5 image), Composer 2.9, Laravel 13.42, inertia-laravel 3.7, Pest 5.3 (ParaTest held below 7.28 by a `conflict` in composer.json, see quirks), Larastan 3.15, Pint 1.32. Node 24.22, Vite 8.3, React 19.3, @inertiajs/react + @inertiajs/vite 3.11, TypeScript 7.0, Bootstrap 5.3.9, React-Bootstrap 2.10, react-bootstrap-icons 1.11, Sass 1.108, Vitest 5.1, Playwright 1.65.1 (exact, matches its browser build), @axe-core/playwright 4.14. MySQL 8.4.13, Mailpit 1.33.
+PHP 8.4.27 (FrankenPHP 1.13.5 image), Composer 2.9, Laravel 13.42, inertia-laravel 3.7, league/flysystem-aws-s3-v3 3.32 (AWS SDK trimmed to S3 by `extra.aws/aws-sdk-php`), Pest 5.3 (ParaTest held below 7.28 by a `conflict` in composer.json, see quirks), Larastan 3.15, Pint 1.32. Node 24.22, Vite 8.3, React 19.3, @inertiajs/react + @inertiajs/vite 3.11, TypeScript 7.0, Bootstrap 5.3.9, React-Bootstrap 2.10, react-bootstrap-icons 1.11, Sass 1.108, Vitest 5.1, Playwright 1.65.1 (exact, matches its browser build), @axe-core/playwright 4.14. MySQL 8.4.13, Mailpit 1.33. Production only: Caddy 2.11 (`caddy:2.11-alpine`), MinIO RELEASE.2026-11-12 (`cgr.dev/chainguard/minio:latest-dev`, pinned by digest). Dev container: Node feature 1.7.1 (`devcontainer-lock.json`).
+
+### Production stack (slice 1.3)
+
+Full guide: [DEPLOY.md](DEPLOY.md). Pieces:
+
+| File | What |
+| --- | --- |
+| [Dockerfile](Dockerfile) | Multi-stage: `php-base` (FrankenPHP 1.13 + extensions, same as dev) → `vendor` (`--no-dev`, classmap-authoritative, explicit source allowlist) → `assets` (Node: `npm run build`, source maps deleted) → `runtime` (code owned by root, only `storage/` and `bootstrap/cache` writable, runs as `app` UID 1000, OPcache with `validate_timestamps=0` from [docker/prod/php.ini](docker/prod/php.ini), plus only the `node` binary for SSR). One image for `app`, `worker`, `scheduler` and `ssr` |
+| [.dockerignore](.dockerignore) | Production context: no `.env*`, tests, `prompts/`, `node_modules`, docs. The dev image has its own [docker/dev/app.Dockerfile.dockerignore](docker/dev/app.Dockerfile.dockerignore) |
+| [compose.prod.yaml](compose.prod.yaml) | Project `reservevision-prod`. `caddy` ([docker/caddy/Caddyfile](docker/caddy/Caddyfile): HTTPS for `DOMAIN`, `/media/photos/*` → photos bucket, GET/HEAD only), `app`, `ssr` (`node bootstrap/ssr/app.js`), `worker` (`--max-time=3600`), `scheduler`, `db` (same init script and SQL as dev, without the test schemas), `minio`, `minio-setup` ([docker/minio/setup.sh](docker/minio/setup.sh)). Only Caddy publishes ports (`HTTP_PORT`/`HTTPS_PORT`) |
+| `.env.production` | Git-ignored. Every variable documented in [.env.production.example](.env.production.example). Used both for `${…}` in the Compose file (`--env-file`) and as the PHP containers' environment (`env_file`); there is no `.env` in the image |
+| [deploy.sh](deploy.sh) | `./deploy.sh <tag>` or `--current`. Preflight → checkout → build → db + MinIO → migrate as `migrator` → `up -d --wait` → `optimize` in app/worker/scheduler + `queue:restart` → `app:doctor` → GET `/up`. `set -Eeuo pipefail`, body in `main()` (the checkout replaces the file), prints the rollback command on failure |
+| [bin/ci-production-env](bin/ci-production-env) | Writes a throwaway `.env.production` (random secrets, `DOMAIN=:80`). Refuses to overwrite one it didn't write |
+| [bin/smoke-production](bin/smoke-production) | curl-only smoke test of a running stack. TODOs for slices 3.1 (listing page) and 5.1 (login) |
+
+Media disks ([config/filesystems.php](config/filesystems.php)): `photos` (public) and `proofs` (private). `MEDIA_STORAGE=local` (default; dev and tests, under `storage/app`) or `s3` (production: MinIO, or any S3). Not used by domain code until slice 4.2.
+
+Proxies: `bootstrap/app.php` trusts `X-Forwarded-*` from any address (`trustProxies(at: '*')`), because the app port is only reachable from Caddy (production) or GitHub's port forwarding (Codespaces).
+
+### `php artisan app:doctor`
+
+[app/Console/Commands/DoctorCommand.php](app/Console/Commands/DoctorCommand.php). Prints a pass/fail table and exits 1 if anything fails. Checks: connected as `DB_USERNAME`; `CREATE TABLE` denied (1142); queue table readable (in production the queue must be `database`); write/read/delete a temp file on `photos` and `proofs`; mail config complete (in production `log`/`array` mailers fail). Run by `deploy.sh` and so by the production workflow; works in dev too (`docker compose exec app php artisan app:doctor`).
+
+### Dev container and Codespaces
+
+[.devcontainer/devcontainer.json](.devcontainer/devcontainer.json) on top of `compose.yaml` plus [.devcontainer/compose.devcontainer.yaml](.devcontainer/compose.devcontainer.yaml) (project `reservevision-devcontainer`, so it never clashes with a local dev stack). The workspace container is `app` (user `app`, `/app`), with Node 24 from the dev container feature. `postCreateCommand` is `bin/setup`. Forwards 8000 (app, opens in the browser) and `mail:8025` (Mailpit).
+
+Differences from the plain dev stack: **built assets, no Vite dev server** (a Vite origin on a second forwarded port would need a public port and CORS), so run `npm run build` after frontend changes; the `ssr` service runs the production SSR bundle with `node --watch-path` and reloads on rebuilds. No host ports. `worker` and `scheduler` restart a few times until `bin/setup` has migrated.
+
+Verify locally from a clean clone (not this working tree: the build removes `public/hot`):
+
+```bash
+git clone --branch <branch> . /tmp/rv-devc && cd /tmp/rv-devc
+npx @devcontainers/cli up --workspace-folder .
+npx @devcontainers/cli exec --workspace-folder . curl -s http://localhost:8000/ | grep -o '<h1[^>]*>[^<]*</h1>'
+docker compose -p reservevision-devcontainer down -v
+```
+
+Measured: about 0.8 GB at rest and 1.7 GB peak (during `npm run build`), so `hostRequirements` is 2 cores and 8 GB.
 
 ### Quirks hit in 1.1
 
@@ -105,3 +148,15 @@ PHP 8.4.27 (FrankenPHP 1.13.5 image), Composer 2.9, Laravel 13.42, inertia-larav
 - **Parallel Pest and the `app` user**: Laravel's own per-process test databases need `CREATE DATABASE`. phpunit.xml sets `LARAVEL_PARALLEL_TESTING_WITHOUT_DATABASES=1` and `tests/TestCase.php` points each worker at `<DB_DATABASE>_<token>` instead. A dev `db-data` volume from before 1.2 lacks `reservevision_test_1`…`_4`: run `docker compose down -v && bin/setup` (or run the SQL file as root for those four schemas).
 - **Vite restarts on config changes** (for example after `git pull` touches `vite.config.ts`) and can come back on its default port 5173 instead of 5183, so SSR tests fail with "Failed to connect to ssr port 5183". `docker compose restart ssr` fixes it.
 - **E2E on the runner**: the dev containers run as UID 1000, the runner as 1001, so `e2e.yml` creates `.env` and makes the checkout world-writable before `bin/setup`.
+
+### Quirks hit in 1.3
+
+- **MinIO images**: `minio/minio` is gone from Docker Hub and Quay needs a login. `cgr.dev/chainguard/minio:latest-dev` is built from source and includes `sh`, `wget` and `mc`; Chainguard's free tier only has `latest*` tags, so it's pinned by digest and Dependabot bumps it.
+- **`mc anonymous set download` also allows `ListBucket`**: anyone could list every photo key. [docker/minio/setup.sh](docker/minio/setup.sh) sets a GetObject-only policy instead.
+- **Caddy directive order**: `rewrite` runs before `uri strip_prefix` in the same block, so the prefix was never stripped. Use `handle_path` (strips first).
+- **The root `.dockerignore` applies to the dev image too**, and the Dev Containers CLI builds from a generated Dockerfile, so `docker/dev/app.Dockerfile.dockerignore` doesn't apply there. The root file must not exclude `docker/dev`.
+- **Dev Containers Node feature** runs `source` in the remote user's login shell; the dev image's `app` user needs `--shell /bin/bash`.
+- **SSR bundle externals**: `vite build --ssr` keeps dependencies external by default, so the bundle needs `node_modules` at runtime. `ssr.noExternal: true` for builds only (vite.config.ts) makes it self-contained; it reads `process.env.NODE_ENV` at runtime, so the `ssr` service sets `NODE_ENV=production`.
+- **`set -e` and functions**: an `ERR` trap doesn't fire for failures inside functions without `set -E`.
+- **Chainguard images run as UID 65532**: `docker compose run` of `minio-setup` for backups needs `--user 0:0` to write to a host directory.
+

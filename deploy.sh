@@ -108,8 +108,13 @@ main() {
     compose build --pull
 
     step "Starting the database and storage"
-    compose up -d --wait db minio
-    compose run --rm minio-setup
+    if compose config --services | grep -qx minio; then
+        compose up -d --wait db minio
+        compose run --rm minio-setup
+    else
+        # External S3 (DEPLOY.md, "Using an external S3 service"): nothing to start.
+        compose up -d --wait db
+    fi
 
     step "Migrating as migrator"
     compose run --rm --no-deps app php artisan migrate --database=mysql_migrator --force --no-interaction

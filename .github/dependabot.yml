@@ -25,3 +25,27 @@ updates:
     groups:
       actions-minor-patch:
         update-types: [minor, patch]
+
+  # Base images in Dockerfile and docker/dev/app.Dockerfile.
+  - package-ecosystem: docker
+    directories: [/, /docker/dev]
+    schedule:
+      interval: weekly
+    groups:
+      docker-minor-patch:
+        update-types: [minor, patch]
+
+  # Service images (and the pinned MinIO digest) in compose.yaml and compose.prod.yaml.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      compose-minor-patch:
+        update-types: [minor, patch]
+
+  # Dev container features (.devcontainer/devcontainer-lock.json).
+  - package-ecosystem: devcontainers
+    directory: /
+    schedule:
+      interval: weekly
