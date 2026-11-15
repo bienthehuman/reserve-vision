@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use App\Exceptions\Domain\BusinessRuleException;
+use App\Http\Middleware\EnsureUserIsLandlord;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SecurityHeaders;
+use App\Models\User;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -28,6 +30,17 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
+
+        $middleware->alias([
+            'landlord' => EnsureUserIsLandlord::class,
+        ]);
+
+        // Guests on a members-only page go to /login (the URL is kept as "intended");
+        // logged-in users on /login or /register go to their home.
+        $middleware->redirectGuestsTo(fn (): string => route('login'));
+        $middleware->redirectUsersTo(fn (Request $request): string => $request->user() instanceof User
+            ? $request->user()->homePath()
+            : route('home'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Expected outcomes with a user-facing message (BusinessRuleException::render()).

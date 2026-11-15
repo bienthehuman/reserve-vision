@@ -63,7 +63,7 @@ Then deploy a release tag:
 
 [deploy.sh](deploy.sh) checks the env file, checks out the tag, builds the image, starts MySQL and MinIO (the first start creates the database users and buckets), migrates as `migrator`, starts everything, runs `php artisan optimize` in each PHP container, runs `php artisan app:doctor` and finally requests `https://<DOMAIN>/up`. If any step fails it stops, says which step, and prints the rollback command.
 
-Nothing is seeded in production: `db:seed` there loads only the amenity catalogue, and `DemoSeeder` refuses to run unless `APP_DEMO=true` is set. Leave it `false` on a real site. For a trial server you may set it and run `docker compose -f compose.prod.yaml --env-file .env.production exec app php artisan db:seed --force`, which creates the [demo logins](README.md#demo-logins) (password `password`, so never on a public site with real users).
+Nothing is seeded in production: `db:seed` there loads only the amenity catalogue, and `DemoSeeder` refuses to run unless `APP_DEMO=true` is set. Leave it `false` on a real site. For a trial server you may set it and run `docker compose -f compose.prod.yaml --env-file .env.production exec app php artisan db:seed --force`, which creates the [demo logins](README.md#demo-logins) (password `password`, so never on a public site with real users). With `APP_DEMO=true` the login page also lists those accounts.
 
 ### Verifying landlord accounts
 
@@ -257,7 +257,7 @@ docker compose -f compose.prod.yaml --env-file .env.production down -v   # remov
 rm .env.production
 ```
 
-With `DOMAIN=:80` Caddy serves plain HTTP and requests no certificate. The app still runs with `APP_ENV=production`, so it sends HSTS and `upgrade-insecure-requests`; browsers ignore both on `http://localhost`.
+With `DOMAIN=:80` Caddy serves plain HTTP and requests no certificate. The app still runs with `APP_ENV=production`, so it sends HSTS, which browsers ignore over plain HTTP. `upgrade-insecure-requests` is sent on HTTPS requests only: over plain HTTP Chromium does apply it, and it upgrades Inertia's redirect follow-ups to an `https://` that isn't there.
 
 ## Not covered by CI
 
@@ -267,7 +267,7 @@ The `Production` workflow boots this stack on every PR, but some things only a r
 | --- | --- | --- |
 | Real TLS issuance and renewal | CI has no public DNS name, so Caddy runs on plain HTTP (`DOMAIN=:80`) | `curl -I https://<DOMAIN>/up` shows `HTTP/2 200`; `rv logs caddy` shows "certificate obtained successfully". Renewal is automatic about 30 days before expiry |
 | HTTP to HTTPS redirect, HTTP/3 | Same | `curl -I http://<DOMAIN>/` returns `308` to `https://` |
-| Real email delivery | CI has a placeholder SMTP host, and nothing sends mail yet | The tinker test above; check the message's SPF/DKIM results in the recipient's "show original" |
+| Real email delivery | CI has a placeholder SMTP host. Verification and password-reset mails are queued, so the worker fails them there without affecting any request | The tinker test above; check the message's SPF/DKIM results in the recipient's "show original" |
 | External S3 providers | CI uses MinIO | `app:doctor` after switching |
 | `deploy.sh <tag>` (checking out a tag) | CI deploys the checkout with `--current` | First tag deploy on the server |
 | Backups and restores | Need a schedule and a second machine | A restore drill on a throwaway host |

@@ -8,6 +8,7 @@
 # - The ssr service runs the production SSR bundle, as in CI and production.
 # - worker and scheduler restart a few times until bin/setup has migrated (the
 #   cache and jobs tables), then stay up.
+# - APP_DEMO=true: the login page shows the demo-login panel.
 # - No host ports: Codespaces forwards ports itself, and a local run must not
 #   clash with a dev stack that is already running.
 name: reservevision-devcontainer
@@ -16,6 +17,8 @@ services:
   app:
     environment:
       RV_DEVCONTAINER: "1"
+      # The login page lists the demo accounts (slice 2.4); the data is seeded by bin/setup.
+      APP_DEMO: "true"
       INERTIA_SSR_HOT_URL: ""
       INERTIA_SSR_URL: http://ssr:13714
     ports: !reset []

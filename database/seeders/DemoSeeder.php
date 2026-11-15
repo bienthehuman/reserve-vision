@@ -246,7 +246,8 @@ final class DemoSeeder extends Seeder
     {
         $prefix = $this->pick(['0905', '0915', '0917', '0918', '0927', '0935', '0945', '0956', '0966', '0977', '0995']);
 
-        return sprintf('%s %03d %04d', $prefix, $this->int(0, 999), $this->int(0, 9999));
+        // Stored normalized, as registration does (App\Support\PhilippineMobile).
+        return sprintf('%s%03d%04d', $prefix, $this->int(0, 999), $this->int(0, 9999));
     }
 
     // -------------------------------------------------------------- listings

@@ -50,7 +50,8 @@ expect_body "built assets, not the Vite dev server" '/build/assets/app-'
 echo "Security headers on /"
 expect_header Strict-Transport-Security "max-age=31536000"
 expect_header Content-Security-Policy "default-src 'self'"
-expect_header Content-Security-Policy "upgrade-insecure-requests"
+# upgrade-insecure-requests is sent on HTTPS requests only (SecurityHeaders); this stack may be plain HTTP.
+if [[ "$base" == https://* ]]; then expect_header Content-Security-Policy "upgrade-insecure-requests"; fi
 expect_header X-Frame-Options DENY
 expect_header X-Content-Type-Options nosniff
 expect_header Referrer-Policy strict-origin-when-cross-origin
@@ -61,8 +62,42 @@ echo "Health and dev-only pages"
 expect_status /up 200
 expect_status /styleguide 404
 
-# TODO(slice 3.1): smoke a public listing page (200, listing title in the raw HTML).
-# TODO(slice 5.1): smoke the login page (200, form in the raw HTML) and a login as a demo user.
+echo "Login page (server-rendered) and session cookie"
+expect_status /login 200
+expect_body "the login form is in the raw HTML" 'name="password"'
+expect_body "the login page was rendered by the SSR server" 'data-server-rendered="true"'
+session_line="$(grep -i '^Set-Cookie: [a-z0-9_-]*session=' "$tmp/headers" | tail -n1 | tr -d '\r' || true)"
+for attribute in secure httponly 'samesite=lax'; do
+    if [[ "${session_line,,}" == *"; ${attribute}"* ]]; then
+        pass "session cookie is ${attribute}"
+    else
+        fail "session cookie should be ${attribute} (got: ${session_line:-no session cookie})"
+    fi
+done
+
+# Log in as the demo owner (CI seeds demo data with APP_DEMO=true). Cookies are passed by hand,
+# not through a cookie jar, so the Secure flag over plain-HTTP localhost doesn't matter.
+echo "Login as a demo user"
+cookies() { grep -i '^Set-Cookie:' "$tmp/headers" | sed -E 's/^[^:]*: *([^;]*).*/\1/' | tr -d '\r' | paste -sd ';' -; }
+cookie_header="$(cookies)"
+xsrf="$(printf '%s' "$cookie_header" | tr ';' '\n' | sed -n 's/^ *XSRF-TOKEN=//p')"
+xsrf="$(printf '%b' "${xsrf//%/\\x}")" # URL-decode
+status="$(curl -sS -o "$tmp/body" -D "$tmp/headers" -w '%{http_code}' \
+    -H "Cookie: ${cookie_header}" -H "X-XSRF-TOKEN: ${xsrf}" \
+    --data-urlencode 'email=owner@example.com' --data-urlencode 'password=password' \
+    "${base}/login")"
+location="$(grep -i '^Location:' "$tmp/headers" | tail -n1 | tr -d '\r' || true)"
+if [[ "$status" == 302 && "$location" == */landlord ]]; then
+    pass "POST /login with the CSRF token redirects to /landlord"
+else
+    fail "POST /login is $status (${location:-no Location}), expected 302 to /landlord"
+fi
+cookie_header="$(cookies)"
+status="$(curl -sS -o "$tmp/body" -D "$tmp/headers" -w '%{http_code}' -H "Cookie: ${cookie_header}" "${base}/landlord")"
+if [[ "$status" == 200 ]]; then pass "GET /landlord as the owner is 200"; else fail "GET /landlord as the owner is $status, expected 200"; fi
+expect_body "the dashboard shows the owner's account" "Santos Family Rentals"
+
+# TODO(slice 5.1): smoke a public listing page (200, listing title in the raw HTML).
 
 if [[ "$failures" -gt 0 ]]; then
     echo "$failures smoke check(s) failed." >&2

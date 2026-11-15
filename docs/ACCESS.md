@@ -6,11 +6,25 @@ The source of truth for who can do what. Policies and the isolation tests are ch
 
 | Actor | How they get in |
 | --- | --- |
-| **Public** | Not logged in |
-| **Renter** | Self-registration, `users.type = renter` |
-| **Owner** | Self-registration as a landlord, which creates a `landlord_account` with them as owner. Also by owner invite |
-| **Caretaker** | Owner invite only |
+| **Public** | Not logged in. Browses; anything members-only sends them to `/login`, and the page they wanted is kept (flow B) |
+| **Renter** | `/register`, "I want to: **rent a place**" → `RegisterRenter` creates a `users.type = renter` user. Logged in at once, then must confirm their email before reserving. Lands on `/` after login |
+| **Owner** | `/register`, "I want to: **list my property**" plus a business or display name → `RegisterLandlord` creates, in one transaction, the user (`type = landlord`), an **unverified** `landlord_account` (unique slug from the name) and the **owner** membership. Must confirm their email before opening `/landlord`, which shows "awaiting verification" until the operator verifies the account. Lands on `/landlord` after login. Also by owner invite (4.3) |
+| **Caretaker** | Owner invite only (4.3). Lands on `/landlord` after login |
 | **Operator** | Shell access only: `php artisan landlord:verify`. Not a web role; an admin UI is under README "Next" |
+
+### Logging in (slice 2.4)
+
+Laravel Fortify, headless: Fortify's controllers and login pipeline, Inertia pages in `resources/js/Pages/Auth`, routes in `routes/auth.php` ([CLAUDE.md](../CLAUDE.md#auth-slice-24)).
+
+| What | Rule |
+| --- | --- |
+| Login | Email (case-insensitive) and password, optional "keep me logged in". The session is regenerated. Afterwards: the page that asked for login, else `/` for renters and `/landlord` for landlords |
+| Logout | `POST /logout`: the session is invalidated and the CSRF token regenerated |
+| Email verification | Required (`verified` middleware) for reserving (2.5) and every landlord page. The signed link is valid 60 minutes; "send the link again" is limited to 6 a minute. Demo users are seeded verified |
+| Password reset | Link by email, valid 60 minutes, one use. The form answers the same whether or not the email has an account |
+| Rate limits | Login 5 a minute per email + IP; sign-up and reset emails 3 a minute per IP. Shown as a form error ("Too many tries. Wait 60 seconds, then try again."), not a 429 page |
+| `/landlord` | Logged in, verified, and a landlord user with a membership; a renter gets `403` |
+| Session cookie | `HttpOnly`, `SameSite=Lax`, `Secure` in production |
 
 The code never says "tenant". See [ADR 0005](adr/0005-no-word-tenant.md).
 

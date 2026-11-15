@@ -74,7 +74,7 @@ it('uses realistic money and only example.com emails', function (): void {
         ->and(DB::table('rooms')->where('reservation_fee', '<', 50000)->count())->toBe(0)
         ->and(DB::table('rooms')->where('deposit_months', '>', 2)->orWhere('advance_months', '>', 2)->count())->toBe(0)
         ->and(DB::table('users')->where('email', 'not like', '%@example.com')->count())->toBe(0)
-        ->and(DB::table('users')->whereRaw("phone NOT REGEXP '^09[0-9]{2} [0-9]{3} [0-9]{4}$'")->count())->toBe(0);
+        ->and(DB::table('users')->whereRaw("phone NOT REGEXP '^09[0-9]{9}$'")->count())->toBe(0);
 });
 
 it('never lets two blocking reservations overlap on a space (brute force)', function (): void {
@@ -218,7 +218,7 @@ it('produces the same business data every time', function (): void {
      * and say why in the PR. An unexpected change means something stopped being
      * deterministic: look for an unseeded random call or an unordered query.
      */
-    $expected = '26daf316ad3b0b1a48c6819fc3b76db17315c2696548a52ee2b9f579b7fd6ce0';
+    $expected = '31f8e3f2a360d570ea1bed84900bf49d4bfeb33b7c04de4fd41a6c92410835f1';
 
     // Amenities are reference data with auto-increment ids, whose counter survives a
     // rolled-back test, so they are hashed by slug, not by id.

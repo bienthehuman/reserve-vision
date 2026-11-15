@@ -66,7 +66,10 @@ it('allows the Vite dev server only outside production', function (): void {
 
         $production = (string) $this->get('/up')->headers->get('Content-Security-Policy');
         expect($production)->not->toContain('localhost:5183')
-            ->toContain('upgrade-insecure-requests');
+            ->not->toContain('upgrade-insecure-requests'); // a plain-HTTP request
+
+        $https = (string) $this->get('https://localhost/up')->headers->get('Content-Security-Policy');
+        expect($https)->toContain('upgrade-insecure-requests');
     } finally {
         $hadHotFile ? file_put_contents($hot, (string) $original) : unlink($hot);
     }

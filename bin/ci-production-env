@@ -27,6 +27,8 @@ declare -A values=(
     [HTTPS_PORT]="$((port + 1))"
     [APP_KEY]="base64:$(openssl rand -base64 32)"
     [APP_URL]="http://localhost:${port}"
+    # Demo data and the login page's demo panel, so the smoke test and e2e can log in (slice 2.4).
+    [APP_DEMO]="true"
     [DB_PASSWORD]="$(secret)"
     [DB_MIGRATOR_PASSWORD]="$(secret)"
     [DB_ROOT_PASSWORD]="$(secret)"
@@ -35,7 +37,8 @@ declare -A values=(
     [AWS_ACCESS_KEY_ID]="rv-app"
     [AWS_SECRET_ACCESS_KEY]="$(secret)"
     [AWS_PHOTOS_URL]="http://localhost:${port}/media/photos"
-    # Nothing sends mail yet, and app:doctor checks only that the config is complete.
+    # Unreachable on purpose: auth mails are queued, so the worker fails them, never a request.
+    # app:doctor checks only that the config is complete.
     [MAIL_HOST]="smtp.example.invalid"
     [MAIL_FROM_ADDRESS]="hello@example.invalid"
 )

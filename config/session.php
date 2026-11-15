@@ -171,7 +171,9 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // Slice 2.4: on by default in production (HTTPS behind Caddy), off in dev over plain HTTP.
+    // Browsers and curl treat http://localhost as secure, so CI's plain-HTTP production stack still works.
+    'secure' => (bool) env('SESSION_SECURE_COOKIE', env('APP_ENV') === 'production'),
 
     /*
     |--------------------------------------------------------------------------

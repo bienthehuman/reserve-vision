@@ -67,7 +67,7 @@ Controllers don't touch the query builder for writes. Actions don't know about H
 
 `app`, `worker`, `scheduler` and `ssr` run one image ([Dockerfile](../Dockerfile)) with different commands. Only Caddy publishes ports. The dev container (Codespaces) runs the dev stack with built assets and the production SSR bundle instead of the Vite dev server. Details: [DEPLOY.md](../DEPLOY.md) and [CLAUDE.md](../CLAUDE.md#production-stack-slice-13).
 
-**Deployable, not hosted** ([ADR 0007](adr/0007-deployable-not-hosted.md)). On every PR to `main`, CI builds the production image, boots `compose.prod.yaml` with `deploy.sh`, runs migrations as `migrator`, runs `php artisan app:doctor`, and smoke-tests the home page over HTTP (SSR, security headers, no dev pages), then runs the Playwright + axe suite against it. A listing page (slice 3.1) and login (slice 5.1) join the smoke test when they exist. The deploy path is proven continuously even without a live host.
+**Deployable, not hosted** ([ADR 0007](adr/0007-deployable-not-hosted.md)). On every PR to `main`, CI builds the production image, boots `compose.prod.yaml` with `deploy.sh`, runs migrations as `migrator`, runs `php artisan app:doctor`, and seeds the demo data (`APP_DEMO=true`, throwaway env only), smoke-tests the home and login pages over HTTP (SSR, security headers, session cookie flags, no dev pages) and logs in as a demo owner with a CSRF token, then runs the Playwright + axe suite against it. A public listing page (slice 5.1) joins the smoke test when it exists. The deploy path is proven continuously even without a live host.
 
 ## Production constraints from the first slice
 
@@ -75,7 +75,8 @@ Controllers don't touch the query builder for writes. Actions don't know about H
 - **Security headers** via middleware: CSP (with an SSR nonce), HSTS in production, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`. A test asserts them.
 - **Accessibility gate**: Playwright + axe on every page in the smoke suite; any violation fails CI.
 - **Realistic data**: the demo seeder (15 landlords, 60 properties, about 400 spaces, several thousand historical reservations) is also used by the performance check of the availability query.
-- **Rate limits**: login, registration, `ReserveSpace` and proof upload.
+- **Rate limits**: login (5 a minute per email + IP), registration and password-reset emails (3 a minute per IP), all answered as a form error in the project's voice, not a 429 page (slice 2.4); `ReserveSpace` and proof upload later.
+- **Sessions**: database driver; regenerated on login, invalidated on logout; the cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` in production (`SESSION_SECURE_COOKIE`, default on when `APP_ENV=production`). `bin/smoke-production` checks the flags.
 
 ## Time
 

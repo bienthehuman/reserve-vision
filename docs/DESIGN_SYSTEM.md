@@ -96,6 +96,7 @@ Bootstrap's responsive font sizes (`$enable-rfs`) are turned off; the two-step s
 ## Focus and accessibility
 
 - **Focus ring:** `outline: 3px solid primary; outline-offset: 2px` on every interactive element via `:focus-visible`. It replaces Bootstrap's translucent box-shadow ring, which fails 3:1 on light backgrounds.
+- **Text fields and dropdowns** (`.form-control`, `.form-select`) don't get the ring. On focus their border turns `primary` and doubles to 2 px (a 1 px inset shadow, so nothing moves): 8.2:1 on white. Invalid fields do the same in `danger`. Hover darkens the border to `ink`. Checkboxes and radios keep the ring, because a checked one is already filled `primary`.
 - Every form field has a visible `<label>`; placeholders are examples, never labels.
 - Errors: `danger` text + icon below the field, linked with `aria-describedby`; a summary at the top of long forms.
 - Countdown timers (`HoldCountdown`) update the visible text every minute but announce only at 1h and 10 min remaining (`aria-live="polite"`).
@@ -109,14 +110,17 @@ Use React-Bootstrap first; build a custom component only when the table says so.
 | Need | Component | Notes |
 | --- | --- | --- |
 | Buttons | `Button` | Variants used: `primary`, `outline-primary`, `danger`, `link`. No `secondary` buttons; use `outline-primary` |
-| Forms | `Form`, `FloatingLabel` is **not** used | Labels above fields; `Form.Text` for help |
-| Navigation | `Navbar` + `Offcanvas` on mobile | Sticky top; bottom action bar on listing pages (see below) |
+| Forms | `Form`, `FloatingLabel` is **not** used | Labels above fields; `Form.Text` for help. Dropdowns are the native `Form.Select` (best on phones and with screen readers), styled to match: `primary` chevron, the input's radius, border, hover and focus. Long forms pair fields side by side from `sm` |
+| Navigation | `Navbar` + `Offcanvas` on mobile | Sticky top; bottom action bar on listing pages (see below). Until there are more links (slice 2.4): the account nav (Log in / Sign up, or name, Dashboard, Log out) wraps under the brand on narrow phones, which works without JavaScript |
 | Dialogs | `Modal` | Confirmations of destructive or irreversible actions only |
 | Feedback | `Alert`, `Toast` | Toast for "saved"; Alert for anything the user must read |
 | Tables | `Table` responsive | Landlord dashboard; collapses into stacked cards below `md` |
 | **ListingCard** | custom | Photo (4:3, lazy), name, barangay + city, `PriceTag`, gender-policy and kind chips, "N spaces free" |
 | **PriceTag** | custom | `₱6,500 / month`, always from integer centavos via `formatPeso()` |
 | **StatusBadge** | custom | The mapping table above |
+| **TextField** | custom on `Form.Group` | Label above, help (`Form.Text`) and error below, both in `aria-describedby`; error is `danger` text with an icon. The input id is `field-<name>`. `type="password"` adds a 44 px show/hide button inside the field (eye icon, `aria-label="Show password"`, `aria-pressed`) |
+| **ErrorSummary** | custom on `Alert` | "Please fix these N things:" with one link per error to its field; takes focus after a failed submit (`useFocusOnError`) |
+| **SubmitButton** | custom on `Button` | Full width on auth forms; while the request runs it is disabled and shows a spinner and a pending label ("Logging in…") |
 | **HoldCountdown** | custom | Remaining hold time; server sends `hold_expires_at`, so it's correct without JS (static "until 3:40 PM") |
 | **FilterSheet** | custom on `Offcanvas placement="bottom"` | Search filters on phones; a sidebar from `lg` |
 | **StickyReserveBar** | custom | On a listing page on phones: price + "Reserve" button fixed at the bottom |
