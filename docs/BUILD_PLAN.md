@@ -122,5 +122,7 @@ Ideas that came up and are deliberately not in any slice.
 | Make the Vite dev server (HMR) work in Codespaces; today the dev container uses built assets | Slice 1.3 |
 | CSP `img-src` for a photos origin other than the app (external S3 or CDN) | Slice 1.3, for 4.2 |
 | Trim the entry chunk (`app.js`, 112 KB gzipped, mostly React DOM + Inertia) and add a JS budget next to the CSS budget | Slice 1.1 build output |
+| Audit-log rows (actor null) for `landlord:verify` and `--revoke`, which unpublishes properties | Slice 2.2, for 3.1 |
+| Seed viewing requests and property photos (photos need real files, so after 4.2) | Slice 2.2 |
 | Render `InvalidTransition` (and other domain exceptions) as `422` / an Inertia flash, per CONVENTIONS | Slice 2.1 |
 | Narrow the "status is written only in `App\Actions`" arch test to reservations if it gets noisy for `PropertyPhoto`/`PaymentProof` status writes | Slice 2.1 |

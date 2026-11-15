@@ -53,7 +53,22 @@ bin/setup
 
 It builds the dev image, installs dependencies, creates the database users, migrates and seeds, then starts the stack at http://localhost:8180 (styleguide at `/styleguide`, mail at http://localhost:8126). It's safe to run again. Ports, test commands and the database users are listed in [CLAUDE.md](CLAUDE.md#environment).
 
-Or, with nothing installed: [open it in GitHub Codespaces](https://codespaces.new/bienthehuman/reserve-vision). The same setup runs inside the codespace and the app opens in the browser when it's ready (a few minutes). Demo logins arrive with the demo data in slice 2.2.
+Or, with nothing installed: [open it in GitHub Codespaces](https://codespaces.new/bienthehuman/reserve-vision). The same setup runs inside the codespace and the app opens in the browser when it's ready (a few minutes). The demo logins below work in the codespace too.
+
+## Demo logins
+
+`bin/setup` seeds fake but realistic data (15 landlord accounts, 60 properties in 7 cities, about 390 spaces, about 2,200 reservations in every status). All logins use the password `password`; every email ends in `@example.com`, so nothing can be sent to a real person. (The login page lists them from slice 2.4 on.)
+
+| Login | Role | Use it for |
+| --- | --- | --- |
+| `owner@example.com` | Owner of **Santos Family Rentals** (verified, 5 properties) | Landlord flows |
+| `caretaker@example.com` | Caretaker in the **same** account | Role limits |
+| `owner2@example.com` | Owner of **Cruz Lettings**, a different verified account | Isolation: it must never see the other account's data |
+| `renter1@example.com`, `renter2@example.com` | Renters with no reservations | Racing for the last bed |
+
+**The last bed:** the property *Santos Bedspace House* (Sampaloc, Manila) has a published 4-bed shared room called **Last Bed Room**. Beds A, B and C are confirmed from the 1st of next month, so exactly one bed is free. Log in as `renter1` and `renter2` in two browsers and reserve it for that move-in date at the same moment: one wins and the other is told it's taken.
+
+The data is the same on every run (fixed seed), dates are relative to the day you seed, and it is only added to an empty database: running `bin/setup` again changes nothing. To start over: `docker compose down -v && bin/setup`. Three accounts (`tan-realty`, `buenaventura-lettings`, `uy-rentals`) are unverified with draft properties; verify one with `docker compose exec app php artisan landlord:verify tan-realty` (`--list` shows who is waiting, `--revoke` undoes it and unpublishes the account's properties).
 
 ## Deploy
 
