@@ -31,7 +31,7 @@ The code never says "tenant". See [ADR 0005](adr/0005-no-word-tenant.md).
 
 ## Isolation: three layers
 
-1. **Query scope.** Every landlord-owned model (`Property`, `Room`, `Space`, `Reservation`, `PaymentProof`, `ViewingRequest`, `PropertyPhoto`, `AuditLog`, `LandlordInvitation`) uses the `BelongsToLandlordAccount` trait. In a landlord request it adds `where landlord_account_id = ?`. The account is resolved **once per request from the user's membership** (`CurrentLandlordAccount`), never from a route or request parameter.
+1. **Query scope.** Every landlord-owned model (`Property`, `Room`, `Space`, `Reservation`, `PaymentProof`, `ViewingRequest`, `PropertyPhoto`, `AuditLog`, `LandlordInvitation`) uses the `BelongsToLandlordAccount` trait. In a landlord request it adds `where <table>.landlord_account_id = ?`. The account is resolved **once per request from the user's membership** (`CurrentLandlordAccount`), never from a route or request parameter.
 2. **Policies.** Every action checks that the record belongs to the current account and that the role allows it.
 3. **Tests** that try to break both layers: test 6 in [BUILD_PLAN.md](BUILD_PLAN.md), and the policy matrix test.
 
@@ -39,16 +39,48 @@ Renter and public queries go through separate, explicit scopes (`published()`, `
 
 **404, not 403, across accounts.** A landlord asking for another account's record gets `404`, because the scoped query finds nothing. `403` is only for "this record is yours, but your role can't do that", for example a caretaker editing a rate.
 
+### How it works (slice 3.1)
+
+**The current account.** `App\Support\CurrentLandlordAccount` (`account()`, `id()`, `role()`, `isOwner()`) reads the logged-in user's `landlord_members` row (`user_id` is unique, so there is exactly one). Nothing in the request (route, query, body, header) is ever consulted. It is a **scoped** instance: the queue worker drops it before every job, and it re-resolves if the logged-in user changes within a request. Asked for with no landlord user, it throws `NoCurrentLandlordAccount`; jobs and commands that act for an account take the account id as an argument instead. The `landlord` middleware uses it: a landlord user without a membership gets `403`.
+
+**When the scope applies.** `LandlordAccountScope` asks one question on every query: *is the logged-in user a landlord user?*
+
+| Logged in | Scope adds |
+| --- | --- |
+| A landlord user with a membership (owner or caretaker) | `where <table>.landlord_account_id = <their account>`, the column qualified so joins work |
+| A landlord user **without** a membership | `where 1 = 0`: nothing matches (fail closed) |
+| A renter, or nobody (guests, console commands, queued jobs, seeders) | nothing |
+
+Because the scope sits on the model, it also covers route model binding (another account's id is a `404` by construction), relations, eager loads and `whereHas`. The queue worker also forgets the auth guards before each job (`Queue::looping` in `AppServiceProvider`), so a job that logs a user in can't leave them logged in for the next job. Raw `DB::table()` and `DB::select()` skip the scope entirely.
+
+**Writes.** While a landlord user is logged in, saving a landlord-owned row fills `landlord_account_id` with the current account if it's empty, and throws `CrossAccountWrite` if it names another account (or the user has no membership). Without a landlord user the caller sets it, as `ReserveSpace` does from the room.
+
+**Leaving the scope** is explicit, greppable, and checked by `tests/Arch/LandlordScopeTest.php`:
+
+| Named scope | Removes the scope and constrains to | Used by |
+| --- | --- | --- |
+| `Property::published()` | published, not archived, verified account | `Room::listed()`; listing pages (5.x) |
+| `Room::listed()` | not archived, property `published()` | the room page, `StoreReservation` |
+| `Space::listed()` | not archived, room `listed()` | the room page's space count and availability |
+| `Reservation::onListedSpaces()` | reservations on `listed()` spaces (counts only, never shown) | `Room::freeSpaceCount()` |
+| `Reservation::ownedByRenter($user)` | `renter_id = $user->id` (and `openForRenter()` builds on it) | `ShowReservation`, `ReserveSpace`'s limits, the room page |
+
+Landlords browse listings through these too, so a landlord on another account's room page sees what a guest sees. `withoutGlobalScope(…)` and `withoutGlobalScopes()` anywhere else fail the build, except in the system allowlist in that test, which is **empty**: system code has no landlord user, so it doesn't need to leave the scope. `DB::table()` on a landlord-owned table is allowed only in `database/` (seeders, factories) and `DoctorCommand` (the audit trigger probe).
+
+**Policies** (`app/Policies`, discovered by name) are the second layer, built from three checks in `App\Policies\Concerns\ChecksAccess`: a landlord on a record (`404` unless it's their account, then `403` unless their role may), a landlord with no record yet (`403` unless their role may), and a renter on their own record (`403` for landlords, `404` for another renter's). Guests are denied before any policy runs. Each ability is named after its matrix row, and `tests/Feature/Docs/PermissionMatrixTest.php` maps every row to its abilities.
+
 ## Permission matrix
 
 | Action | Owner | Caretaker | Renter | Public |
 | --- | --- | --- | --- | --- |
 | Browse published listings | ✓ | ✓ | ✓ | ✓ |
+| View own account's properties, rooms, spaces and photos | ✓ | ✓ | — | — |
 | Create or edit properties, rooms, spaces, rates | ✓ | — | — | — |
 | Upload, reorder or delete photos | ✓ | — | — | — |
 | Publish or unpublish a property | ✓ | — | — | — |
 | Archive or unarchive a room or space | ✓ | — | — | — |
 | View reservations for own account | ✓ | ✓ | — | — |
+| View own reservations | — | — | own only | — |
 | View a payment proof | ✓ | ✓ | own only | — |
 | Reject proof, confirm or decline | ✓ | ✓ | — | — |
 | Undo a confirmation | ✓ | ✓ | — | — |
@@ -61,6 +93,8 @@ Renter and public queries go through separate, explicit scopes (`published()`, `
 | Reserve a space, upload proof, cancel own reservation | — | — | ✓ | — |
 | Request or cancel a viewing | — | — | ✓ | — |
 | See a renter's contact details | for reservations and viewings on own account | same | own only | — |
+
+A ✓ for an owner or caretaker always means "on their own account"; "own only" for a renter means their own reservation, proof or viewing request. Another account's or another renter's record is a `404` for every ability. "View own account's properties, rooms, spaces and photos" and "View own reservations" were added in slice 3.1, to name abilities the pages already needed (the landlord pages of 3.2 and the renter's hold page of 2.5). [PermissionMatrixTest](../tests/Feature/Docs/PermissionMatrixTest.php) maps each row to the policy abilities that implement it.
 
 ## Role × step walkthrough
 
