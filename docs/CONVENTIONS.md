@@ -21,6 +21,8 @@ A PR merges only when every one of these checks is green (the CI workflows are d
 | --- | --- | --- |
 | `MySQL 8.4 / Pest` | Tests (MySQL 8.4) | Pest (unit, feature, arch) as the `app` user, 4 workers |
 | `MariaDB 11.4 / Pest` | Tests (MariaDB 11.4) | The same on MariaDB |
+| `MySQL 8.4 / Concurrency` | Tests (MySQL 8.4) | T1, T2, T8b: real parallel HTTP against a 16-thread FrankenPHP server, 5 rounds each, every race proven to overlap inside the server |
+| `MariaDB 11.4 / Concurrency` | Tests (MariaDB 11.4) | The same on MariaDB |
 | `Pint + Larastan` | Quality | Code style, static analysis at max level |
 | `TypeScript + Vitest + build` | Quality | `tsc --noEmit`, Vitest, production build (client + SSR), CSS budget |
 | `Playwright + axe` | E2E | Smoke and accessibility on the dev stack, phone and desktop |
@@ -53,7 +55,7 @@ A failing check is fixed in the PR, not skipped or retried until it passes.
 | --- | --- | --- | --- |
 | Unit and feature | Pest | `tests/Unit`, `tests/Feature` | MySQL + MariaDB matrix, as the `app` DB user |
 | Architecture | Pest `arch()` | `tests/Arch` | same |
-| Concurrency (real parallel HTTP) | Pest driving `curl_multi` against the running Compose stack | `tests/Concurrency` | MySQL + MariaDB matrix |
+| Concurrency (real parallel HTTP) | Pest driving `curl_multi` against a multi-threaded FrankenPHP server that `bin/test-concurrency` starts on its own schema (`composer test:concurrency`) | `tests/Concurrency` | MySQL + MariaDB matrix |
 | Frontend unit | Vitest | `resources/js/**/*.test.ts` | Node |
 | End-to-end + axe | Playwright | `e2e/` | MySQL only |
 
