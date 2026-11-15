@@ -36,7 +36,7 @@ final class RoomPolicy
     /** Create or edit properties, rooms, spaces, rates. */
     public function updateRate(User $user, Room $room): Response
     {
-        return $this->landlordOn($user, $room->landlord_account_id, self::OWNERS);
+        return $this->landlordOn($user, $room->landlord_account_id, self::MEMBERS);
     }
 
     /** Archive or unarchive a room or space. */
