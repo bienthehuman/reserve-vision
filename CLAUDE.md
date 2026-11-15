@@ -48,6 +48,14 @@ URLs: app http://localhost:8180, styleguide http://localhost:8180/styleguide, he
 - Plain `php artisan migrate` (without `--database=mysql_migrator`) fails with error 1142 on purpose.
 - **`audit_logs` is append-only by triggers, not grants** (slice 2.1, [ADR 0008](docs/adr/0008-least-privilege-database-users.md)): `audit_logs_no_update` and `audit_logs_no_delete` reject `UPDATE` and `DELETE` from `app` with error 1644. `app` can't drop them (no `TRIGGER`) or `TRUNCATE` (no `DROP`). The database server needs `log_bin_trust_function_creators=1` for the migrator to create them: `compose.yaml` and `compose.prod.yaml` pass it, and `_tests.yml` runs `SET GLOBAL` as root. An existing dev `db` container started before 2.1 needs `docker compose up -d db` (recreates it with the flag), or the migration fails with a message that says so.
 
+### Demo data (slice 2.2)
+
+`bin/setup` runs `php artisan db:seed` on every invocation: the amenity catalogue (always) and `DemoSeeder` (only if `owner@example.com` doesn't exist yet, so reruns change nothing). To reseed from scratch: `docker compose down -v && bin/setup` (the seeder itself takes about 1 s; a whole cold `bin/setup` about a minute). `DemoSeeder` throws in production unless `APP_DEMO=true` (`config('app.demo')`, documented in both env examples); `DatabaseSeeder` skips it there instead. Logins and the "last bed" room are in the [README](README.md#demo-logins); data files are in `database/data/` (`places.php`, `names.php`, `amenities.php`). Ids are assigned by the seeder (max + 1) so rows don't depend on auto-increment counters, and "now" is read once, so a fixed seed gives identical rows on any day apart from the relative dates. Reservations come from `Database\Seeders\Demo\StayScheduler` (back-to-back stays per space), not `ReserveSpace`.
+
+`php artisan landlord:verify {slug}` verifies an account, `--revoke` clears it and unpublishes the account's properties in one transaction, `--list` shows the unverified accounts.
+
+The seeder self-checks are in `tests/Feature/Seeding/DemoSeederTest.php`; each test seeds inside its transaction with "now" frozen at 2026-11-15 10:00 Manila. The last test compares a hash of the business columns: change the seeder on purpose, copy the printed hash into the test and say why in the PR.
+
 ### Running the checks
 
 | Suite | Command | Notes |

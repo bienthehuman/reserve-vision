@@ -63,7 +63,19 @@ Then deploy a release tag:
 
 [deploy.sh](deploy.sh) checks the env file, checks out the tag, builds the image, starts MySQL and MinIO (the first start creates the database users and buckets), migrates as `migrator`, starts everything, runs `php artisan optimize` in each PHP container, runs `php artisan app:doctor` and finally requests `https://<DOMAIN>/up`. If any step fails it stops, says which step, and prints the rollback command.
 
-Demo logins arrive with the demo data in slice 2.2.
+Nothing is seeded in production: `db:seed` there loads only the amenity catalogue, and `DemoSeeder` refuses to run unless `APP_DEMO=true` is set. Leave it `false` on a real site. For a trial server you may set it and run `docker compose -f compose.prod.yaml --env-file .env.production exec app php artisan db:seed --force`, which creates the [demo logins](README.md#demo-logins) (password `password`, so never on a public site with real users).
+
+### Verifying landlord accounts
+
+Landlords can't publish until the operator verifies their account (there is no admin web role; see [ACCESS.md](docs/ACCESS.md)). On the server:
+
+```bash
+docker compose -f compose.prod.yaml --env-file .env.production exec app php artisan landlord:verify --list         # who is waiting
+docker compose -f compose.prod.yaml --env-file .env.production exec app php artisan landlord:verify <slug>          # verify
+docker compose -f compose.prod.yaml --env-file .env.production exec app php artisan landlord:verify <slug> --revoke # revoke and unpublish every property of the account
+```
+
+It runs as the `app` database user and exits non-zero for an unknown slug.
 
 ### Checking a running deployment
 
