@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $archived_at
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
+ * @property-read Property $property the foreign key is required, so never null
  */
 #[Fillable([
     'property_id', 'landlord_account_id', 'name', 'room_type', 'monthly_rate',

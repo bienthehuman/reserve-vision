@@ -14,6 +14,8 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Tests\Concurrency\ConcurrencyTestCase;
 use Tests\TestCase;
 
@@ -90,6 +92,36 @@ function landlordUser(bool $verifiedAccount = true, LandlordRole $role = Landlor
     LandlordMember::factory()->for($account)->for($user)->state(['role' => $role])->create();
 
     return $user;
+}
+
+/** A landlord user (owner unless told otherwise) in an account that already exists. */
+function landlordUserOf(LandlordAccount|int $account, LandlordRole $role = LandlordRole::Owner): User
+{
+    $user = User::factory()->landlord()->create();
+    LandlordMember::factory()->for($account instanceof LandlordAccount ? $account : LandlordAccount::query()->findOrFail($account))
+        ->for($user)->state(['role' => $role])->create();
+
+    return $user;
+}
+
+/** The id of the landlord account a landlord user belongs to. */
+function accountIdOf(User $user): int
+{
+    return $user->landlordMember()->sole()->landlord_account_id;
+}
+
+/**
+ * The audit rows, oldest first, read around the isolation scope (the test is
+ * the system here, whoever is logged in).
+ *
+ * @return Collection<int, stdClass>
+ */
+function auditRows(?string $action = null): Collection
+{
+    return DB::table('audit_logs')
+        ->when($action !== null, fn ($query) => $query->where('action', $action))
+        ->orderBy('id')
+        ->get();
 }
 
 /**

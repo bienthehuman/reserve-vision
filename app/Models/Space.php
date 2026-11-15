@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $archived_at
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
+ * @property-read Room $room the foreign key is required, so never null
  */
 #[Fillable(['room_id', 'landlord_account_id', 'label', 'archived_at'])]
 final class Space extends Model

@@ -69,6 +69,23 @@ Landlords browse listings through these too, so a landlord on another account's 
 
 **Policies** (`app/Policies`, discovered by name) are the second layer, built from three checks in `App\Policies\Concerns\ChecksAccess`: a landlord on a record (`404` unless it's their account, then `403` unless their role may), a landlord with no record yet (`403` unless their role may), and a renter on their own record (`403` for landlords, `404` for another renter's). Guests are denied before any policy runs. Each ability is named after its matrix row, and `tests/Feature/Docs/PermissionMatrixTest.php` maps every row to its abilities.
 
+### The landlord pages (slice 3.2)
+
+Every `/landlord` page is behind `auth`, `verified` and `landlord`, shows the landlord menu (Dashboard, Reservations, Properties, and Members for owners only) and gets its records through the isolation scope, so another account's id is a `404`. Controllers are thin: they authorize with the policy ability named after the matrix row, and the writes are actions that audit.
+
+| Page | Route | Matrix row it implements | Who |
+| --- | --- | --- | --- |
+| Reservations | `GET /landlord/reservations` (`?status=`, 15 a page, newest first) | View reservations for own account (`viewAny`) | owner, caretaker |
+| Reservation | `GET /landlord/reservations/{reservation}` | View reservations for own account (`view`); **the only page with the renter's email and phone** (`viewRenterContact`); payment proofs by amount, reference and status, never the file (signed URLs come in 5.3) | owner, caretaker |
+| Properties | `GET /landlord/properties`, `GET /landlord/properties/{property}` | View own account's properties, rooms, spaces and photos (`viewAny`, `view`) | owner, caretaker |
+| Change a rate | `PATCH /landlord/rooms/{room}/rate` → `ChangeRoomRate`, audit `room.rate_changed` | Create or edit properties, rooms, spaces, rates (`updateRate`) | owner; a caretaker gets `403` and no form |
+| Members | `GET /landlord/members` | Invite or remove caretakers, revoke invites (`viewAny`): the page where that happens | owner; a caretaker gets `403` and no link |
+| Invite a caretaker | `POST /landlord/invitations` → `CreateInvitation`, audit `invitation.created` | Invite or remove caretakers, revoke invites (`create`) | owner |
+
+A form request asks the policy before it validates, so a caretaker gets `403` and never a validation message. An invitation is saved with a random token **stored as a SHA-256 hash** and valid for 7 days. **No email is sent and there is no acceptance page** until 4.3, and the page says so. It is rejected for an email that belongs to a member of any account, to a renter (a person is one type), or that already has a pending invitation on this account. Changing a rate touches nothing else: reservations keep the fee they were made with.
+
+T6 and T7 ([tests](../tests/Feature/Isolation/T6CrossAccessTest.php)) prove all this on every route: see [CLAUDE.md](../CLAUDE.md#landlord-pages-slice-32).
+
 ## Permission matrix
 
 | Action | Owner | Caretaker | Renter | Public |

@@ -14,6 +14,12 @@ final class LandlordInvitationPolicy
 {
     use ChecksAccess;
 
+    /** Invite or remove caretakers, revoke invites: the members page, where that happens. */
+    public function viewAny(User $user): Response
+    {
+        return $this->landlordRole($user, self::OWNERS);
+    }
+
     /** Invite or remove caretakers, revoke invites: an invitation to the user's own account. */
     public function create(User $user): Response
     {

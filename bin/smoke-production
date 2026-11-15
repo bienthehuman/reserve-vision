@@ -97,6 +97,32 @@ status="$(curl -sS -o "$tmp/body" -D "$tmp/headers" -w '%{http_code}' -H "Cookie
 if [[ "$status" == 200 ]]; then pass "GET /landlord as the owner is 200"; else fail "GET /landlord as the owner is $status, expected 200"; fi
 expect_body "the dashboard shows the owner's account" "Santos Family Rentals"
 
+# Isolation (slice 3.2): another account's reservation is a 404, and the owner's own is not.
+# CI passes the id of one of owner@example.com's reservations, read from the seeded data (never hard-coded).
+if [[ -n "${SMOKE_OWNER_RESERVATION_ID:-}" ]]; then
+    echo "Isolation: owner2 and the owner's reservation ${SMOKE_OWNER_RESERVATION_ID}"
+    reservation_path="/landlord/reservations/${SMOKE_OWNER_RESERVATION_ID}"
+    status="$(curl -sS -o "$tmp/body" -D "$tmp/headers" -w '%{http_code}' -H "Cookie: ${cookie_header}" "${base}${reservation_path}")"
+    if [[ "$status" == 200 ]]; then pass "GET ${reservation_path} as the owner is 200"; else fail "GET ${reservation_path} as the owner is $status, expected 200"; fi
+
+    curl -sS -o "$tmp/body" -D "$tmp/headers" "${base}/login"
+    cookie_header="$(cookies)"
+    xsrf="$(printf '%s' "$cookie_header" | tr ';' '\n' | sed -n 's/^ *XSRF-TOKEN=//p')"
+    xsrf="$(printf '%b' "${xsrf//%/\\x}")"
+    curl -sS -o "$tmp/body" -D "$tmp/headers" \
+        -H "Cookie: ${cookie_header}" -H "X-XSRF-TOKEN: ${xsrf}" \
+        --data-urlencode 'email=owner2@example.com' --data-urlencode 'password=password' \
+        "${base}/login"
+    cookie_header="$(cookies)"
+    status="$(curl -sS -o "$tmp/body" -D "$tmp/headers" -w '%{http_code}' -H "Cookie: ${cookie_header}" "${base}/landlord")"
+    if [[ "$status" == 200 ]]; then pass "GET /landlord as owner2 is 200"; else fail "GET /landlord as owner2 is $status, expected 200 (login failed?)"; fi
+    status="$(curl -sS -o "$tmp/body" -D "$tmp/headers" -w '%{http_code}' -H "Cookie: ${cookie_header}" "${base}${reservation_path}")"
+    if [[ "$status" == 404 ]]; then pass "GET ${reservation_path} as owner2 is 404"; else fail "GET ${reservation_path} as owner2 is $status, expected 404"; fi
+    if grep -qF -- "Santos" "$tmp/body"; then fail "the 404 for owner2 mentions the other account"; else pass "the 404 shows nothing of the other account"; fi
+else
+    echo "Isolation check skipped: SMOKE_OWNER_RESERVATION_ID is not set."
+fi
+
 # TODO(slice 5.1): smoke a public listing page (200, listing title in the raw HTML).
 
 if [[ "$failures" -gt 0 ]]; then

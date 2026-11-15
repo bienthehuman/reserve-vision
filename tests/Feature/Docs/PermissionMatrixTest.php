@@ -36,7 +36,7 @@ use Illuminate\Support\Facades\Gate;
 const MATRIX_ABILITIES = [
     'Browse published listings' => 'public scopes',
     "View own account's properties, rooms, spaces and photos" => [
-        ['view', 'property'], ['view', 'room'], ['view', 'space'], ['view', 'photo'],
+        ['viewAny', Property::class], ['view', 'property'], ['view', 'room'], ['view', 'space'], ['view', 'photo'],
     ],
     'Create or edit properties, rooms, spaces, rates' => [
         ['create', Property::class], ['update', 'property'],
@@ -60,7 +60,7 @@ const MATRIX_ABILITIES = [
     'Record a refund' => [['recordRefund', 'reservation']],
     'Answer viewing requests' => [['answer', 'viewing'], ['markDone', 'viewing']],
     'Invite or remove caretakers, revoke invites' => [
-        ['create', LandlordInvitation::class], ['revoke', 'invitation'], ['remove', 'member'],
+        ['viewAny', LandlordInvitation::class], ['create', LandlordInvitation::class], ['revoke', 'invitation'], ['remove', 'member'],
     ],
     'View audit log' => [['viewAny', AuditLog::class], ['view', 'auditLog']],
     'Reserve a space, upload proof, cancel own reservation' => [

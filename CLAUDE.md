@@ -207,6 +207,31 @@ Each scenario repeats 5 times (`->repeat(ROUNDS)`) with new rooms and renters; m
 
 Tests: `tests/Feature/Isolation/` (scope per model, fail closed, joins, relations, route binding, console and worker; write guard; current account from input and across requests and jobs; audit logger; the pre-3.1 queries with a landlord logged in). The worker tests run `queue:work database --stop-when-empty` inside the test transaction, with the probe job in `tests/Feature/Isolation/Support`.
 
+### Landlord pages (slice 3.2)
+
+[docs/ACCESS.md](docs/ACCESS.md#the-landlord-pages-slice-32) lists the pages and the matrix rows they implement.
+
+| Piece | Where |
+| --- | --- |
+| Routes | `routes/web.php`, group `landlord.`: `reservations.index/show`, `properties.index/show`, `rooms.rate.update`, `members.index`, `invitations.store`. Invokable controllers in `app/Http/Controllers/Landlord` (`ListReservations`, `ViewReservation`, `ListProperties`, `ViewProperty`, `UpdateRoomRate`, `ListMembers`, `StoreInvitation`); record parameters are implicitly bound, so the scope makes another account's id a 404 |
+| Actions | `ChangeRoomRate` (centavos in `1…4294967295`, locks the room, audit `room.rate_changed`, none if unchanged), `CreateInvitation` (locks the account row, returns `App\Data\NewInvitation` with the one-time plain token, audit `invitation.created`). Exceptions: `InvalidRate`, `CannotInvite` |
+| Requests | `ChangeRoomRateRequest` (pesos string → centavos without floats), `StoreInvitationRequest`; both authorize in `authorize()`, which runs before validation |
+| Pages | `resources/js/Pages/Landlord/{Reservations,Properties,Members}`, `Layouts/LandlordLayout.tsx` (menu from the shared `auth.user.landlord_role`), `Components/PropertyState.tsx`. Tables use `.stack-table` (`_components.scss`): one `<table>` that becomes stacked cards below `md`, each `<td data-label="…">` |
+| Policies | New `viewAny` on `PropertyPolicy` and `LandlordInvitationPolicy` (the members page), mapped in `PermissionMatrixTest` |
+
+**T6** ([tests/Feature/Isolation/T6CrossAccessTest.php](tests/Feature/Isolation/T6CrossAccessTest.php)) walks `Route::getRoutes()`, takes every route behind the `landlord` middleware and every one behind `renter`, and for each one with a record parameter calls it with another account's (or renter's) record: 404, none of B's identifying text in the response, every table byte-for-byte unchanged (audit log included). A positive control calls the same route on the actor's own record, so a typo can't pass as a 404. It runs as owner A, caretaker A (404, not 403) and renter A, and prints the routes covered. **To extend it** (every slice that adds a record route): add the parameter name to `T6_PARAMETERS` (a `foreign` and an `own` record per context, built in `t6World()`), a valid body to `T6_BODIES` for any non-GET route, and any new secret text to `t6Secrets()`. An unmapped parameter or body **fails the test** with that instruction (`T6: fails for a route parameter nobody mapped…` proves it). A test also pins today's record-route list, so adding one makes you update it on purpose. **T7** is [T7RoleLimitsTest](tests/Feature/Isolation/T7RoleLimitsTest.php). Helpers in `tests/Pest.php`: `landlordUserOf($account, $role)`, `accountIdOf($user)`, `auditRows($action)`.
+
+Phase 3 demo: [e2e/isolation.spec.ts](e2e/isolation.spec.ts) (read-only, both viewports, runs against the production stack too); `bin/smoke-production` checks owner2 gets 404 on `SMOKE_OWNER_RESERVATION_ID`, which the Production workflow reads from the seeded data.
+
+### Quirks hit in 3.2
+
+- **A form request validates before its controller runs**, so a controller's `Gate::authorize()` is too late: a caretaker with a bad body got a 302 with errors instead of 403. Authorize in `FormRequest::authorize()`.
+- **`landlord_members` has no isolation scope** (the scope itself reads it): `ListMembers` filters by `CurrentLandlordAccount::id()`, and a future `{member}` route relies on `LandlordMemberPolicy` for its 404, which is why T6 maps `member`.
+- **Larastan thinks a `belongsTo` property can be null**: the models document `@property-read Space $space` and the like where the foreign key is required.
+- **Clicking an Inertia link in e2e right after `goto` can hang** on a cold dev Vite server; the isolation spec reads the link's `href` and `goto`s it.
+- **Bootstrap paints table cells with an inset shadow** that shows as a grey strip inside a stacked card: `.stack-table td` resets it.
+- **Demo data has 328 reservations on the owner's account**, so the last-bed room's are on the first pages of the `confirmed` filter, not page 1 of the unfiltered list.
+
 ### Quirks hit in 3.1
 
 - **Factories are isolated too**: with a landlord logged in (`actingAs`), a factory's lookup of its parent's account (`Property::query()->whereKey(…)->value('landlord_account_id')`) is scoped, and the write guard refuses another account's rows with `CrossAccountWrite`. Create fixtures **before** `actingAs()` (or `$this->app['auth']->forgetGuards()` first).

@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property LandlordRole $role
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
+ * @property-read User $user the foreign key is required, so never null
  */
 #[Fillable(['landlord_account_id', 'user_id', 'role'])]
 final class LandlordMember extends Model

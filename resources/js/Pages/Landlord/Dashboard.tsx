@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { Alert, Card, Container } from 'react-bootstrap';
 import { HourglassSplit } from 'react-bootstrap-icons';
-import PublicLayout from '@/Layouts/PublicLayout';
+import LandlordLayout from '@/Layouts/LandlordLayout';
 
 interface DashboardProps {
     account: { name: string; slug: string; isVerified: boolean };
@@ -11,7 +11,7 @@ interface DashboardProps {
 /** Placeholder until phase 4 (ACCESS.md, flow A). */
 export default function Dashboard({ account, role }: DashboardProps) {
     return (
-        <PublicLayout>
+        <LandlordLayout>
             <Head title="Dashboard" />
             <Container className="py-4 py-md-5">
                 <p className="text-body-secondary mb-1">{role === 'owner' ? 'Owner' : 'Caretaker'}</p>
@@ -39,6 +39,6 @@ export default function Dashboard({ account, role }: DashboardProps) {
                     </Card.Body>
                 </Card>
             </Container>
-        </PublicLayout>
+        </LandlordLayout>
     );
 }

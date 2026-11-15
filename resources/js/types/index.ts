@@ -5,6 +5,8 @@ export interface AuthUser {
     full_name: string;
     type: 'renter' | 'landlord';
     email_verified: boolean;
+    /** Landlord users only: decides the landlord menu (a caretaker has no Members link). */
+    landlord_role?: 'owner' | 'caretaker' | null;
 }
 
 /** Props shared with every page by App\Http\Middleware\HandleInertiaRequests. */

@@ -48,6 +48,8 @@ use Illuminate\Support\Facades\Date;
  * @property string|null $refund_note
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
+ * @property-read Space $space the foreign keys are required, so these are never null
+ * @property-read User $renter
  */
 #[Fillable([
     'space_id', 'landlord_account_id', 'renter_id', 'move_in', 'move_out', 'status', 'reservation_fee',
