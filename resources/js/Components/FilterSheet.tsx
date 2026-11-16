@@ -112,6 +112,14 @@ export default function FilterSheet({ values: initial, options, window: bookingW
 
     const body = (
         <form action="/listings" method="get" onSubmit={submit} className="filter-form" aria-label="Search filters">
+            <Form.Group controlId="filter-sort" className="mb-3">
+                <Form.Label>Sort by</Form.Label>
+                <Form.Select name="sort" value={values.sort} onChange={(e) => set('sort', e.target.value)}>
+                    <option value="price">Price, low to high</option>
+                    <option value="newest">Newest</option>
+                </Form.Select>
+            </Form.Group>
+
             <PlaceFields values={values} options={options} enhanced={enhanced} set={set} setValues={setValues} />
 
             <fieldset className="mb-3">
@@ -180,14 +188,6 @@ export default function FilterSheet({ values: initial, options, window: bookingW
                 ))}
                 <Form.Text className="d-block">Places that have all the ones you tick.</Form.Text>
             </fieldset>
-
-            <Form.Group controlId="filter-sort" className="mb-3">
-                <Form.Label>Sort by</Form.Label>
-                <Form.Select name="sort" value={values.sort} onChange={(e) => set('sort', e.target.value)}>
-                    <option value="price">Price, low to high</option>
-                    <option value="newest">Newest</option>
-                </Form.Select>
-            </Form.Group>
 
             <div className="button-row filter-form__actions">
                 {active > 0 && (

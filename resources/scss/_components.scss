@@ -517,7 +517,6 @@ a {
 
 .form-actions {
   padding: 1rem 1.25rem;
-  border-top: 1px solid $rv-border;
   border-radius: 0 0 calc(#{$rv-radius-lg} - 1px) calc(#{$rv-radius-lg} - 1px);
   background-color: $rv-surface-muted;
 
@@ -782,7 +781,6 @@ a {
 
 // A quiet footer: the page ends, it doesn't shout.
 .site-footer {
-  border-top: 1px solid $rv-border;
   color: $rv-muted;
 }
 
@@ -929,16 +927,13 @@ a {
 }
 
 @include media-breakpoint-up(lg) {
-  // Inline sidebar: Bootstrap makes the offcanvas body a flex row here, and the sheet's own height must not apply.
+  // Inline sidebar. Bootstrap makes the offcanvas transparent and its body a flex row here. It scrolls with the
+  // page (no own scroll box), so the action bar can stick to the bottom of the screen.
   .filter-sheet.offcanvas-lg {
-    position: sticky;
-    top: 1rem;
     height: auto;
-    max-height: calc(100vh - 2rem);
-    overflow-y: auto;
-    border: 1px solid $rv-border;
+    border: 1px solid $rv-border !important;
     border-radius: $rv-radius-lg;
-    background-color: $rv-surface;
+    background-color: $rv-surface !important;
   }
 
   .filter-sheet .offcanvas-body.filter-panel {
@@ -1466,7 +1461,6 @@ $rv-swatches: (
   gap: 1rem;
   padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
   background-color: $rv-surface;
-  border-top: 1px solid $rv-border;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
 }
 
