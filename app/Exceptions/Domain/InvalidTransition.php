@@ -14,6 +14,12 @@ final class InvalidTransition extends BusinessRuleException
         return new self("A reservation that is {$from->value} can't become {$to->value}.");
     }
 
+    /** `confirmed` → `cancelled` on or after the move-in date (RESERVATIONS.md: `today < move_in`). */
+    public static function stayStarted(): self
+    {
+        return new self("This stay has already started, so it can't be cancelled here. Talk to the landlord.");
+    }
+
     public static function holdStillLive(): self
     {
         return new self("This hold hasn't expired yet.");

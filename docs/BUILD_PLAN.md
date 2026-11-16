@@ -71,13 +71,14 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 
 | — | **Phase demo** | Playwright ([e2e/landlord-phase4.spec.ts](../e2e/landlord-phase4.spec.ts), phone viewport, both stacks): the owner creates a property with a shared room, uploads a photo, sees the checklist complete and publishes, and the room page opens; invites a caretaker, who joins through the emailed link (Mailpit; on the production stack a link from `landlord:invite`) and sees read-only pages; the owner removes them and their next request is `403`. Tag `v0.4.0` after 4.4 |
 
-### Phase 5: Renter side (batch 5)
+### Phase 5: Renter side (batch 5). Tag `v0.5.0`
 
 | # | Slice | Definition of done |
 | --- | --- | --- |
 | 5.1 | Listing pages | `/listings/{city}/{slug}` SSR, OG tags, `schema.org` structured data, `sitemap.xml`, `robots.txt`, lazy images, address with an "Open in Maps" link (no map in v1), featured listings on the home page and a plain `/listings` list; replaces the 2.5 room page; T11 |
 | 5.2 | Search | Filters + availability query (sharing the `blocking()` predicate); `EXPLAIN` + index committed to `docs/perf/` (no index was needed); T10 |
 | 5.3 | Reserve + proof + my reservations | Reserve flow with login intent kept, proof upload, signed URLs, renter cancel; T9 |
+| — | **Phase demo** | Playwright ([e2e/renter-phase5.spec.ts](../e2e/renter-phase5.spec.ts), phone viewport, both stacks; on the production stack the proof goes through MinIO): renter2 reserves a room and cancels it; a guest searches Baguio, opens the owner's listing, presses Reserve, logs in as renter2, comes back to the same room and stay, and lands on the hold page; uploads a proof and sees "Awaiting review"; the owner opens the reservation and sees the proof; renter1 gets `404` on the proof link and `403` on the owner's signed URL; zero axe violations. Tag `v0.5.0` |
 
 ### Phase 6: Workflow (batch 6). Tag `v1.0.0-rc`
 
@@ -101,6 +102,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | 2026-11-14 | Deployable, not hosted; CI proves the production stack instead | [ADR 0007](adr/0007-deployable-not-hosted.md) |
 | 2026-11-14 | Landlord verification by artisan command; no admin web role | [ACCESS.md](ACCESS.md#actors) |
 | 2026-11-14 | Design system: ube primary (also prices), mango highlight, Plus Jakarta Sans headings; hue chosen to differ from Hilom/PesoTrack teal and the portfolio's orange, light mode only in v1 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
+| 2026-11-17 | Slice 5.3: payment proofs are streamed through PHP after three checks (signature and expiry, the logged-in user named in the URL, the policy again), never served by S3 pre-signed URLs; the bucket stays unreachable from outside. Proofs are kept byte for byte (no re-encoding) and judged by content; the download carries `Content-Security-Policy: sandbox` | [ACCESS.md](ACCESS.md#private-files) |
 | 2026-11-17 | No map in v1: the listing shows the address and an "Open in Maps" link that searches the address text. No map script, tiles or coordinates | [ARCHITECTURE.md](ARCHITECTURE.md#stack) |
 | 2026-11-16 | Slice 4.4 built: the PSGC 3Q 2026 publication as three CSVs in the repo, imported by `places:import`; properties link to a city and barangay and keep their text columns as copies. Metro Manila and BARMM's Special Geographic Area are province rows; independent cities go under the province whose PSGC row excludes them | [DATA_MODEL.md](DATA_MODEL.md#places-slice-44) |
 | 2026-11-16 | Slice 4.4 added: places from the PSGC list, bundled rather than a live API, before 5.1 so search uses the same list. Tag `v0.4.0` moves to after 4.4 | this file |
@@ -174,3 +176,10 @@ Ideas that came up and are deliberately not in any slice.
 | Search results on a map | Slice 5.2 |
 | Barangay in the search link by PSGC code instead of id, so a link survives a reimport into an empty database | Slice 5.2 |
 | Home-page "Where" lists only cities with listings; a province-aware combobox would reach every place | Slice 5.2 |
+| Let a renter replace a proof while it waits for review (today they cancel, or wait for the landlord to reject it) | Slice 5.3 |
+| Upload progress on the proof form, and a client-side check of the 5 MB limit before sending | Slice 5.3 |
+| Check how desktop browsers open a PDF proof served with `Content-Security-Policy: sandbox`: Chromium is expected to refuse its built-in PDF viewer in a sandboxed document (plugins are disabled there) and offer a download instead (not verified by hand; headless Chromium always downloads PDFs). If landlords want PDFs inline, render a first-page preview server-side | Slice 5.3 |
+| Delete proof files when a reservation's data is purged (a retention policy for personal data: proofs are kept forever today) | Slice 5.3 |
+| The landlord reservation page says "Hold ended" for every reservation whose hold time has passed, also once the proof is in; show it only for `held`/`expired` | Slice 5.3 |
+| E2E on a 6-worker local run against the dev stack times out (7 GB machine, Vite dev server): run `npx playwright test --workers=2` locally, as CI's 4-vCPU runner does | Slice 5.3 |
+| A first-time sign-up through Reserve comes back to the room only after confirming the email (the link is a full page load); a "Continue to your room" link on the "confirm your email" page would help someone who confirms on another device | Slice 5.3 |

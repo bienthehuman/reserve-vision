@@ -6,9 +6,11 @@ use App\Enums\ReservationStatus;
 use App\Exceptions\Domain\HoldExpired;
 use App\Exceptions\Domain\InvalidTransition;
 use App\Exceptions\Domain\NoSpaceAvailable;
+use App\Models\PaymentProof;
 use App\Models\Reservation;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function (): void {
     $this->travelTo(CarbonImmutable::parse('2027-03-15 10:00', 'Asia/Manila'));
@@ -40,9 +42,29 @@ it('T5: an expired hold can\'t take a proof or be confirmed', function (): void 
 
     expect($hold?->isLiveHold())->toBeFalse()
         ->and(fn () => $hold?->assertCanMoveTo(ReservationStatus::ProofUploaded))
-        ->toThrow(HoldExpired::class, 'This hold has expired, so the space may already be taken. Reserve the room again to get a new hold.')
+        ->toThrow(HoldExpired::class, 'Your hold has expired. Reserve again to get a new one.')
         ->and(fn () => $hold?->assertCanMoveTo(ReservationStatus::Confirmed))
         ->toThrow(InvalidTransition::class, "A reservation that is held can't become confirmed.");
+});
+
+it('T5: an expired hold can\'t take a proof through the real upload either (slice 5.3), whether or not ExpireHolds has run', function (): void {
+    fakeMediaDisks();
+    $hold = liveHold(User::factory()->renter()->create());
+
+    $this->travel(24)->hours(); // exactly hold_expires_at: no longer live
+
+    $this->actingAs($hold->renter)->from("/reservations/{$hold->id}")
+        ->post("/reservations/{$hold->id}/proofs", proofForm())
+        ->assertRedirect("/reservations/{$hold->id}")
+        ->assertSessionHas('error', 'Your hold has expired. Reserve again to get a new one.');
+
+    expect($hold->fresh()?->status)->toBe(ReservationStatus::Held)
+        ->and(PaymentProof::query()->count())->toBe(0)
+        ->and(Storage::disk('proofs')->allFiles())->toBeEmpty();
+
+    // The hold page no longer offers the form, and shows the hold as expired.
+    $this->get("/reservations/{$hold->id}")->assertInertia(fn ($page) => $page
+        ->where('reservation.status', 'expired')->where('reservation.can_upload', false)->where('property.payment_instructions', null));
 });
 
 it('lets an expired hold be cancelled or expired, but not expire a live one', function (): void {

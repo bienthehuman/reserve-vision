@@ -111,6 +111,12 @@ These are estimates for camera photos at WebP quality 80, not measurements from 
 
 `AWS_PHOTOS_URL` can stay empty with MinIO: photo URLs are then `/media/photos/…` on the site's own address, which Caddy serves from the bucket.
 
+### Storage for payment proofs
+
+Renters' proofs of payment (slice 5.3) go to the **proofs** bucket under `proofs/<random>.<ext>`, exactly as uploaded: JPEG, PNG, WebP or PDF, at most 5 MB each, usually a 100–500 kB phone screenshot. Nothing is resized or deleted: a proof is evidence, and a reservation can collect up to three (two rejected, one accepted). Budget about 1 MB per reservation; a thousand reservations is about 1 GB.
+
+The bucket is **never public, and nothing in front of the app serves it**: Caddy has no route to it. Every view goes through the app: `/proofs/{id}` checks who is asking and redirects to a link signed for that user and valid 5 minutes, and that link streams the file through PHP after checking again ([ACCESS.md](docs/ACCESS.md#private-files)). The app only needs the bucket credentials it already has. Proofs are personal data: keep the bucket's backups encrypted ([Backups](#backups)).
+
 ## Updates
 
 Releases are git tags. To deploy a newer one:

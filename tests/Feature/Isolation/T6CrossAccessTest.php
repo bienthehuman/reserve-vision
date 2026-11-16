@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /*
 | T6 (BUILD_PLAN.md): landlord A requests landlord B's property, room, reservation
@@ -44,7 +46,19 @@ use Illuminate\Support\Facades\Storage;
 | Each route is called three times over: as owner A, as caretaker A (still 404, never
 | 403) and, for renter routes, as renter A. Each call must leave every table byte for
 | byte unchanged, audit_logs included.
+|
+| Routes open to BOTH kinds of user (slice 5.3: `/proofs/{proof}` behind `auth`, and its signed
+| file route behind `signed`) are walked too: every route behind `auth` or `signed` that is
+| neither a landlord nor a renter route is run in both contexts, with that context's records.
+| A signed route gets a valid signature for the actor, so its 404 is the isolation's, not the
+| signature's. A route there that isn't about a record of ours goes in T6_NOT_RECORD_ROUTES.
 */
+
+/** Routes behind `auth` or `signed` whose parameters aren't records of an account or renter. */
+const T6_NOT_RECORD_ROUTES = [
+    // The email-verification link: `{id}` is the logged-in user's own id, and the signed hash is checked against them.
+    'verification.verify',
+];
 
 /** The tables a request must not change. */
 const T6_TABLES = [
@@ -123,6 +137,9 @@ const T6_BODIES = [
     'landlord.invitations.destroy' => [],
     'landlord.members.destroy' => [],
     'rooms.reservations.store' => 'reservationWindow',
+    // Slice 5.3. The proof is a real PNG, so the 404 on B's reservation isn't a validation error.
+    'reservations.proofs.store' => 'proofBody',
+    'reservations.cancel' => [],
 ];
 
 /**
@@ -137,6 +154,8 @@ const T6_OWN_REFUSED = [
     'landlord.spaces.archive' => 422,
     // The world's own photo is ready, and only a failed one can be uploaded again.
     'landlord.photos.retry' => 422,
+    // Renter A's own reservation already has its proof (proof_uploaded): the transition table refuses a second.
+    'reservations.proofs.store' => 422,
 ];
 
 /** @return array<string, mixed> */
@@ -166,6 +185,11 @@ function roomBody(): array
 function photoFileBody(): array
 {
     return ['photo' => photoUpload()];
+}
+
+function proofBody(): array
+{
+    return proofForm();
 }
 
 function reservationWindow(): array
@@ -222,6 +246,10 @@ function t6World(): array
     $w['reservationB'] = Reservation::factory()->for($w['spaceB'], 'space')->for($w['renterB'], 'renter')->proofUploaded()->create();
     $w['proofB'] = PaymentProof::query()->where('reservation_id', $w['reservationB']->id)->sole();
     $w['proofB']->forceFill(['reference_no' => 'BRAVO-REF-7731'])->save();
+    // The proofs' files (slice 5.3): A's can be opened (the controls), B's must never be sent.
+    Storage::disk('proofs')->put($w['proofA']->path, 'alpha proof file');
+    Storage::disk('proofs')->put($w['proofOfRenterA']->path, 'alpha renter proof file');
+    Storage::disk('proofs')->put($w['proofB']->path, 'BRAVO-PROOF-FILE-BYTES');
     $w['photoB'] = PropertyPhoto::factory()->for($w['propertyB'])->create(['alt' => 'Bravo Courtyard Mural']);
     // B's files (slice 4.2): no request of A may change or remove them, or add one.
     Storage::disk('photos')->put($w['photoB']->thumbPath(), 'bravo thumbnail');
@@ -246,7 +274,7 @@ function t6Secrets(array $w): array
     return [
         'Zelda', 'Quimbyfoss', 'zelda.quimbyfoss@renter-b.test', '09189998877',
         'Bravo Hidden Residences', 'Bravo Secret Room', 'Bravo Unlisted Annex', 'BRAVO-REF-7731', 'bravo.invitee@example.com',
-        'Bravo Courtyard Mural', $w['photoB']->path,
+        'Bravo Courtyard Mural', $w['photoB']->path, 'BRAVO-PROOF-FILE-BYTES', $w['proofB']->path,
         $w['ownerB']->full_name, $w['caretakerB']->full_name, $w['ownerB']->email,
     ];
 }
@@ -278,7 +306,7 @@ function t6Routes(string $middleware): array
     $problems = [];
 
     foreach (Route::getRoutes()->getRoutes() as $route) {
-        if (! in_array($middleware, $route->gatherMiddleware(), true)) {
+        if (! in_array($middleware, $route->gatherMiddleware(), true) && ! t6IsSharedRoute($route)) {
             continue;
         }
 
@@ -305,8 +333,27 @@ function t6Routes(string $middleware): array
     return $routes;
 }
 
-/** The URL of a route with each parameter filled from `$side` ('foreign' or 'own'). */
-function t6Url(array $routeInfo, array $w, string $context, string $side): string
+/** A record route open to both landlords and renters (behind `auth` or `signed`, neither `landlord` nor `renter`). */
+function t6IsSharedRoute(RoutingRoute $route): bool
+{
+    $middleware = $route->gatherMiddleware();
+
+    return ! in_array('landlord', $middleware, true) && ! in_array('renter', $middleware, true)
+        && (in_array('auth', $middleware, true) || t6IsSigned($route))
+        && $route->parameterNames() !== []
+        && ! in_array($route->getName(), T6_NOT_RECORD_ROUTES, true);
+}
+
+function t6IsSigned(RoutingRoute $route): bool
+{
+    return collect($route->gatherMiddleware())->contains(fn (mixed $m): bool => is_string($m) && str_starts_with($m, 'signed'));
+}
+
+/**
+ * The URL of a route with each parameter filled from `$side` ('foreign' or 'own'). A signed route
+ * (the proof file, 5.3) gets a valid signature made for `$actor`, as `/proofs/{proof}` would hand them.
+ */
+function t6Url(array $routeInfo, array $w, string $context, string $side, ?User $actor = null): string
 {
     $values = [];
 
@@ -316,7 +363,13 @@ function t6Url(array $routeInfo, array $w, string $context, string $side): strin
         $values[$parameter] = $model->getKey();
     }
 
-    return route($routeInfo['route']->getName() ?? '', $values, absolute: false);
+    $name = $routeInfo['route']->getName() ?? '';
+
+    if (t6IsSigned($routeInfo['route'])) {
+        return URL::temporarySignedRoute($name, now()->addMinutes(5), [...$values, 'user' => $actor?->id], absolute: false);
+    }
+
+    return route($name, $values, absolute: false);
 }
 
 /**
@@ -337,8 +390,8 @@ function t6Run(mixed $test, array $routes, array $w, string $context, User $acto
         $body = $info['method'] === 'GET' ? [] : t6Body($info['name']);
         $before = t6Snapshot();
 
-        $response = $test->actingAs($actor)->call($info['method'], t6Url($info, $w, $context, 'foreign'), $body);
-        $content = (string) $response->getContent();
+        $response = $test->actingAs($actor)->call($info['method'], t6Url($info, $w, $context, 'foreign', $actor), $body);
+        $content = $response->baseResponse instanceof StreamedResponse ? (string) $response->streamedContent() : (string) $response->getContent();
 
         expect($response->getStatusCode())->toBe(404, "{$label} should be 404, not {$response->getStatusCode()}");
         foreach ($w['secrets'] as $secret) {
@@ -348,7 +401,7 @@ function t6Run(mixed $test, array $routes, array $w, string $context, User $acto
 
         // The positive control: the same call on the actor's own record is not a 404 (and is a success for who may act),
         // so the URL and body above are valid and the 404 is the isolation's.
-        $own = $test->actingAs($actor)->call($info['method'], t6Url($info, $w, $context, 'own'), $body);
+        $own = $test->actingAs($actor)->call($info['method'], t6Url($info, $w, $context, 'own', $actor), $body);
         $status = $own->getStatusCode();
         expect($status)->not->toBe(404, "control for {$label}: the actor's own record is a 404")->toBeLessThan(500);
         if ($mayAct) {
@@ -440,6 +493,11 @@ it('T6: covers every record route there is today (the list moves only on purpose
         'landlord.reservations.show',
         'landlord.rooms.archive', 'landlord.rooms.edit', 'landlord.rooms.spaces.store', 'landlord.rooms.unarchive', 'landlord.rooms.update',
         'landlord.spaces.archive', 'landlord.spaces.unarchive', 'landlord.spaces.update',
+        // Slice 5.3: open to both landlords and renters, walked in both contexts.
+        'proofs.file', 'proofs.show',
     ])
-        ->and($names('renter'))->toBe(['reservations.show', 'rooms.reservations.store']);
+        ->and($names('renter'))->toBe([
+            'proofs.file', 'proofs.show',
+            'reservations.cancel', 'reservations.proofs.store', 'reservations.show', 'rooms.reservations.store',
+        ]);
 });

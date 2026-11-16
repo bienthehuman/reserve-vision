@@ -16,6 +16,7 @@ use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\Space;
 use App\Models\User;
+use App\Support\BusinessDate;
 use App\Support\Places\PlacesImporter;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
@@ -402,4 +403,60 @@ function listedProperty(string $name = 'Casa Verde'): array
     PropertyPhoto::factory()->for($property)->create(['sort' => 2]);
 
     return [$property, $private, $shared];
+}
+
+/*
+| Proofs and the renter flow (tests/Feature/Proofs, slice 5.3).
+*/
+
+/**
+ * The bytes of a small real PDF with `$pages` pages. With `$objectStreams` the page objects are packed
+ * into a compressed object stream (PDF 1.5+, as most phone apps and browsers save them), so they can't
+ * be seen without inflating it.
+ */
+function pdfBytes(int $pages = 1, bool $objectStreams = false): string
+{
+    $kids = implode(' ', array_map(fn (int $i): string => (3 + $i).' 0 R', range(0, $pages - 1)));
+    $objects = ['<< /Type /Catalog /Pages 2 0 R >>', "<< /Type /Pages /Kids [{$kids}] /Count {$pages} >>"];
+
+    foreach (range(1, $pages) as $page) {
+        $objects[] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>';
+    }
+
+    if ($objectStreams) {
+        $body = implode("\n", $objects);
+        $deflated = (string) gzcompress($body);
+
+        return "%PDF-1.5\n%\xE2\xE3\xCF\xD3\n"
+            .'9 0 obj << /Type /ObjStm /N '.count($objects).' /First 0 /Filter /FlateDecode /Length '.strlen($deflated)." >>\nstream\n{$deflated}\nendstream\nendobj\n"
+            ."trailer << /Root 1 0 R >>\nstartxref\n0\n%%EOF\n";
+    }
+
+    $pdf = "%PDF-1.4\n";
+
+    foreach ($objects as $i => $object) {
+        $pdf .= ($i + 1)." 0 obj\n{$object}\nendobj\n";
+    }
+
+    return $pdf.'trailer << /Root 1 0 R /Size '.(count($objects) + 1)." >>\nstartxref\n0\n%%EOF\n";
+}
+
+/** An uploaded proof file: a real PNG receipt unless you give other bytes. */
+function proofUpload(string $name = 'receipt.png', ?string $bytes = null): UploadedFile
+{
+    return UploadedFile::fake()->createWithContent($name, $bytes ?? photoBytes(400, 700, 'png'));
+}
+
+/** A live hold of `$renter` on a fresh reservable room (fee ₱1,500), through ReserveSpace. */
+function liveHold(User $renter, ?Room $room = null): Reservation
+{
+    $room ??= Room::factory()->for(Property::factory()->published())->create(['reservation_fee' => 150000]);
+
+    return reserve($renter, $room, BusinessDate::today()->addDays(14)->toDateString());
+}
+
+/** A valid proof form for `liveHold()`'s fee. */
+function proofForm(array $overrides = []): array
+{
+    return [...['proof' => proofUpload(), 'amount' => '1500', 'reference_no' => '1009 482 771'], ...$overrides];
 }

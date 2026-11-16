@@ -12,6 +12,6 @@ final class HoldExpired extends BusinessRuleException
 {
     public static function make(): self
     {
-        return new self('This hold has expired, so the space may already be taken. Reserve the room again to get a new hold.');
+        return new self('Your hold has expired. Reserve again to get a new one.');
     }
 }

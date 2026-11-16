@@ -24,7 +24,7 @@ Laravel Fortify, headless: Fortify's controllers and login pipeline, Inertia pag
 | Password reset | Link by email, valid 60 minutes, one use. The form answers the same whether or not the email has an account |
 | Rate limits | Login 5 a minute per email + IP; sign-up and reset emails 3 a minute per IP. Shown as a form error ("Too many tries. Wait 60 seconds, then try again."), not a 429 page |
 | `/landlord` | Logged in, verified, and a landlord user with a membership; a renter gets `403` |
-| Reserving (2.5) | `POST /rooms/{room}/reservations` and `/reservations/{id}`: logged in, verified, and a renter (`renter` middleware); a landlord gets `403`. A guest goes to `/login` and comes back to the room page. Someone else's reservation is `404`. 10 reserve requests a minute per renter. Routes and responses: [RESERVATIONS.md](RESERVATIONS.md#over-http-slice-25) |
+| Reserving (2.5, 5.3) | `POST /rooms/{room}/reservations` and every `/reservations…` page: logged in, verified, and a renter (`renter` middleware); a landlord gets `403`. A guest who presses Reserve goes to `/login` ("Log in or sign up to reserve…"), and a renter who hasn't confirmed their email to the "confirm your email" page; either way the room on its listing page, with the same stay, is kept as the page to come back to (`KeepReservationIntent`), after login or after the emailed link. Someone else's reservation is `404`. 10 reserve requests a minute per renter. Routes and responses: [RESERVATIONS.md](RESERVATIONS.md#over-http-slice-25) |
 | Session cookie | `HttpOnly`, `SameSite=Lax`, `Secure` in production |
 
 The code never says "tenant". See [ADR 0005](adr/0005-no-word-tenant.md).
@@ -77,7 +77,7 @@ Every `/landlord` page is behind `auth`, `verified` and `landlord`, shows the la
 | Page | Route | Matrix row it implements | Who |
 | --- | --- | --- | --- |
 | Reservations | `GET /landlord/reservations` (`?status=`, 15 a page, newest first) | View reservations for own account (`viewAny`) | owner, caretaker |
-| Reservation | `GET /landlord/reservations/{reservation}` | View reservations for own account (`view`); **the only page with the renter's email and phone** (`viewRenterContact`); payment proofs by amount, reference and status, never the file (signed URLs come in 5.3) | owner, caretaker |
+| Reservation | `GET /landlord/reservations/{reservation}` | View reservations for own account (`view`); **the only page with the renter's email and phone** (`viewRenterContact`); each payment proof with its amount, reference and status, and the file in a `ProofViewer` through `/proofs/{proof}` (View a payment proof, `view` on the proof; slice 5.3, [Private files](#private-files)) | owner, caretaker |
 | Properties | `GET /landlord/properties`, `GET /landlord/properties/{property}` | View own account's properties, rooms, spaces and photos (`viewAny`, `view`) | owner, caretaker |
 | Dashboard | `GET /landlord` | (the landlord menu's first page) | owner, caretaker |
 | Add or edit a property | `GET /landlord/properties/create`, `POST /landlord/properties` → `CreateProperty` (`property.created`); `GET …/{property}/edit`, `PUT …/{property}` → `UpdateProperty` (`property.updated`) | Create or edit properties, rooms, spaces, rates (`create`, `update`) | owner; a caretaker gets `403` on all four and no button |
@@ -132,7 +132,7 @@ A valid token shows the account's name, the role and who sent the invitation, an
 | `GET /rooms/{room}` | Nothing: `301` to the room's anchor on its listing | Listed rooms only, else `404` |
 | `GET /sitemap.xml`, `GET /robots.txt` | The home page and every published listing; the crawl rules | Production's `robots.txt` names the sitemap and disallows `/landlord`, `/reservations`, `/invitations`, `/login` and `/register`; every other environment disallows everything |
 
-**Never on these pages:** the landlord's phone or email (a renter reaches them after reserving), the property's payment instructions (shown on the hold page), and anything about other renters, including how many are on hold. Free beds are a count for the stay in the link, nothing more. The reserve button of each room is a plain `<form method="post">` with a `_token`, so it works without JavaScript; a broken rule (no free bed, a move-in outside the window…) comes back as the `error` flash on the listing page (`BusinessRuleException` redirects a plain form post back, like an Inertia one). A guest who presses it is sent to log in and comes back to the listing with the same stay.
+**Never on these pages:** the landlord's phone or email (a renter reaches them after reserving), the property's payment instructions (shown on the hold page), and anything about other renters, including how many are on hold. Free beds are a count for the stay in the link, nothing more. The reserve button of each room is a plain `<form method="post">` with a `_token`, so it works without JavaScript; a broken rule (no free bed, a move-in outside the window…) comes back as the `error` flash on the listing page (`BusinessRuleException` redirects a plain form post back, like an Inertia one). A guest who presses it is sent to log in and comes back to that room on the listing with the same stay (slice 5.3).
 
 ## Permission matrix
 
@@ -184,9 +184,11 @@ Each main flow, step by step, with who acts and what they see. This is where gap
 | --- | --- | --- |
 | Search and browse | public, renter | Server-rendered; works without JavaScript |
 | Choose a room, move-in date and months | renter | Must log in or register first; the intent is kept across login |
-| Reserve | renter | `ReserveSpace` → hold. The page shows the fee, payment instructions from the property, and a countdown |
-| Upload proof | renter | Image or PDF, ≤ 5 MB, amount and reference number |
-| Review proof | owner or caretaker | Proof opened via a signed URL. Confirm, reject (re-upload) or decline |
+| Reserve | renter | `ReserveSpace` → hold. The hold page (`/reservations/{id}`) shows the fee, the property's payment instructions, the landlord account's name and phone, and a countdown ("Your hold ends in 23 hours"; without JavaScript "until 3:40 PM, Mon 16 Nov, Manila time") |
+| Upload proof | renter | Image or PDF, ≤ 5 MB, amount and reference number, on the hold page while the hold is live ([Private files](#private-files)) |
+| Cancel | renter | From the hold page while held, proof uploaded, or confirmed before the move-in date; the dialog quotes the house rules on refunds |
+| My reservations | renter | `/reservations` (the account menu): current ones first, then past, ten a page |
+| Review proof | owner or caretaker | Proof opened via a signed URL. Confirm, reject (re-upload) or decline (6.1) |
 | Notified | renter | Email at every status change |
 | Move in | owner or caretaker | Mark moved in on or after `move_in` |
 | Stay ends | system or landlord | `EndStays` job, or `EndStay` early |
@@ -215,9 +217,23 @@ Each main flow, step by step, with who acts and what they see. This is where gap
 
 ## Private files
 
-Payment proofs live on the private disk (`local` in dev, a private S3 bucket in production).
+Payment proofs live on the private `proofs` disk (`local` under `storage/app/private` in dev and tests, a private bucket in production that nothing but the app can read). Built in slice 5.3.
 
-1. `GET /reservations/{id}/proof` checks `PaymentProofPolicy::view` and redirects to a **signed URL valid for 5 minutes** that names the proof and the user ID.
-2. The signed download route checks the signature, **checks that the logged-in user matches the user in the URL, and runs the policy again**, then streams the file with `Content-Disposition: inline`, `Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`.
+**Upload.** `POST /reservations/{reservation}/proofs` (renter, own reservation, else `404` before the form is even read): the file, the amount paid and the reference number. The file is judged by its **content**, never its name or the MIME type the browser sent (`App\Rules\PaymentProofFile`, `App\Support\Proofs\ProofFileInspector`): its first bytes must be a JPEG, PNG, WebP or PDF, at most 5 MB; an image must decode completely; a PDF must end with `%%EOF`, not be encrypted, and have at least one page object (also inside compressed object streams). HTML, SVG, GIF and anything renamed are refused. The bytes are stored **exactly as uploaded** (evidence: nothing is re-encoded or stripped) at a random path, `proofs/<uuid>.<ext>`, with the detected type. `UploadPaymentProof` then moves the reservation `held` → `proof_uploaded` (a live hold only).
 
-A leaked URL is useless to anyone else (test 9).
+**Viewing: two routes, three checks.**
+
+1. `GET /proofs/{proof}` (logged in): the one link every page uses. It looks the proof up (through the isolation scope for a landlord, so another account's proof is a `404` at once), asks `PaymentProofPolicy::view` (the renter whose reservation it is, or an owner or caretaker of its account; anyone else `404`), and redirects (`Cache-Control: private, no-store`) to a **signed URL valid for 5 minutes** that names the proof **and the user it was made for**: `/proofs/{proof}/file?expires=…&user=…&signature=…`. The signature covers the path and query only (`signed:relative`), so it holds behind Caddy or GitHub's port forwarding.
+2. `GET /proofs/{proof}/file` checks, in this order: the **signature and expiry** (`403`); that **the logged-in user is the one in the URL** (`403`, guests included: this route has no `auth` redirect on purpose); and **the policy again**, on a fresh lookup, so access lost within the 5 minutes (a removed caretaker) is refused (`404`). Then it **streams the file through PHP** with:
+
+   | Header | Value |
+   | --- | --- |
+   | `Content-Type` | the type detected at upload |
+   | `Content-Disposition` | `inline; filename="proof-<id>.<ext>"` |
+   | `Cache-Control` | `private, no-store` |
+   | `X-Content-Type-Options` | `nosniff` |
+   | `Content-Security-Policy` | `sandbox` (no script, forms or plugins: a crafted file can't act in the app's origin). `SecurityHeaders` keeps a policy a response sets itself |
+
+**Why stream, not an S3 pre-signed URL.** A pre-signed URL is a bearer token: anyone holding it gets the file until it expires, and the bucket would have to be reachable from the internet. Streaming keeps the bucket private and every byte behind the three checks above, at the cost of PHP time for a few hundred kilobytes per view. The landlord's `ProofViewer` (an image inline, a PDF as a link) and the renter's list of sent proofs both use `/proofs/{proof}`.
+
+A leaked URL is useless to anyone else: T9 ([tests/Feature/Proofs/T9SignedProofUrlTest.php](../tests/Feature/Proofs/T9SignedProofUrlTest.php)) uses one as another renter, as the owner and caretaker of another account, as a member of the same account, as a guest, after 5 minutes, with the proof id, user or expiry changed, and after the caretaker was removed: always `403` or `404`, never the bytes. The renter and the account's owner and caretaker get exactly the bytes with the headers above. T6 walks both routes too.

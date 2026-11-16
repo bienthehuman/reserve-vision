@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureUserIsLandlord;
 use App\Http\Middleware\EnsureUserIsRenter;
 use App\Http\Middleware\ExposeRequestTiming;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\KeepReservationIntent;
 use App\Http\Middleware\SecurityHeaders;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -43,6 +44,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // The concurrency suite's timing probe (a no-op unless CONCURRENCY_PROBE, never in production) wraps
         // the whole route, auth included: a racer refused by `landlord` or a policy still gets the headers.
         $middleware->prependToPriorityList(AuthenticatesRequests::class, ExposeRequestTiming::class);
+
+        // A guest's (or an unverified renter's) reserve post keeps the room and the stay as the page to come
+        // back to (slice 5.3), so this must run before `auth` and `verified` would redirect on their own.
+        $middleware->prependToPriorityList(AuthenticatesRequests::class, KeepReservationIntent::class);
 
         $middleware->alias([
             'landlord' => EnsureUserIsLandlord::class,

@@ -33,8 +33,8 @@ final class Constraints
     public static function in(string $table, string $column, array $values): void
     {
         $list = implode(', ', array_map(function (string $value): string {
-            if (preg_match('/^[a-z_]+$/', $value) !== 1) {
-                throw new InvalidArgumentException("Enum value [{$value}] must be lower snake case.");
+            if (preg_match('/^[a-z_]+(\/[a-z_]+)?$/', $value) !== 1) {
+                throw new InvalidArgumentException("Enum value [{$value}] must be lower snake case (or a MIME type such as image/jpeg).");
             }
 
             return "'{$value}'";

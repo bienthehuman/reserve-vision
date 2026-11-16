@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Enums\PaymentProofStatus;
+use App\Enums\ProofFileType;
 use App\Models\PaymentProof;
 use App\Models\Reservation;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -24,6 +25,7 @@ class PaymentProofFactory extends Factory
             'landlord_account_id' => fn (array $attributes): mixed => Reservation::query()
                 ->whereKey($attributes['reservation_id'])->value('landlord_account_id'),
             'path' => 'proofs/'.fake()->uuid().'.jpg',
+            'mime_type' => ProofFileType::Jpeg,
             'amount' => fn (array $attributes): mixed => Reservation::query()
                 ->whereKey($attributes['reservation_id'])->value('reservation_fee'),
             'reference_no' => fake()->numerify('############'),

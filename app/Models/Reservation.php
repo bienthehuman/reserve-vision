@@ -258,6 +258,15 @@ final class Reservation extends Model
             ->whereHas('space', fn (Builder $space) => $space->listed());
     }
 
+    /**
+     * The status to show: a `held` reservation past `hold_expires_at` is shown as `expired`
+     * before the ExpireHolds job (6.3) has written it, because that is what it already is.
+     */
+    public function shownStatus(): ReservationStatus
+    {
+        return $this->status === ReservationStatus::Held && ! $this->isLiveHold() ? ReservationStatus::Expired : $this->status;
+    }
+
     /** `held` and `hold_expires_at` is still in the future. */
     public function isLiveHold(): bool
     {
@@ -267,16 +276,23 @@ final class Reservation extends Model
     }
 
     /**
-     * The transition table plus the guards that depend on the hold's expiry.
-     * Every status-changing action calls this on the freshly locked row before
-     * writing (UploadPaymentProof in 5.3, ExpireHolds in 6.3, …).
+     * The transition table plus the guards that depend on time: the hold's expiry, and
+     * the move-in date for cancelling a confirmed stay. Every status-changing action
+     * calls this on the freshly locked row before writing (UploadPaymentProof and
+     * CancelReservation in 5.3, ExpireHolds in 6.3, …).
      *
-     * @throws InvalidTransition when the table has no such move
+     * @throws InvalidTransition when the table has no such move, or a confirmed stay has started
      * @throws HoldExpired when a renter acts on a hold that has run out (T5)
      */
     public function assertCanMoveTo(ReservationStatus $to): void
     {
         $this->status->assertCanTransitionTo($to);
+
+        // confirmed → cancelled (CancelReservation, WithdrawReservation): only before the move-in date.
+        if ($this->status === ReservationStatus::Confirmed && $to === ReservationStatus::Cancelled
+            && ! BusinessDate::today()->lt($this->move_in)) {
+            throw InvalidTransition::stayStarted();
+        }
 
         if ($this->status !== ReservationStatus::Held) {
             return;

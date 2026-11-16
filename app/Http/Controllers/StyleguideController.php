@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Date;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -18,6 +19,8 @@ final class StyleguideController
     {
         abort_if(app()->isProduction(), 404);
 
-        return Inertia::render('Dev/Styleguide');
+        return Inertia::render('Dev/Styleguide', [
+            'holdSample' => Date::now()->addHours(23)->toIso8601String(),
+        ]);
     }
 }

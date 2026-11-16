@@ -40,7 +40,10 @@ When a renter breaks both limits at once, the per-property message wins: it's th
 | `GET /listings/{city}/{slug}` | anyone | The listing page (slice 5.1, [ACCESS.md](ACCESS.md#public-pages-slice-51)): each listed room with its rate, fee, deposit and advance months, beds, and the free beds for `?move_in=Y-m-d&months=n` (default today, 6 months), and a reserve form per room. Listed rooms only (`Room::scopeListed()`: room not archived, property published and not archived, account verified), anything else `404`. A renter with an open reservation in a room gets a link to it instead of that room's form |
 | `GET /rooms/{room}` | anyone | The 2.5 room page: a `301` to the room's anchor on its listing page, keeping `move_in` and `months`. Listed rooms only, else `404` |
 | `POST /rooms/{room}/reservations` | renter, email verified | `StoreReservationRequest` checks the shape only (`move_in` is `Y-m-d`, `months` a whole number), then `ReserveSpace` decides. Success: redirect to `/reservations/{id}`, or `201` JSON (`reservation.id`, `space_id`, `status`, `hold_expires_at`). Broken rule: the `error` flash back on the room page, or `422 {message}` JSON. Guests go to `/login` and come back to the room page; landlords get `403` |
-| `GET /reservations/{reservation}` | the reservation's renter | "Your hold": status badge, space, stay, fee, `hold_expires_at` in Manila time. Anyone else's reservation is `404` |
+| `GET /reservations/{reservation}` | the reservation's renter | The hold page (completed in 5.3): status badge (a `held` past its expiry shows as "Hold expired", `Reservation::shownStatus()`), bed, stay, fee; while the hold is live the `HoldCountdown`, the property's payment instructions and the proof form; the landlord account's name and phone; the proofs sent; Cancel where the table below allows it. Anyone else's reservation is `404` |
+| `GET /reservations` | renter | My reservations (5.3): the ones still holding their space (`blocking()`) first, soonest move-in first, then the past ones, latest first, ten a page |
+| `POST /reservations/{reservation}/proofs` | the reservation's renter | `UploadPaymentProof` (5.3): file, amount, reference number ([ACCESS.md](ACCESS.md#private-files)). Back to the hold page with "Proof sent…", or the `error` flash (`HoldExpired`, `InvalidTransition`). Another renter's reservation is `404` before the form is validated |
+| `POST /reservations/{reservation}/cancel` | the reservation's renter | `CancelReservation` (5.3). Back to the hold page with "Your reservation is cancelled.", or the `error` flash |
 
 ### Rejections
 
@@ -54,8 +57,8 @@ Each broken rule is a domain exception in `app/Exceptions/Domain/` with a user-f
 | `RoomNotReservable` | Room archived; property unpublished or archived; account unverified |
 | `HoldLimitReached` | Already 2 open reservations, or already 1 open in this property (two messages) |
 | `NoSpaceAvailable` | Every non-archived space has a blocking reservation overlapping the dates |
-| `HoldExpired` | A renter acts on a `held` reservation past `hold_expires_at` (proof upload) |
-| `InvalidTransition` | A status move the [transition table](#transition-table) doesn't have, or expiring a hold that is still live |
+| `HoldExpired` | A renter acts on a `held` reservation past `hold_expires_at` (proof upload): "Your hold has expired. Reserve again to get a new one." |
+| `InvalidTransition` | A status move the [transition table](#transition-table) doesn't have, expiring a hold that is still live, or cancelling a confirmed stay on or after its move-in date |
 
 ## Concurrency
 
@@ -100,7 +103,7 @@ stateDiagram-v2
 
 ### Transition table
 
-Every arrow is one action class. The transition table (`ReservationStatus::canTransitionTo()`) rejects any move not listed here with a `422` and a clear message. Actions call `Reservation::assertCanMoveTo()` on the locked row, which applies the table plus the guards that depend on the hold's expiry: `held` → `proof_uploaded` needs a live hold (`HoldExpired` otherwise), `held` → `expired` needs an expired one. `held` → `cancelled` is allowed either way.
+Every arrow is one action class. The transition table (`ReservationStatus::canTransitionTo()`) rejects any move not listed here with a `422` and a clear message. Actions call `Reservation::assertCanMoveTo()` on the locked row, which applies the table plus the guards that depend on time: `held` → `proof_uploaded` needs a live hold (`HoldExpired` otherwise), `held` → `expired` needs an expired one, and `confirmed` → `cancelled` (the renter's cancel and the owner's withdraw alike) needs `today < move_in` (business date). `held` → `cancelled` is allowed either way.
 
 | From | To | Action | Actor | Guard | Side effects |
 | --- | --- | --- | --- | --- | --- |
@@ -119,7 +122,7 @@ Every arrow is one action class. The transition table (`ReservationStatus::canTr
 | active | ended | `EndStay` | owner, caretaker | sets `move_out = max(today, move_in + 1 day)` if earlier than planned | frees the space from that date |
 | active | ended | `EndStays` | system | `move_out <= today` | — |
 
-Every landlord-side transition writes an `audit_logs` row.
+Every landlord-side transition writes an `audit_logs` row; the renter's own (`UploadPaymentProof`, `CancelReservation`) write none. The emails in the side-effects column come with slice 6.3. Cancelling leaves the proofs as they are: a `pending` proof of a cancelled reservation is shown to the renter as "Not reviewed", and the refund is the landlord's to record (6.1).
 
 ### Correction paths
 

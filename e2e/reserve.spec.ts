@@ -85,7 +85,7 @@ test('Phase 2 demo: renter1 takes the last bed, renter2 is told it is gone', asy
     await expect(renter1.page.getByRole('heading', { level: 1, name: 'Your hold' })).toBeVisible();
     await expect(renter1.page.getByText('On hold')).toBeVisible();
     await expect(renter1.page.getByTestId('space-label')).toHaveText('Bed D');
-    await expect(renter1.page.getByText('Hold ends', { exact: true })).toBeVisible();
+    await expect(renter1.page.getByTestId('hold-countdown')).toContainText('Your hold ends'); // the countdown (5.3)
     expect(renter1.errors).toEqual([]);
     await expectNoAxeViolations(renter1.page);
     await renter1.close();

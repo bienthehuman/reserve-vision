@@ -12,7 +12,7 @@ interface ConfirmButtonProps {
     accessibleName?: string;
     /** The dialog's question: "Remove Ana Cruz?". */
     title: string;
-    /** What will happen, in a sentence or two. */
+    /** What will happen, in a sentence or two (a string is wrapped in a paragraph; anything else is shown as it is). */
     body: ReactNode;
     /** The dialog's danger button: "Remove member". */
     confirmLabel: string;
@@ -61,7 +61,7 @@ export default function ConfirmButton({ href, method, children, accessibleName, 
                     </Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <p className="mb-0">{body}</p>
+                    {typeof body === 'string' ? <p className="mb-0">{body}</p> : body}
                 </Modal.Body>
                 <Modal.Footer>
                     <Button type="button" variant="outline-primary" onClick={() => setConfirming(false)}>

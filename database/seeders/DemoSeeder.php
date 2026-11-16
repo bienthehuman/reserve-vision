@@ -15,10 +15,12 @@ use App\Enums\ReservationStatus;
 use App\Enums\RoomType;
 use App\Enums\UserType;
 use App\Models\Barangay;
+use App\Models\PaymentProof;
 use App\Models\PropertyPhoto;
 use App\Support\Photos\PhotoProcessor;
 use Carbon\CarbonImmutable;
 use Database\Seeders\Demo\DemoPhotoPainter;
+use Database\Seeders\Demo\DemoReceiptPainter;
 use Database\Seeders\Demo\StayScheduler;
 use Faker\Factory;
 use Faker\Generator;
@@ -137,6 +139,7 @@ final class DemoSeeder extends Seeder
             $this->buildPhotos();
             $this->flush();
             $this->writePhotoFiles();
+            $this->writeProofFiles();
         });
 
         $this->command?->info('Seeded demo data.');
@@ -695,6 +698,7 @@ final class DemoSeeder extends Seeder
     {
         return [
             'path' => 'proofs/demo/placeholder-'.$this->int(1, 9).'.jpg',
+            'mime_type' => 'image/jpeg',
             'amount' => max(0, $amount),
             'reference_no' => sprintf('%06d%06d', $this->int(0, 999999), $this->int(0, 999999)),
             'status' => $status->value,
@@ -810,6 +814,20 @@ final class DemoSeeder extends Seeder
 
             $disk->put("{$file['path']}-thumb.webp", $painting->thumb, PropertyPhoto::WRITE_OPTIONS);
             $disk->put("{$file['path']}-full.webp", $painting->full, PropertyPhoto::WRITE_OPTIONS);
+        }
+    }
+
+    /**
+     * The demo proofs point at nine placeholder receipts (slice 5.3), painted with GD so the
+     * landlord's proof viewer has something to show. Nothing random: the rows don't change.
+     */
+    private function writeProofFiles(): void
+    {
+        $disk = Storage::disk(PaymentProof::DISK);
+        $painter = new DemoReceiptPainter;
+
+        foreach (range(1, 9) as $number) {
+            $disk->put("proofs/demo/placeholder-{$number}.jpg", $painter->paint($number));
         }
     }
 

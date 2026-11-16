@@ -41,7 +41,8 @@ it('creates a hold and redirects to the hold page', function (): void {
         ->assertSee('Your hold')
         ->assertSee('Bed A')
         ->assertSee('₱1,500.00')
-        ->assertSee('Mar 16, 2027')
+        // The countdown's server-rendered text, right without JavaScript (slice 5.3).
+        ->tap(fn ($response) => expect(preg_replace('/<!-- -->/', '', (string) $response->getContent()))->toMatch('/Your hold ends at 10:00\s(AM|&#x202F;AM)?.{0,12}Tue 16 Mar, Manila time/u'))
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Reservations/Show')
             ->where('reservation.status', 'held')
@@ -116,18 +117,63 @@ it('renders a domain error as a flash on the room page for Inertia, and 422 JSON
     expect(Reservation::query()->where('renter_id', $renter->id)->count())->toBe(0);
 });
 
-it('sends guests to log in and brings them back to the room page', function (): void {
+it('sends guests to log in and brings them back to the room on its listing, with the stay kept', function (): void {
     $room = reservableRoom();
+    $property = Property::query()->published()->findOrFail($room->property_id);
 
-    $this->from("/rooms/{$room->id}")
-        ->post("/rooms/{$room->id}/reservations", ['move_in' => '2027-04-01', 'months' => 6])
-        ->assertRedirect('/login');
+    $this->from('/somewhere-else')
+        ->post("/rooms/{$room->id}/reservations", ['move_in' => '2027-04-01', 'months' => '6'])
+        ->assertRedirect('/login')
+        ->assertSessionHas('status');
 
-    expect(session('url.intended'))->toBe(url("/rooms/{$room->id}"));
+    $intended = url("/listings/{$property->city_slug}/{$property->slug}?move_in=2027-04-01&months=6#room-{$room->id}");
+    expect(session('url.intended'))->toBe($intended);
 
     $renter = User::factory()->create();
     $this->post('/login', ['email' => $renter->email, 'password' => 'password'])
-        ->assertRedirect(url("/rooms/{$room->id}"));
+        ->assertRedirect($intended);
+});
+
+it('sends an Inertia login on to the room with a full page load, so the #room anchor survives', function (): void {
+    $room = reservableRoom();
+    $property = Property::query()->published()->findOrFail($room->property_id);
+    $this->post("/rooms/{$room->id}/reservations", ['move_in' => '2027-04-01', 'months' => '6']);
+    $renter = User::factory()->create();
+
+    $this->withHeaders(['X-Inertia' => 'true'])->post('/login', ['email' => $renter->email, 'password' => 'password'])
+        ->assertStatus(409)
+        ->assertHeader('X-Inertia-Location', url("/listings/{$property->city_slug}/{$property->slug}?move_in=2027-04-01&months=6#room-{$room->id}"));
+    $this->flushHeaders();
+});
+
+it('keeps an ordinary Inertia login a redirect when there is no anchor to keep', function (): void {
+    $renter = User::factory()->create();
+
+    $this->withHeaders(['X-Inertia' => 'true'])->post('/login', ['email' => $renter->email, 'password' => 'password'])
+        ->assertRedirect('/');
+    $this->flushHeaders();
+});
+
+it('keeps only a well-formed stay in the page to come back to', function (): void {
+    $room = reservableRoom();
+
+    $this->post("/rooms/{$room->id}/reservations", ['move_in' => 'tomorrow', 'months' => ['x']])->assertRedirect('/login');
+
+    $property = Property::query()->published()->findOrFail($room->property_id);
+    expect(session('url.intended'))->toBe(url("/listings/{$property->city_slug}/{$property->slug}#room-{$room->id}"));
+});
+
+it('sends an unverified renter to confirm their email, and back to the room after', function (): void {
+    $room = reservableRoom();
+    $renter = User::factory()->create(['email_verified_at' => null]);
+
+    $this->actingAs($renter)->post("/rooms/{$room->id}/reservations", ['move_in' => '2027-04-01', 'months' => 6])
+        ->assertRedirect('/email/verify')
+        ->assertSessionHas('status', 'Confirm your email first, then you can reserve.');
+
+    $property = Property::query()->published()->findOrFail($room->property_id);
+    expect(session('url.intended'))->toBe(url("/listings/{$property->city_slug}/{$property->slug}?move_in=2027-04-01&months=6#room-{$room->id}"))
+        ->and(Reservation::query()->count())->toBe(0);
 });
 
 it('sends guests asking for JSON a 401', function (): void {

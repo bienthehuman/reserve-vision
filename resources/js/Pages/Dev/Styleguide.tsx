@@ -5,6 +5,8 @@ import { ArrowLeft, ExclamationCircle } from 'react-bootstrap-icons';
 import Pager from '@/Components/Pager';
 import ComboboxField from '@/Components/Form/ComboboxField';
 import PriceTag from '@/Components/PriceTag';
+import HoldCountdown from '@/Components/HoldCountdown';
+import ProofViewer from '@/Components/ProofViewer';
 import StatusBadge from '@/Components/StatusBadge';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { designTokens } from '@/lib/designTokens';
@@ -21,7 +23,8 @@ function Section({ id, title, children }: { id: string; title: string; children:
     );
 }
 
-export default function Styleguide() {
+/** `holdSample`: a hold ending 23 hours from the request, so the countdown has something to count. */
+export default function Styleguide({ holdSample }: { holdSample: string }) {
     return (
         <PublicLayout>
             <Head title="Styleguide" />
@@ -254,6 +257,16 @@ export default function Styleguide() {
                     <p className="mt-3">
                         Highlight: <span className="badge rounded-pill bg-mango">Last bed</span>
                     </p>
+                </Section>
+
+                <Section id="hold" title="Hold and proofs">
+                    <HoldCountdown expiresAt={holdSample} />
+                    <p className="text-body-secondary small">
+                        Before hydration it says when the hold ends; after, how long is left, updated every minute and announced at 1 hour and
+                        10 minutes. A proof is shown with ProofViewer: an image inline (opens full size), a PDF as a link. Both go through
+                        /proofs/{'{id}'}, so there is no live image here.
+                    </p>
+                    <ProofViewer proof={{ id: 0, url: '#hold', is_image: false }} label="Example proof" />
                 </Section>
             </Container>
         </PublicLayout>
