@@ -34,3 +34,6 @@ _ide_helper.php
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# The PSA workbook bin/psgc-convert reads (slice 4.4): download it, don't commit it (database/data/psgc/README.md)
+/database/data/psgc/source/

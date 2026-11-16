@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Alert, Button, Card, Col, Container, Form, Row, Table } from 'react-bootstrap';
 import { ArrowLeft, ExclamationCircle } from 'react-bootstrap-icons';
 import Pager from '@/Components/Pager';
+import ComboboxField from '@/Components/Form/ComboboxField';
 import PriceTag from '@/Components/PriceTag';
 import StatusBadge from '@/Components/StatusBadge';
 import PublicLayout from '@/Layouts/PublicLayout';
@@ -188,6 +189,50 @@ export default function Styleguide() {
                             </Form.Control.Feedback>
                         </Form.Group>
                         <Form.Check type="checkbox" id="sg-rules" label="I have read the house rules" />
+                    </Form>
+                </Section>
+
+                <Section id="dependent-dropdowns" title="Dropdowns you can type into">
+                    <p className="small text-body-secondary">
+                        For lists too long to scroll (slice 4.4, the address): type to narrow the list, accents and word order don&apos;t
+                        matter. One that needs another choice says so while it waits; a list that didn&apos;t load offers a retry.
+                    </p>
+                    <Form noValidate className="col-md-6">
+                        <ComboboxField
+                            name="sg-barangay-grouped"
+                            label="Barangay in Manila"
+                            value="2"
+                            onChange={() => undefined}
+                            options={[
+                                { value: '1', label: 'Barangay 659', group: 'Ermita' },
+                                { value: '2', label: 'Barangay 395', group: 'Sampaloc' },
+                                { value: '3', label: 'Barangay 396', group: 'Sampaloc' },
+                            ]}
+                            help="Type part of the name, or a district (Sampaloc)."
+                        />
+                        <ComboboxField
+                            name="sg-barangay-waiting"
+                            label="Barangay"
+                            value=""
+                            onChange={() => undefined}
+                            options={[]}
+                            placeholder="Choose a city first."
+                            disabled
+                        />
+                        <ComboboxField
+                            name="sg-city-failed"
+                            label="City or municipality"
+                            value=""
+                            onChange={() => undefined}
+                            options={[]}
+                            placeholder="Couldn't load the cities and municipalities"
+                            className="mb-2"
+                            disabled
+                        />
+                        <div className="place-error mb-3" role="status">
+                            <span>We couldn&apos;t load the cities and municipalities. Check your connection, then try again.</span>
+                            <Button variant="outline-primary">Try again</Button>
+                        </div>
                     </Form>
                 </Section>
 

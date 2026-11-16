@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\CityKind;
 use App\Enums\GenderPolicy;
 use App\Enums\LandlordRole;
 use App\Enums\PaymentProofStatus;
@@ -30,6 +31,7 @@ function enumChecks(): array
         'reservations.status' => ['reservations_status_valid', ReservationStatus::class],
         'payment_proofs.status' => ['payment_proofs_status_valid', PaymentProofStatus::class],
         'viewing_requests.status' => ['viewing_requests_status_valid', ViewingRequestStatus::class],
+        'cities.kind' => ['cities_kind_valid', CityKind::class],
     ];
 }
 

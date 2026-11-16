@@ -48,3 +48,29 @@ export async function logIn(page: Page, email: string, password: string): Promis
     await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Log in', exact: true }).click();
 }
+
+/** Types into a dropdown you can type into (ComboboxField) and clicks the option with that exact name. */
+export async function chooseFrom(page: Page, label: string, option: string, typed = option, timeout?: number): Promise<void> {
+    await page.getByRole('combobox', { name: label, exact: true }).fill(typed, { timeout });
+    await page.getByRole('option', { name: option, exact: true }).click({ timeout });
+}
+
+/**
+ * Chooses an address on the property form (slice 4.4): province, then city, then barangay, each waiting
+ * until the one before it has loaded its list. Options by the names shown (Manila's with the district:
+ * "Barangay 395, Sampaloc").
+ */
+export async function chooseAddress(page: Page, place: { province: string; city: string; barangay: string }): Promise<void> {
+    const city = page.getByRole('combobox', { name: 'City or municipality', exact: true });
+    // Again until the city opens up: typing before hydration under load does nothing (CLAUDE.md, quirks in 4.4).
+    await expect(async () => {
+        await chooseFrom(page, 'Province', place.province, place.province, 3_000);
+        await expect(city).toBeEnabled({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+    await chooseFrom(page, 'City or municipality', place.city);
+    await expect(page.getByRole('combobox', { name: 'Barangay', exact: true })).toBeEnabled();
+    await chooseFrom(page, 'Barangay', place.barangay);
+}
+
+/** Loyola Heights, Quezon City: the address the e2e properties use. */
+export const LOYOLA_HEIGHTS = { province: 'Metro Manila', city: 'Quezon City', barangay: 'Loyola Heights' };

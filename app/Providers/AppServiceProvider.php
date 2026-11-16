@@ -22,6 +22,9 @@ final class AppServiceProvider extends ServiceProvider
     /** Invitation links opened, and accepts tried, per IP per minute (ACCESS.md "Accepting an invitation"). */
     public const int INVITATIONS_PER_MINUTE = 10;
 
+    /** Requests a minute per IP to the public places lists (slice 4.4). */
+    public const int PLACES_PER_MINUTE = 120;
+
     public function register(): void
     {
         // Scoped, not a singleton: dropped between queue jobs (and requests on a
@@ -45,6 +48,9 @@ final class AppServiceProvider extends ServiceProvider
 
         // Two buckets, so a person who mistypes the sign-up form a few times can still load the page.
         // Guessing a 48-character token at 10 a minute is hopeless; the page answers 429 beyond that.
+        // The public places lists (slice 4.4): a form needs two or three per address.
+        RateLimiter::for('places', fn (Request $request): Limit => Limit::perMinute(self::PLACES_PER_MINUTE)
+            ->by('places|'.$request->ip()));
         RateLimiter::for('invitations', fn (Request $request): Limit => Limit::perMinute(self::INVITATIONS_PER_MINUTE)
             ->by('invitations|'.$request->ip()));
         RateLimiter::for('invitation-accept', fn (Request $request): Limit => Limit::perMinute(self::INVITATIONS_PER_MINUTE)

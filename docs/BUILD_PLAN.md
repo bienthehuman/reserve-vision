@@ -101,6 +101,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | 2026-11-14 | Deployable, not hosted; CI proves the production stack instead | [ADR 0007](adr/0007-deployable-not-hosted.md) |
 | 2026-11-14 | Landlord verification by artisan command; no admin web role | [ACCESS.md](ACCESS.md#actors) |
 | 2026-11-14 | Design system: ube primary (also prices), mango highlight, Plus Jakarta Sans headings; hue chosen to differ from Hilom/PesoTrack teal and the portfolio's orange, light mode only in v1 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
+| 2026-11-16 | Slice 4.4 built: the PSGC 3Q 2026 publication as three CSVs in the repo, imported by `places:import`; properties link to a city and barangay and keep their text columns as copies. Metro Manila and BARMM's Special Geographic Area are province rows; independent cities go under the province whose PSGC row excludes them | [DATA_MODEL.md](DATA_MODEL.md#places-slice-44) |
 | 2026-11-16 | Slice 4.4 added: places from the PSGC list, bundled rather than a live API, before 5.1 so search uses the same list. Tag `v0.4.0` moves to after 4.4 | this file |
 | 2026-11-16 | UI review after 4.2: design system retuned (surface layer, one control height and radius, link styles, account menu, pager), addresses standardized as street / barangay / city / province, `lat`/`lng` dropped. 4.3's publish rule no longer asks for coordinates | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md), [DATA_MODEL.md](DATA_MODEL.md) |
 | 2026-11-16 | Phase 3 split into 3.1 (isolation core) and 3.2 (minimal landlord pages + T6/T7): T6 and T7 need landlord routes, and none existed. T6 also covers renter routes | this file |
@@ -151,13 +152,13 @@ Ideas that came up and are deliberately not in any slice.
 | Delete a room or space that was never reserved (today only archive) | Slice 4.1 |
 | Reorder or bulk-rename beds; a bed count change that adds several at once | Slice 4.1 |
 | Show on the property page which spaces are blocked from archiving, and by whom, before the owner clicks | Slice 4.1 |
-| Barangay as a select from the city's list, with "other" | Slice 4.1 |
 | Replace generated demo photos with a licensed (CC0) photo set | Slice 4.2 |
 | HEIC/HEIF uploads (iPhones' default format; today the owner has to export a JPEG) | Slice 4.2 |
 | Sweep temporary uploads (`uploads/tmp/` on the proofs disk) older than a day: a worker killed at the wrong moment can leave one behind | Slice 4.2 |
 | Retry a failed photo without choosing the file again, when the failure was storage and not the file (today the upload is deleted on failure) | Slice 4.2 |
 | Upload progress per file, and drag-and-drop to reorder next to the Up and Down buttons | Slice 4.2 |
 | Photos per room ("Bed area of Room 2"), not only per property | Slice 4.2 |
+| Tell an owner when an import leaves their property without a linked barangay (today they see it only as a publish checklist item, or on the form) | Slice 4.4 |
 | Invite a co-owner (today only caretakers can be invited; the `role` column already allows `owner`) | Slice 4.3 |
 | Change a member's role (caretaker to owner and back) without removing and inviting again | Slice 4.3 |
 | Let a member leave an account themself (today another owner removes them) | Slice 4.3 |

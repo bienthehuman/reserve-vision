@@ -67,3 +67,6 @@ Makefile
 compose*.yaml
 deploy.sh
 bin
+
+# The PSA workbook (git-ignored; only the converted CSVs ship)
+database/data/psgc/source

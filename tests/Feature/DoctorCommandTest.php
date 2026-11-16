@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 // app:doctor (slice 1.3): run by deploy.sh and the production CI workflow.
@@ -9,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 beforeEach(function (): void {
     Storage::fake('photos');
     Storage::fake('proofs');
+    placeIn('manila'); // the places tables aren't empty (slice 4.4)
 });
 
 it('passes when the environment is healthy', function (): void {
@@ -22,7 +24,8 @@ it('passes when the environment is healthy', function (): void {
         ->expectsOutputToContain('Storage: photos')
         ->expectsOutputToContain('Storage: proofs')
         ->expectsOutputToContain('gd: JPEG to WebP, 960 × 640 and a thumbnail')
-        ->expectsOutputToContain('All 8 checks passed.')
+        ->expectsOutputToContain('1 provinces, 1 cities and municipalities, 1 barangays')
+        ->expectsOutputToContain('All 9 checks passed.')
         ->assertExitCode(0);
 
     expect(Storage::disk('photos')->allFiles())->toBeEmpty()
@@ -38,7 +41,16 @@ it('fails when a disk cannot be written', function (): void {
     Storage::forgetDisk('proofs');
 
     $this->artisan('app:doctor')
-        ->expectsOutputToContain('1 of 8 checks failed.')
+        ->expectsOutputToContain('1 of 9 checks failed.')
+        ->assertExitCode(1);
+});
+
+it('fails when the places have not been imported', function (): void {
+    DB::table('barangays')->delete();
+
+    $this->artisan('app:doctor')
+        ->expectsOutputToContain('The barangays table is empty: run php artisan places:import.')
+        ->expectsOutputToContain('1 of 9 checks failed.')
         ->assertExitCode(1);
 });
 

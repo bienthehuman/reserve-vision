@@ -70,6 +70,7 @@ final class DoctorCommand extends Command
             'App user has no DDL' => $this->appUserHasNoDdl(...),
             'Audit log is append-only' => $this->auditLogIsAppendOnly(...),
             'Queue table' => $this->queueTable(...),
+            'Places' => $this->places(...),
             'Storage: photos' => fn (): string => $this->diskRoundTrip('photos'),
             'Storage: proofs' => fn (): string => $this->diskRoundTrip('proofs'),
             'Image processing' => $this->imageProcessing(...),
@@ -157,6 +158,20 @@ final class DoctorCommand extends Command
         $failed = DB::table($this->configString('queue.failed.table'))->count();
 
         return "{$table}: {$pending} pending, {$failed} failed";
+    }
+
+    /** The property form's dropdowns need the PSGC places (slice 4.4). */
+    private function places(): string
+    {
+        $counts = [];
+        foreach (['provinces', 'cities', 'barangays'] as $table) {
+            $counts[$table] = DB::table($table)->count();
+            if ($counts[$table] === 0) {
+                throw new RuntimeException("The {$table} table is empty: run php artisan places:import.");
+            }
+        }
+
+        return "{$counts['provinces']} provinces, {$counts['cities']} cities and municipalities, {$counts['barangays']} barangays";
     }
 
     private function diskRoundTrip(string $name): string

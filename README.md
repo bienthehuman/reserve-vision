@@ -74,7 +74,7 @@ Or, with nothing installed: [open it in GitHub Codespaces](https://codespaces.ne
 | `owner2@example.com` | Owner of **Cruz Lettings**, a different verified account | Isolation: it must never see the other account's data |
 | `renter1@example.com`, `renter2@example.com` | Renters with no reservations | Racing for the last bed |
 
-**The last bed:** the property *Santos Bedspace House* (Sampaloc, Manila) has a published 4-bed shared room called **Last Bed Room**, at [/rooms/1](http://localhost:8180/rooms/1). Beds A, B and C are confirmed from the 1st of next month, so exactly one bed is free. Log in as `renter1` and `renter2` in two browsers and reserve it for that move-in date at the same moment: one wins and the other is told it's taken. The Playwright test [e2e/reserve.spec.ts](e2e/reserve.spec.ts) does the same, one after the other.
+**The last bed:** the property *Santos Bedspace House* (Barangay 395, Sampaloc, Manila) has a published 4-bed shared room called **Last Bed Room**, at [/rooms/1](http://localhost:8180/rooms/1). Beds A, B and C are confirmed from the 1st of next month, so exactly one bed is free. Log in as `renter1` and `renter2` in two browsers and reserve it for that move-in date at the same moment: one wins and the other is told it's taken. The Playwright test [e2e/reserve.spec.ts](e2e/reserve.spec.ts) does the same, one after the other.
 
 The data is the same on every run (fixed seed), dates are relative to the day you seed, and it is only added to an empty database: running `bin/setup` again changes nothing. To start over: `docker compose down -v && bin/setup`. Three accounts (`tan-realty`, `buenaventura-lettings`, `uy-rentals`) are unverified with draft properties; verify one with `docker compose exec app php artisan landlord:verify tan-realty` (`--list` shows who is waiting, `--revoke` undoes it and unpublishes the account's properties).
 
@@ -98,3 +98,5 @@ ReserveVision started as my college thesis in [year]: a reservation system for a
 ## License
 
 [MIT](LICENSE)
+
+Place names and codes (every province, city and municipality, and barangay) are from the Philippine Standard Geographic Code of the **Philippine Statistics Authority (PSA)**, 3rd quarter 2026 publication; see [database/data/psgc/README.md](database/data/psgc/README.md).

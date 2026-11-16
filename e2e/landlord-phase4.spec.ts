@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import path from 'node:path';
-import { collectConsoleErrors, expectNoAxeViolations, isProductionRun, logIn, mailpitUrl } from './support';
+import { chooseAddress, collectConsoleErrors, expectNoAxeViolations, isProductionRun, logIn, LOYOLA_HEIGHTS, mailpitUrl } from './support';
 
 /**
  * The phase 4 demo (slice 4.3), on the phone viewport:
@@ -55,17 +55,16 @@ test('phase 4: publish a new property, invite a caretaker who joins by the email
     await page.goto('/landlord/properties/create');
     await page.waitForLoadState('networkidle');
     await page.getByLabel('Property name', { exact: true }).fill(name);
-    await page.getByLabel('Barangay', { exact: true }).fill('Loyola Heights');
-    await page.getByLabel('City', { exact: true }).selectOption('quezon-city');
+    await chooseAddress(page, LOYOLA_HEIGHTS);
     await page.getByLabel('How to pay the reservation fee').fill('GCash 0917 123 4567 (E. Test)');
     await page.getByRole('button', { name: 'Save as a draft' }).click();
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
     await page.waitForLoadState('networkidle');
 
-    // The checklist: the account is verified and the payment details are there; a room and a photo are missing.
+    // The checklist: the account is verified, the payment details and the address (4.4) are there; a room and a photo are missing.
     const checklist = page.getByRole('list', { name: 'What a listing needs' });
     await expect(page.getByRole('heading', { level: 2, name: 'Before you publish' })).toBeVisible();
-    await expect(checklist.getByRole('listitem')).toHaveCount(4);
+    await expect(checklist.getByRole('listitem')).toHaveCount(5);
     await expect(checklist.getByText('Still needed: A room with at least one bed or space to rent')).toBeVisible();
     await expect(checklist.getByText('Still needed: At least one photo')).toBeVisible();
     await expect(checklist.getByText('Done: We have checked your account')).toBeVisible();

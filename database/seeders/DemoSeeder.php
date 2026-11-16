@@ -14,6 +14,7 @@ use App\Enums\PropertyKind;
 use App\Enums\ReservationStatus;
 use App\Enums\RoomType;
 use App\Enums\UserType;
+use App\Models\Barangay;
 use App\Models\PropertyPhoto;
 use App\Support\Photos\PhotoProcessor;
 use Carbon\CarbonImmutable;
@@ -43,9 +44,13 @@ use RuntimeException;
  *   DemoPhotoPainter and resized by the same PhotoProcessor as an upload. The
  *   files go to the photos disk before the transaction commits. Their paths
  *   come from the seeded Faker too, so a reseed overwrites the same files.
+ * - Places are real (slice 4.4): the cities of `database/data/places.php` and their
+ *   barangays from the places tables, so `php artisan places:import` runs first.
  * - Refuses to run in production unless APP_DEMO=true.
  *
  * Tables are filled with chunked inserts. Money is integer centavos.
+ *
+ * @phpstan-type DemoPlace array{city_id: int, city: string, slug: string, province: string, rate: float, barangays: list<array{id: int, label: string}>, lastBed: array{id: int, label: string}|null}
  */
 final class DemoSeeder extends Seeder
 {
@@ -64,6 +69,9 @@ final class DemoSeeder extends Seeder
     public const LAST_BED_ROOM = 'Last Bed Room';
 
     public const LAST_BED_PROPERTY = 'Santos Bedspace House';
+
+    /** The "last bed" house is in Manila's Sampaloc district: its first barangay by PSGC code ("Barangay 395, Sampaloc"). */
+    public const LAST_BED_DISTRICT = 'Sampaloc';
 
     private const RENTER_POOL = 700;
 
@@ -278,8 +286,7 @@ final class DemoSeeder extends Seeder
 
     private function buildListings(): void
     {
-        /** @var list<array{city: string, slug: string, province: string, rate: float, barangays: list<string>}> $places */
-        $places = require database_path('data/places.php');
+        $places = $this->places();
         /** @var array<string, string> $catalogue */
         $catalogue = require database_path('data/amenities.php');
         $amenityIds = array_values(array_map(
@@ -308,15 +315,47 @@ final class DemoSeeder extends Seeder
     }
 
     /**
+     * The demo cities with their provinces and barangays (ordered by PSGC code, which no collation changes).
+     * One draw per property picks the barangay, as one draw picked it from a list of names before 4.4,
+     * so every later draw is what it was.
+     *
+     * @return list<DemoPlace>
+     */
+    private function places(): array
+    {
+        /** @var list<array{slug: string, rate: float}> $demoCities */
+        $demoCities = require database_path('data/places.php');
+
+        return array_map(function (array $demo): array {
+            $city = DB::table('cities')->join('provinces', 'provinces.id', '=', 'cities.province_id')
+                ->where('cities.slug', $demo['slug'])
+                ->first(['cities.id', 'cities.name', 'cities.slug', 'provinces.name as province'])
+                ?? throw new RuntimeException("No city [{$demo['slug']}] in the places tables: run php artisan places:import first.");
+            $barangays = DB::table('barangays')->where('city_id', $city->id)->orderBy('psgc_code')->get(['id', 'name', 'district'])
+                ->map(fn (object $row): array => ['id' => self::toInt($row->id), 'label' => Barangay::labelOf(self::toString($row->name), is_string($row->district) ? $row->district : null), 'district' => $row->district])
+                ->all();
+
+            return [
+                'city_id' => self::toInt($city->id), 'city' => self::toString($city->name), 'slug' => self::toString($city->slug),
+                'province' => self::toString($city->province), 'rate' => $demo['rate'],
+                'barangays' => array_values(array_map(fn (array $b): array => ['id' => $b['id'], 'label' => $b['label']], $barangays)),
+                'lastBed' => array_values(array_map(fn (array $b): array => ['id' => $b['id'], 'label' => $b['label']], array_filter($barangays, fn (array $b): bool => $b['district'] === self::LAST_BED_DISTRICT)))[0] ?? null,
+            ];
+        }, $demoCities);
+    }
+
+    /**
      * @param  array{id: int, owner: int, caretaker: ?int, verified: bool}  $account
-     * @param  array{city: string, slug: string, province: string, rate: float, barangays: list<string>}  $place
+     * @param  DemoPlace  $place
      * @param  list<int>  $amenityIds
      */
     private function addProperty(array $account, PropertyKind $kind, array $place, array $amenityIds, bool $lastBedHouse): void
     {
         $id = $this->nextId('properties');
         $boarding = $kind === PropertyKind::BoardingHouse;
-        $barangay = $lastBedHouse ? 'Sampaloc' : $this->pick($place['barangays']);
+        $barangay = $lastBedHouse
+            ? ($place['lastBed'] ?? throw new RuntimeException('No barangay in Sampaloc, Manila: run php artisan places:import first.'))
+            : $this->pick($place['barangays']);
         $surname = $this->pick($this->names['surnames']);
 
         $name = $lastBedHouse
@@ -343,7 +382,8 @@ final class DemoSeeder extends Seeder
             'id' => $id, 'landlord_account_id' => $account['id'], 'kind' => $kind->value,
             'name' => $name, 'slug' => $slug,
             'address' => $street,
-            'barangay' => $barangay, 'city' => $place['city'], 'city_slug' => $place['slug'], 'province' => $place['province'],
+            'barangay' => $barangay['label'], 'city' => $place['city'], 'city_slug' => $place['slug'], 'province' => $place['province'],
+            'city_id' => $place['city_id'], 'barangay_id' => $barangay['id'],
             'gender_policy' => $gender,
             'house_rules' => $this->houseRules($boarding),
             'payment_instructions' => $this->paymentInstructions($id, $surname),
@@ -803,6 +843,16 @@ final class DemoSeeder extends Seeder
         $this->usedSlugs[$candidate] = true;
 
         return $candidate;
+    }
+
+    private static function toInt(mixed $value): int
+    {
+        return is_numeric($value) ? (int) $value : throw new RuntimeException('Expected a number.');
+    }
+
+    private static function toString(mixed $value): string
+    {
+        return is_string($value) ? $value : throw new RuntimeException('Expected a string.');
     }
 
     private function int(int $min, int $max): int

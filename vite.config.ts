@@ -35,6 +35,7 @@ export default defineConfig(({ command, mode }) => {
                 '@inertiajs/react',
                 'react-bootstrap',
                 'react-bootstrap-icons',
+                'downshift',
             ],
         },
         // Production SSR bundle (`vite build --ssr`) is self-contained, so the

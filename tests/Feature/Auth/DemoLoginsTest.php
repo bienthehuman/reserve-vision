@@ -40,6 +40,7 @@ it('shows the demo panel on the login page with APP_DEMO=true', function (): voi
 it('lists accounts the demo seeder creates, already verified, with the right type', function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-11-15 10:00', 'Asia/Manila'));
     config(['app.demo' => true]);
+    importDemoPlaces();
     (new DemoSeeder)->run();
 
     foreach (DemoLogins::all() as $login) {

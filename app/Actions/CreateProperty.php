@@ -9,16 +9,16 @@ use App\Exceptions\Domain\CannotEditProperty;
 use App\Models\LandlordAccount;
 use App\Models\Property;
 use App\Support\AuditLogger;
-use App\Support\Places;
+use App\Support\Places\AddressCopies;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
 
 /**
  * Creates a draft property for the current account (owner only: PropertyPolicy::create,
  * checked by the request). Not published, not archived. The slug is the one given or
- * generated from the name, unique per city: the database's unique key decides
+ * generated from the name, unique per city (the barangay decides the city and province,
+ * and their text copies come from AddressCopies): the database's unique key decides
  * (no scoped query can see other accounts' slugs), so a taken generated slug
  * gets "-2", "-3"… and a taken explicit one is refused. One audit row, `property.created`.
  */
@@ -32,10 +32,8 @@ final class CreateProperty
     /** @throws CannotEditProperty */
     public function handle(LandlordAccount $account, PropertyDetails $details): Property
     {
-        $place = Places::find($details->citySlug) ?? throw new InvalidArgumentException("Unknown city [{$details->citySlug}].");
-
-        return DB::transaction(function () use ($account, $details, $place): Property {
-            $property = $this->insert($account, $details, $place);
+        return DB::transaction(function () use ($account, $details): Property {
+            $property = $this->insert($account, $details);
 
             $property->amenities()->sync($details->amenityIds);
 
@@ -48,10 +46,7 @@ final class CreateProperty
         });
     }
 
-    /**
-     * @param  array{city: string, slug: string, province: string, rate: float, barangays: list<string>}  $place
-     */
-    private function insert(LandlordAccount $account, PropertyDetails $details, array $place): Property
+    private function insert(LandlordAccount $account, PropertyDetails $details): Property
     {
         $explicit = $details->slug !== null && $details->slug !== '';
         $base = Str::slug($explicit ? (string) $details->slug : $details->name);
@@ -68,10 +63,7 @@ final class CreateProperty
                     'name' => $details->name,
                     'slug' => $slug,
                     'address' => $details->address,
-                    'barangay' => $details->barangay,
-                    'city' => $place['city'],
-                    'city_slug' => $place['slug'],
-                    'province' => $place['province'],
+                    ...AddressCopies::of($details->barangay),
                     'gender_policy' => $details->genderPolicy,
                     'house_rules' => $details->houseRules,
                     'payment_instructions' => $details->paymentInstructions,

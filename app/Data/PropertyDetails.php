@@ -6,6 +6,7 @@ namespace App\Data;
 
 use App\Enums\GenderPolicy;
 use App\Enums\PropertyKind;
+use App\Models\Barangay;
 
 /** What the owner types on the property form, validated and normalized (PropertyRequest). Input to CreateProperty and UpdateProperty. */
 final readonly class PropertyDetails
@@ -17,9 +18,8 @@ final readonly class PropertyDetails
         public ?string $slug,
         /** The street address: house or building number and street. The one optional part of an address. */
         public ?string $address,
-        public string $barangay,
-        /** One of `database/data/places.php`; it decides the province. */
-        public string $citySlug,
+        /** The barangay chosen from the city's list; it decides the city and the province (slice 4.4). */
+        public Barangay $barangay,
         public GenderPolicy $genderPolicy,
         /** @var list<int> */
         public array $amenityIds,

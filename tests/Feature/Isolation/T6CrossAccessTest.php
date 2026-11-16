@@ -150,7 +150,7 @@ function t6Body(string $routeName): array
 /** A valid edit of the world's own property (published, so its city stays as it is). */
 function propertyBody(): array
 {
-    return ['kind' => 'boarding_house', 'name' => 'Alpha Home', 'barangay' => 'Lahug', 'city' => 'cebu-city', 'address' => '9 Narra St', 'gender_policy' => 'any', 'amenities' => []];
+    return ['kind' => 'boarding_house', 'name' => 'Alpha Home', ...placeFields(placeIn('cebu-city')), 'address' => '9 Narra St', 'gender_policy' => 'any', 'amenities' => []];
 }
 
 /** A valid room form. The world's own room is shared, so `room_type` stays; `beds` is only read for a new shared room. */
@@ -190,7 +190,7 @@ function t6World(): array
     $w['caretakerA'] = landlordUserOf($a, LandlordRole::Caretaker);
     $w['renterA'] = User::factory()->renter()->create(['first_name' => 'Aida', 'last_name' => 'Alvarez']);
     $w['memberA'] = $w['caretakerA']->landlordMember()->sole();
-    $w['propertyA'] = Property::factory()->published()->create(['landlord_account_id' => $a, 'name' => 'Alpha Home', 'city' => 'Cebu City', 'city_slug' => 'cebu-city', 'province' => 'Cebu']);
+    $w['propertyA'] = Property::factory()->published()->at(placeIn('cebu-city'))->create(['landlord_account_id' => $a, 'name' => 'Alpha Home']);
     // Shared, so the space routes have a bed to add, rename and archive; the reservation below blocks archiving it.
     $w['roomA'] = Room::factory()->shared(beds: 2)->for($w['propertyA'])->create();
     // In a property of its own: renter A already holds a bed in Alpha Home, and a second one in the same property is T8's rule.

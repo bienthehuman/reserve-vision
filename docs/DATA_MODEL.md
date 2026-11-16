@@ -27,12 +27,26 @@ The source of truth for the schema. Migrations must match it.
 
 | Table | Columns | Constraints / notes |
 | --- | --- | --- |
-| `properties` | id, landlord_account_id, kind, name, slug, address, barangay, city, city_slug\*, province\*, gender_policy, house_rules, payment_instructions\*, is_published, first_published_at\*, archived_at\*, timestamps | `kind IN ('apartment','boarding_house')`, `gender_policy IN ('any','male_only','female_only')`. Unique `(city_slug, slug)` for `/listings/{city}/{slug}`. Unique `(id, landlord_account_id)` as the composite FK target. **The address is four parts, in the order it is written in the Philippines:** `address` (the street address: house or building number and street; the one optional part, nullable), `barangay`, `city` and `province` (all `NOT NULL`). The city is one of `database/data/places.php` and decides the province ("Metro Manila" for the capital region's cities, which belong to no province), so `province` is stored, never typed. `$property->full_address` joins the parts. There are no coordinates: `lat`/`lng` were dropped after 4.2 (nobody types coordinates, and no page used them). Index `(landlord_account_id, is_published)`. `payment_instructions` (text, null while a draft) is where the renter sends the reservation fee, e.g. "GCash 0917 123 4567 (J. Santos) or BPI 1234-5678-90"; the hold page and email show it (ACCESS flow B), and publishing requires it (4.3). `first_published_at` is set the first time the property is published and never cleared (4.3 sets it): from then on the public URL `/listings/{city_slug}/{slug}` exists, so **`slug` and `city` are locked** (`UpdateProperty`). `landlord:verify --revoke` and archiving unpublish but don't clear it |
+| `properties` | id, landlord_account_id, kind, name, slug, address, barangay, city, city_slug\*, province\*, city_id\*, barangay_id\*, gender_policy, house_rules, payment_instructions\*, is_published, first_published_at\*, archived_at\*, timestamps | `kind IN ('apartment','boarding_house')`, `gender_policy IN ('any','male_only','female_only')`. Unique `(city_slug, slug)` for `/listings/{city}/{slug}`. Unique `(id, landlord_account_id)` as the composite FK target. **The address is four parts, in the order it is written in the Philippines:** `address` (the street address: house or building number and street; the one optional part, nullable), `barangay`, `city` and `province` (all `NOT NULL`). Since slice 4.4 the place is **linked**: `city_id` and `barangay_id` point at the [places tables](#places-slice-44), and `barangay`, `city`, `city_slug` and `province` are **copies** of the linked rows (the barangay with its district in Manila: "Barangay 395, Sampaloc"), written only by the property actions through `App\Support\Places\AddressCopies`. The copies stay because lists, `full_address`, the listing URL and its unique key `(city_slug, slug)` read them without a join. The links are nullable for rows from before 4.4 that `places:import` couldn't link; the form and publishing require both. `$property->full_address` joins the parts. There are no coordinates: `lat`/`lng` were dropped after 4.2 (nobody types coordinates, and no page used them). Index `(landlord_account_id, is_published)`. `payment_instructions` (text, null while a draft) is where the renter sends the reservation fee, e.g. "GCash 0917 123 4567 (J. Santos) or BPI 1234-5678-90"; the hold page and email show it (ACCESS flow B), and publishing requires it (4.3). `first_published_at` is set the first time the property is published and never cleared (4.3 sets it): from then on the public URL `/listings/{city_slug}/{slug}` exists, so **`slug` and `city` are locked** (`UpdateProperty`). `landlord:verify --revoke` and archiving unpublish but don't clear it |
 | `amenities` | id, name, slug | Seeded catalogue |
 | `property_amenity` | property_id, amenity_id | Composite PK |
 | `property_photos` | id, property_id, landlord_account_id\*, path, alt\*, width\*, height\*, sort, status\*, timestamps | `status IN ('processing','ready','failed')`, set by the resize job (through `ResizePropertyPhoto` / `FailPropertyPhoto`). `path` is a random stem, `properties/<uuid>`: the files are `<path>-thumb.webp` (480 px wide) and `<path>-full.webp` (at most 1600 px on the long side) on the public `photos` disk, and the upload waits at `uploads/tmp/<uuid>` on the private `proofs` disk until the job has run. `alt` (160, nullable) is the owner's description; null shows as "Photo N of <property>". `width` and `height` are the full size's, set when ready, so pages can reserve the space. `sort` is 1, 2, 3… within a property; 1 is the cover. At most 12 per property, in any status (the action, not the database) |
 | `rooms` | id, property_id, landlord_account_id\*, name, room_type, monthly_rate, deposit_months, advance_months, reservation_fee\*, archived_at\*, timestamps | `room_type IN ('private','shared')`. `monthly_rate > 0`, `reservation_fee >= 0`, `deposit_months` and `advance_months` 0–3. `reservation_fee` was missing from the scope document (`$room->reservationFee()`) |
 | `spaces` | id, room_id, landlord_account_id\*, label, archived_at\*, timestamps | Unique `(room_id, label)`. A private room has exactly one space; enforced in the action, not the database |
+
+### Places (slice 4.4)
+
+Every province, city and municipality, and barangay of the PSA's **PSGC** (Philippine Standard Geographic Code), shipped in [database/data/psgc/](../database/data/psgc/README.md) and loaded by `php artisan places:import`. **Reference tables**: no `landlord_account_id`, no isolation scope, no policies; the app user only inserts and updates them (the import), and nothing deletes from them.
+
+| Table | Columns | Constraints / notes |
+| --- | --- | --- |
+| `provinces` | id, psgc_code, name, slug | `psgc_code` unique and 10 digits (CHECK `provinces_psgc_code_digits`); `slug` unique. 82 provinces, plus **Metro Manila** (the capital region's cities and Pateros, which belong to no province; it takes the region's code, `1300000000`) and the **Special Geographic Area** (BARMM's eight municipalities carved out of Cotabato province; its own PSGC code) |
+| `cities` | id, province_id, psgc_code, name, slug, kind | Cities **and** municipalities. `kind IN ('city','municipality')` (`CityKind`). `psgc_code` unique, 10 digits. **`slug` unique nationwide**, because it is in the listing URL: `Str::slug(name)`, plus the province where the name repeats or the bare slug is a namesake's (`san-jose-batangas`), plus `-2`… if even that is taken. Given once and never changed by an import; the seven slugs that had listing URLs before 4.4 are pinned (`manila`, `quezon-city`, `makati`, `cebu-city`, `davao-city`, `baguio`, `iloilo-city`: `PlacesImporter::PINNED`). Index `(province_id, name)` |
+| `barangays` | id, city_id, psgc_code, name, district | `psgc_code` unique, 10 digits. `district` (nullable) only in Manila, whose numbered barangays sit under districts (the PSGC's "sub-municipalities": Sampaloc, Tondo…); `label` is "Barangay 395, Sampaloc". Index `(city_id, name)` |
+
+Names are what people write, not the PSGC's titles (`App\Support\Places\PlaceNames`): "City of Makati" is "Makati", but "City of Cebu" is "Cebu City" because the bare name is also a province (likewise Davao City, Iloilo City, San Fernando City, Naga City…). Cities outside every province (highly urbanized cities such as Cebu City or Baguio, and Isabela City) are filed under the province they sit in, which is what an address names: each is the province whose PSGC row says "(excluding CITY OF …)" for it (`bin/psgc-convert`, `INDEPENDENT_CITIES`).
+
+**Imports** upsert by `psgc_code`, so a newer publication adds and renames. A place that leaves the files is kept (a property may point at it) and reported. The import then links properties without `city_id` / `barangay_id`: the city by `city_slug`, the barangay by name (or "name, district") within that city when exactly one matches.
 
 ### Reservations
 
@@ -58,6 +72,7 @@ Each write action lists how a mistake is undone, so no flow is a dead end.
 | Remove member | owner | Re-invite: a removed person is a landlord user without a membership, and joins again with one button. The last owner can't be removed, and nobody removes themself |
 | Reservation transitions | see [RESERVATIONS.md](RESERVATIONS.md#correction-paths) | see there |
 | Viewing request | renter | Renter cancels. Landlord's accept or decline can be changed until `preferred_at` passes |
+| Import places | operator (CLI), `bin/setup`, `deploy.sh` | Run it again: it is idempotent. A place that left the PSGC stays; a wrong name is fixed in the converter's rules and imported again (the slug never changes) |
 | Verify landlord account | operator (CLI) | `landlord:verify --revoke {slug}` unpublishes all of the account's properties |
 
 ## Invariants enforced by the database
@@ -82,6 +97,10 @@ erDiagram
     landlord_accounts ||--o{ landlord_invitations : invites
     users ||--o{ landlord_invitations : "invited_by"
     landlord_accounts ||--o{ properties : owns
+    provinces ||--|{ cities : has
+    cities ||--|{ barangays : has
+    cities ||--o{ properties : "city_id (nullable)"
+    barangays ||--o{ properties : "barangay_id (nullable)"
     properties ||--o{ property_amenity : has
     amenities ||--o{ property_amenity : "listed in"
     properties ||--o{ property_photos : "(id, landlord)"
@@ -114,9 +133,29 @@ erDiagram
     properties {
         bigint id PK
         bigint landlord_account_id FK
-        string city_slug "UK with slug"
+        bigint city_id FK
+        bigint barangay_id FK
+        string city_slug "UK with slug; a copy"
         string slug
         bool is_published
+    }
+    provinces {
+        bigint id PK
+        char psgc_code UK
+        string slug UK
+    }
+    cities {
+        bigint id PK
+        bigint province_id FK
+        char psgc_code UK
+        string slug UK
+        string kind "city | municipality"
+    }
+    barangays {
+        bigint id PK
+        bigint city_id FK
+        char psgc_code UK
+        string district "Manila only"
     }
     rooms {
         bigint id PK
@@ -170,6 +209,7 @@ erDiagram
 | People's names are `first_name` + optional `middle_name` + `last_name` + optional `suffix` instead of the single `name` the framework ships | "Joshua Gonzales" and "Joshua Gonzales Jr." are common in the Philippines and are different people. The migration splits any existing `name` at its last space (a fresh install has none) and `down()` joins them back. `suffix` is the one enum column without a CHECK: it is display data, so a new value shouldn't need a migration |
 | `users.type` has `DEFAULT 'renter'` | The column is added to a table that may already hold rows; a `NOT NULL` column without a default would leave `''`, which the CHECK rejects. Registration always sets it explicitly |
 | `properties` has no `lat`/`lng`, has `province`, a required `barangay` and an optional `address` (review after 4.2) | Coordinates are too much to ask of a landlord, and nothing read them. Addresses are entered the standard Philippine way instead: street address (optional), barangay, city, province |
+| `properties` links to `cities` and `barangays` (slice 4.4) and keeps its four text columns as copies | The places come from the PSGC list instead of seven cities in a PHP file. The copies keep every list, the listing URL and its unique key working without a join; only the property actions write them, and a test compares them with the linked rows. The links are nullable so rows from before 4.4 survive the migration; publishing requires them |
 | `landlord_invitations.token_hash` is `CHAR(64)` (SHA-256 hex), unique | The token is high-entropy, so a fast hash is enough and lookups by hash need no per-row work |
 | `landlord_invitations.role` allows `owner` and `caretaker` | Same CHECK as `landlord_members.role`; `CreateInvitation` only ever writes `caretaker` (inviting a co-owner is in the backlog) |
 | Extra indexes: `reservations (status, hold_expires_at)`, `properties (landlord_account_id, is_published)`, `rooms (landlord_account_id, property_id)`, `viewing_requests (landlord_account_id, status)` and `(renter_id, status)`, `property_photos (property_id, sort)` | Queries the plan already names: the expiry job, the dashboard, the photo gallery |

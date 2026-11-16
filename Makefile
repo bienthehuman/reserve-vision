@@ -1,5 +1,5 @@
 # Shortcuts for the dev stack. Everything PHP runs inside the `app` container.
-.PHONY: setup up down logs shell migrate seed fresh test lint analyse check vitest types e2e
+.PHONY: setup up down logs shell migrate places seed fresh test lint analyse check vitest types e2e
 
 EXEC = docker compose exec -T app
 
@@ -21,11 +21,15 @@ shell:
 migrate: ## Migrations always run as the `migrator` DB user
 	$(EXEC) composer migrate
 
+places: ## Import the PSGC provinces, cities and barangays (idempotent)
+	$(EXEC) php artisan places:import
+
 seed:
 	$(EXEC) php artisan db:seed --force
 
 fresh: ## Drop all tables, migrate and seed the dev schema
 	$(EXEC) php artisan migrate:fresh --database=mysql_migrator --force
+	$(EXEC) php artisan places:import
 	$(EXEC) php artisan db:seed --force
 
 test:

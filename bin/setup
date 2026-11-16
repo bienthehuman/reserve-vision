@@ -59,8 +59,9 @@ if [[ "${RV_DEVCONTAINER:-}" == 1 ]]; then
         php artisan key:generate --force --no-interaction
     fi
 
-    step "Migrating (as migrator) and seeding (as app)"
+    step "Migrating (as migrator), importing places and seeding (as app)"
     php artisan migrate --database=mysql_migrator --force --no-interaction
+    php artisan places:import --no-interaction
     php artisan db:seed --force --no-interaction
 
     wait_for_ssr "http://localhost:8000/"
@@ -112,8 +113,10 @@ compose exec -T db sh -c '{
 echo "${concurrency_db} is ready"
 
 # Before the rest of the stack: the queue worker needs the cache and jobs tables.
-step "Migrating (as migrator) and seeding (as app)"
+# The places (slice 4.4) before the seeder, which uses real barangays; both are idempotent.
+step "Migrating (as migrator), importing places and seeding (as app)"
 run_app php artisan migrate --database=mysql_migrator --force --no-interaction
+run_app php artisan places:import --no-interaction
 run_app php artisan db:seed --force --no-interaction
 
 step "Starting the stack"

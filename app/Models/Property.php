@@ -30,6 +30,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $city
  * @property string $city_slug
  * @property string $province
+ * @property int|null $city_id the PSGC city; null only for rows from before slice 4.4 that `places:import` couldn't link
+ * @property int|null $barangay_id the PSGC barangay; the text columns above are copies of these rows
+ * @property-read City|null $linkedCity
+ * @property-read Barangay|null $linkedBarangay
  * @property-read string $full_address
  * @property GenderPolicy $gender_policy
  * @property string|null $house_rules
@@ -42,7 +46,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 #[Fillable([
     'landlord_account_id', 'kind', 'name', 'slug', 'address', 'barangay', 'city', 'city_slug', 'province',
-    'gender_policy', 'house_rules', 'payment_instructions', 'is_published', 'first_published_at', 'archived_at',
+    'city_id', 'barangay_id', 'gender_policy', 'house_rules', 'payment_instructions', 'is_published', 'first_published_at', 'archived_at',
 ])]
 final class Property extends Model
 {
@@ -76,6 +80,32 @@ final class Property extends Model
             [$this->address, $this->barangay, $this->city, $this->province],
             fn (?string $part): bool => $part !== null && $part !== '',
         )));
+    }
+
+    /**
+     * The PSGC city. Named so it doesn't hide the `city` text column, its copy.
+     *
+     * @return BelongsTo<City, $this>
+     */
+    public function linkedCity(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'city_id');
+    }
+
+    /**
+     * The PSGC barangay. Named so it doesn't hide the `barangay` text column, its copy.
+     *
+     * @return BelongsTo<Barangay, $this>
+     */
+    public function linkedBarangay(): BelongsTo
+    {
+        return $this->belongsTo(Barangay::class, 'barangay_id');
+    }
+
+    /** The address is complete when the city and barangay are linked rows, not only text (publishing needs it, 4.4). */
+    public function hasCompleteAddress(): bool
+    {
+        return $this->city_id !== null && $this->barangay_id !== null;
     }
 
     /** The public URL has existed: the slug and the city can no longer change (UpdateProperty). */
