@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Concurrency;
 
+use App\Models\Property;
 use App\Models\Room;
 use App\Models\User;
+use App\Support\Listings\ListingCards;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -48,7 +50,9 @@ abstract class ConcurrencyTestCase extends BaseTestCase
      */
     protected function assertServerSees(Room $room): void
     {
-        $page = (new Racer(new User, 'probe'))->get("/rooms/{$room->id}");
+        // The room's listing page (the old /rooms/{id} is a redirect since slice 5.1).
+        $property = Property::query()->findOrFail($room->property_id);
+        $page = (new Racer(new User, 'probe'))->get(ListingCards::url($property));
         $this->http->fire([$page]);
 
         if ($page->status !== 200 || ! str_contains($page->body, $room->name)) {

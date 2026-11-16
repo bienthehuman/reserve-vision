@@ -123,7 +123,30 @@ else
     echo "Isolation check skipped: SMOKE_OWNER_RESERVATION_ID is not set."
 fi
 
-# TODO(slice 5.1): smoke a public listing page (200, listing title in the raw HTML).
+# A public listing page (slice 5.1), from the demo data: the "last bed" house. Server-rendered, with its sharing tags,
+# and listed in the sitemap; robots.txt points to the sitemap and keeps crawlers out of the private pages.
+listing_path="/listings/manila/santos-bedspace-house"
+echo "Listing page ${listing_path}"
+status="$(fetch "$listing_path")"
+if [[ "$status" == 200 ]]; then pass "GET ${listing_path} is 200"; else fail "GET ${listing_path} is $status, expected 200"; fi
+expect_body "the title is in the raw HTML" "Santos Bedspace House · Rooms from"
+expect_body "the page was rendered by the SSR server" 'data-server-rendered="true"'
+expect_body "the canonical link is in the raw HTML" 'rel="canonical"'
+expect_body "the Open Graph image is in the raw HTML" 'property="og:image"'
+expect_body "the JSON-LD block is in the raw HTML" 'type="application/ld+json"'
+expect_body "a room's reserve form posts with a token" 'name="_token"'
+if [[ "$(grep -c 'rel="canonical"' "$tmp/body")" == 1 ]]; then pass "the canonical link is there once"; else fail "the canonical link should appear once"; fi
+expect_status /rooms/1 301
+expect_header Location "$listing_path"
+
+status="$(fetch /sitemap.xml)"
+if [[ "$status" == 200 ]]; then pass "GET /sitemap.xml is 200"; else fail "GET /sitemap.xml is $status, expected 200"; fi
+expect_body "the sitemap lists the listing" "$listing_path"
+status="$(fetch /robots.txt)"
+if [[ "$status" == 200 ]]; then pass "GET /robots.txt is 200"; else fail "GET /robots.txt is $status, expected 200"; fi
+expect_body "robots.txt points to the sitemap" "Sitemap: "
+expect_body "robots.txt keeps crawlers out of /landlord" "Disallow: /landlord"
+expect_status /listings/manila/not-a-listing 404
 
 if [[ "$failures" -gt 0 ]]; then
     echo "$failures smoke check(s) failed." >&2

@@ -72,7 +72,8 @@ it('publishes a complete draft: published, first_published_at set, one audit row
     $this->actingAs($owner)->get("/landlord/properties/{$property->id}")
         ->assertInertia(fn (AssertableInertia $page) => $page->where('checklist', null)->where('property.is_published', true)->where('property.can_publish', true));
     auth()->logout();
-    $this->get("/rooms/{$room->id}")->assertOk();
+    $this->get("/listings/{$property->city_slug}/{$property->slug}")->assertOk();
+    $this->get("/rooms/{$room->id}")->assertStatus(301);
 
     // Again: nothing happens.
     $this->actingAs($owner)->post("/landlord/properties/{$property->id}/publish")->assertRedirect();

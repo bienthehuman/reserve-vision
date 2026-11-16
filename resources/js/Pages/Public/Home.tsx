@@ -1,13 +1,15 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { Button, Col, Container, Form, Row } from 'react-bootstrap';
 import { Search } from 'react-bootstrap-icons';
+import ListingCard, { type ListingCardData } from '@/Components/ListingCard';
 import PublicLayout from '@/Layouts/PublicLayout';
 
 interface HomeProps {
     pitch: string;
+    featured: ListingCardData[];
 }
 
-export default function Home({ pitch }: HomeProps) {
+export default function Home({ pitch, featured }: HomeProps) {
     const { appName } = usePage().props;
 
     return (
@@ -49,6 +51,28 @@ export default function Home({ pitch }: HomeProps) {
                     </Form>
                 </Container>
             </section>
+
+            {featured.length > 0 && (
+                <section className="py-5" aria-labelledby="featured-title">
+                    <Container>
+                        <div className="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-3">
+                            <h2 id="featured-title" className="h3 mb-0">
+                                New places
+                            </h2>
+                            <Link href="/listings" className="link-action">
+                                Browse all
+                            </Link>
+                        </div>
+                        <Row as="ul" className="g-3 list-unstyled mb-0">
+                            {featured.map((listing) => (
+                                <Col as="li" key={listing.id} xs={12} sm={6} lg={4}>
+                                    <ListingCard listing={listing} />
+                                </Col>
+                            ))}
+                        </Row>
+                    </Container>
+                </section>
+            )}
         </PublicLayout>
     );
 }

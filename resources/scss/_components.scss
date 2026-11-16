@@ -1303,3 +1303,124 @@ $rv-swatches: (
     }
   }
 }
+
+// Listing pages (slice 5.1). Classes only: the CSP forbids style attributes.
+.listing-chip {
+  border: 1px solid $rv-border;
+  font-weight: 600;
+}
+
+.listing-card {
+  overflow: hidden;
+  transition: box-shadow 0.15s ease;
+
+  &:hover {
+    box-shadow: $rv-shadow;
+  }
+}
+
+.listing-card__photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background-color: $rv-primary-subtle;
+}
+
+.listing-card__photo--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $rv-muted;
+  font-size: 2rem;
+}
+
+// The gallery: the cover, then a strip you swipe. CSS scroll-snap, no script.
+.gallery {
+  margin-bottom: 1rem;
+}
+
+.gallery__cover img,
+.gallery__strip img {
+  display: block;
+  height: auto;
+  object-fit: cover;
+  border-radius: $rv-radius-lg;
+  background-color: $rv-primary-subtle;
+}
+
+.gallery__cover img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+
+  @include media-breakpoint-up(md) {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+.gallery__strip {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+
+  img {
+    flex: 0 0 60%;
+    width: 60%;
+    aspect-ratio: 4 / 3;
+    scroll-snap-align: start;
+
+    @include media-breakpoint-up(md) {
+      flex-basis: 25%;
+      width: 25%;
+    }
+  }
+}
+
+.listing-header {
+  margin-bottom: 1.5rem;
+}
+
+.amenity-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.25rem 1rem;
+  padding-left: 1.1rem;
+  margin: 0;
+}
+
+.rooms-section {
+  scroll-margin-top: 1rem;
+}
+
+.room-card {
+  scroll-margin-top: 1rem;
+
+  &:target {
+    border-color: $rv-primary;
+    box-shadow: 0 0 0 2px $rv-primary-subtle;
+  }
+}
+
+// StickyReserveBar: phones only (the component adds d-md-none).
+.sticky-reserve-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1020;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  background-color: $rv-surface;
+  border-top: 1px solid $rv-border;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.sticky-reserve-spacer {
+  height: 5rem;
+}

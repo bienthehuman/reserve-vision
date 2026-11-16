@@ -130,7 +130,8 @@ Use React-Bootstrap first; build a custom component only when the table says so.
 | **UserMenu** | custom | The header's account menu: the user's first name with their initial is a button; it opens a panel with the full name, the role and Log out (for a landlord away from the landlord pages, also Dashboard). A disclosure (`aria-expanded`), closed by Escape, a click outside or focus leaving |
 | **Pager** | custom | "Page 3 of 22" on the left; Previous and Next **side by side** on the right, so paging never means crossing the screen. At either end the button stays, disabled, so the other doesn't move |
 | **Details list** | `dl.details` | Label and value pairs on a card: the label small and muted, the value in ink |
-| **ListingCard** | custom | Photo (4:3, lazy), name, barangay + city, `PriceTag`, gender-policy and kind chips, "N spaces free" |
+| **ListingCard** | custom | Photo (4:3, lazy; a quiet placeholder when there is none), name (the one link, stretched over the card; `level` 3 under a section heading, 2 under the page `h1`), barangay + city, "From `PriceTag`", kind and gender-policy chips. Used by the home page and `/listings` (slice 5.1) |
+| **ListingPhotos** | custom | The listing page's gallery: the cover large (4:3, 16:9 from `md`), the rest in a swipeable CSS scroll-snap strip (a focusable group). Every image has `width`/`height` and `srcset` (480 px thumb, full size); the cover is `loading="eager"` with `fetchpriority="high"`, the rest lazy. `alt` is the owner's description or "Photo 2 of Casa Verde". No lightbox, no script |
 | **PriceTag** | custom | `₱6,500 / month`, always from integer centavos via `formatPeso()` |
 | **StatusBadge** | custom | The mapping table above |
 | **TextField** | custom on `Form.Group` | Label above, help (`Form.Text`) and error below, both in `aria-describedby`; error is `danger` text with an icon. The input id is `field-<name>`. `type="password"` adds a 44 px show/hide button inside the field (eye icon, `aria-label="Show password"`, `aria-pressed`) |
@@ -138,7 +139,7 @@ Use React-Bootstrap first; build a custom component only when the table says so.
 | **SubmitButton** | custom on `Button` | Full width on auth forms; while the request runs it is disabled and shows a spinner and a pending label ("Logging in…") |
 | **HoldCountdown** | custom | Remaining hold time; server sends `hold_expires_at`, so it's correct without JS (static "until 3:40 PM") |
 | **FilterSheet** | custom on `Offcanvas placement="bottom"` | Search filters on phones; a sidebar from `lg` |
-| **StickyReserveBar** | custom | On a listing page on phones: price + "Reserve" button fixed at the bottom |
+| **StickyReserveBar** | custom | On a listing page on phones (`d-md-none`): "From ₱X / month" and a **Choose a room** link to `#rooms`, fixed at the bottom with a spacer under the footer. The button is a plain anchor, so it works without JavaScript. Reserving itself is each room's own button, because the rate, fees and free beds differ per room |
 | **EmptyState** | custom | On a card: an icon in a `primary-subtle` circle, one sentence, at most one action |
 | **ProofViewer** | custom | Shows an image or PDF from a signed URL; zoom on tap |
 

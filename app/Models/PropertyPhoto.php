@@ -6,9 +6,11 @@ namespace App\Models;
 
 use App\Enums\PhotoStatus;
 use App\Models\Concerns\BelongsToLandlordAccount;
+use App\Models\Scopes\LandlordAccountScope;
 use Carbon\CarbonImmutable;
 use Database\Factories\PropertyPhotoFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -83,6 +85,22 @@ final class PropertyPhoto extends Model
     public function property(): BelongsTo
     {
         return $this->belongsTo(Property::class);
+    }
+
+    /**
+     * The photos a listing page shows, of every account: ready, on a published property
+     * (Property::published()), cover first. A named escape from the isolation scope
+     * (slice 5.1): a landlord looking at another account's listing sees the same photos.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeShown(Builder $query): void
+    {
+        $query->withoutGlobalScope(LandlordAccountScope::class)
+            ->where($query->qualifyColumn('status'), PhotoStatus::Ready)
+            ->whereHas('property', fn (Builder $property) => $property->published())
+            ->orderBy($query->qualifyColumn('sort'))
+            ->orderBy($query->qualifyColumn('id'));
     }
 
     /** A new unguessable stem. */

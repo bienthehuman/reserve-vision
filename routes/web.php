@@ -38,10 +38,14 @@ use App\Http\Controllers\Landlord\UnarchiveSpaceController;
 use App\Http\Controllers\Landlord\UnpublishPropertyController;
 use App\Http\Controllers\Landlord\ViewProperty;
 use App\Http\Controllers\Landlord\ViewReservation;
+use App\Http\Controllers\Listings\ListListings;
+use App\Http\Controllers\Listings\ShowListing;
+use App\Http\Controllers\Listings\ShowRobots;
+use App\Http\Controllers\Listings\ShowSitemap;
 use App\Http\Controllers\Media\ShowLocalPhoto;
 use App\Http\Controllers\Reservations\ShowReservation;
 use App\Http\Controllers\Reservations\StoreReservation;
-use App\Http\Controllers\Rooms\ShowRoom;
+use App\Http\Controllers\Rooms\RedirectRoom;
 use App\Http\Controllers\StyleguideController;
 use App\Http\Middleware\ExposeRequestTiming;
 use Illuminate\Support\Facades\Route;
@@ -58,8 +62,14 @@ if (config('filesystems.disks.photos.driver') === 'local') {
     Route::get('/media/photos/{path}', ShowLocalPhoto::class)->where('path', '.+')->name('media.photos.show');
 }
 
-// The minimal room page (slice 2.5; 5.1 replaces it). Only listed rooms: anything else is 404.
-Route::get('/rooms/{room}', ShowRoom::class)->whereNumber('room')->name('rooms.show');
+// Public listing pages (slice 5.1). Only published properties of verified accounts: anything else is 404.
+Route::get('/listings', ListListings::class)->name('listings.index');
+Route::get('/listings/{city}/{slug}', ShowListing::class)->name('listings.show');
+Route::get('/sitemap.xml', ShowSitemap::class)->name('sitemap');
+Route::get('/robots.txt', ShowRobots::class)->name('robots');
+
+// The 2.5 room page moved onto its listing page: a permanent redirect to the room's anchor. Only listed rooms.
+Route::get('/rooms/{room}', RedirectRoom::class)->whereNumber('room')->name('rooms.show');
 
 // Renters reserve and see their own reservations (RESERVATIONS.md). Landlords get 403.
 Route::middleware(['auth', 'verified', 'renter'])->group(function (): void {

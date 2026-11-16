@@ -15,7 +15,8 @@ function cspNonce(): string | undefined {
 
 // Also the SSR entry: @inertiajs/vite wraps this call for the server build.
 void createInertiaApp({
-    title: (title) => (title ? `${title} · ${appName}` : appName),
+    // A page that already ends in the name (the listing page's SEO title) is left alone.
+    title: (title) => (title ? (title.endsWith(appName) ? title : `${title} · ${appName}`) : appName),
     // Not eager: each page is its own chunk, so a page loads only its own JavaScript (ADR 0002).
     resolve: async (name) => {
         const pages = import.meta.glob<{ default: ComponentType }>(['./Pages/**/*.tsx', '!./Pages/**/*.test.tsx']);

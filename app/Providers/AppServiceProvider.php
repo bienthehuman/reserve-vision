@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\LandlordAccount;
+use App\Models\Property;
 use App\Models\User;
 use App\Support\CurrentLandlordAccount;
+use App\Support\Listings\SitemapCache;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -42,6 +46,8 @@ final class AppServiceProvider extends ServiceProvider
             Auth::forgetGuards();
         });
 
+        $this->forgetSitemapWhenListingsChange();
+
         RateLimiter::for('reservations', fn (Request $request): Limit => Limit::perMinute(self::RESERVATIONS_PER_MINUTE)
             ->by('reservations|'.($request->user() instanceof User ? $request->user()->id : $request->ip()))
             ->response($this->tooManyReservations(...)));
@@ -58,6 +64,21 @@ final class AppServiceProvider extends ServiceProvider
             ->response(fn (Request $request, array $headers): Response => $this->tooMany(
                 $request, $headers, __('Too many tries. Wait a minute, then try again.'),
             )));
+    }
+
+    /**
+     * The sitemap lists published properties of verified accounts with their `updated_at`, so a change to
+     * either table can change it: publish, unpublish, edit, archive, verify (slice 5.1). Forgotten after
+     * the transaction commits, or a request in between could cache the old rows again.
+     */
+    private function forgetSitemapWhenListingsChange(): void
+    {
+        $forget = static fn () => DB::afterCommit(SitemapCache::forget(...));
+
+        Property::saved($forget);
+        Property::deleted($forget);
+        LandlordAccount::saved($forget);
+        LandlordAccount::deleted($forget);
     }
 
     /**

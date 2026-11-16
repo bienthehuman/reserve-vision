@@ -27,4 +27,13 @@ final class Pesos
 
         return (int) $whole * 100 + (int) str_pad($fraction, 2, '0');
     }
+
+    /** 650000 → "₱6,500", 650050 → "₱6,500.50": whole pesos unless there are centavos, like the page's `formatPeso()`. */
+    public static function format(int $centavos): string
+    {
+        $whole = intdiv($centavos, 100);
+        $cents = $centavos % 100;
+
+        return '₱'.number_format($whole).($cents === 0 ? '' : '.'.str_pad((string) $cents, 2, '0', STR_PAD_LEFT));
+    }
 }
