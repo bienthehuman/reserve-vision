@@ -263,8 +263,8 @@ export default function Styleguide({ holdSample }: { holdSample: string }) {
                     <HoldCountdown expiresAt={holdSample} />
                     <p className="text-body-secondary small">
                         Before hydration it says when the hold ends; after, how long is left, updated every minute and announced at 1 hour and
-                        10 minutes. A proof is shown with <code>ProofViewer</code>: an image inline (opens full size), a PDF as a link. Both go
-                        through <code>/proofs/{'{id}'}</code>, so there is no live example here.
+                        10 minutes. A proof is shown with ProofViewer: an image inline (opens full size), a PDF as a link. Both go through
+                        /proofs/{'{id}'}, so there is no live image here.
                     </p>
                     <ProofViewer proof={{ id: 0, url: '#hold', is_image: false }} label="Example proof" />
                 </Section>

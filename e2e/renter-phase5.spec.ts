@@ -141,7 +141,11 @@ test('Phase 5 demo: reserve from a search, upload a proof, the owner sees it, no
     await page.waitForURL(/villanueva-dormitory/);
     expect(guest.errors.filter((error) => !error.includes('409 (Conflict)'))).toEqual([]);
     guest.errors.length = 0;
-    await expect(page).toHaveURL(new RegExp(`/listings/baguio/villanueva-dormitory\\?move_in=${MOVE_IN}&months=1#${roomId}$`));
+    // Same room and stay, whatever the order of the query (Inertia writes the page's URL with its own order once hydrated).
+    await expect.poll(() => {
+        const url = new URL(page.url());
+        return [url.pathname, url.searchParams.get('move_in'), url.searchParams.get('months'), url.hash].join(' ');
+    }).toBe(`/listings/baguio/villanueva-dormitory ${MOVE_IN} 1 #${roomId}`);
     await page.waitForLoadState('networkidle');
     await page.locator(`#${roomId}`).getByRole('button', { name: /^Reserve / }).click();
 
