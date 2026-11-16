@@ -30,8 +30,7 @@ final class ConfirmReservation
     public function handle(User $by, Reservation $reservation): Reservation
     {
         return DB::transaction(function () use ($by, $reservation): Reservation {
-            // TEMPORARY negative control: a plain read instead of the row lock (the decision race must fail).
-            $locked = Reservation::query()->whereKey($reservation->getKey())->firstOrFail();
+            $locked = $this->lock($reservation);
             $locked->assertCanMoveTo(ReservationStatus::Confirmed);
 
             $fields = ['status', 'decided_by', 'decided_at', 'decision_reason'];
