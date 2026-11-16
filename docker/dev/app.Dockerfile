@@ -3,7 +3,8 @@
 # The production image is a separate multi-stage Dockerfile (slice 1.3).
 FROM dunglas/frankenphp:1.13-php8.4-bookworm
 
-RUN install-php-extensions pdo_mysql intl zip bcmath pcntl \
+# gd (JPEG, PNG, WebP) and exif (orientation) are for property photos (slice 4.2).
+RUN install-php-extensions pdo_mysql intl zip bcmath pcntl gd exif \
     && apt-get update \
     && apt-get install -y --no-install-recommends git unzip default-mysql-client \
     && rm -rf /var/lib/apt/lists/*

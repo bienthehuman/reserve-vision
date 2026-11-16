@@ -33,6 +33,18 @@ final class PropertyPhotoPolicy
         return $this->landlordOn($user, $property->landlord_account_id, self::OWNERS);
     }
 
+    /** Upload, reorder or delete photos: the description (`alt` text) of one. */
+    public function update(User $user, PropertyPhoto $photo): Response
+    {
+        return $this->landlordOn($user, $photo->landlord_account_id, self::OWNERS);
+    }
+
+    /** Upload, reorder or delete photos: upload a failed one again. */
+    public function retry(User $user, PropertyPhoto $photo): Response
+    {
+        return $this->landlordOn($user, $photo->landlord_account_id, self::OWNERS);
+    }
+
     /** Upload, reorder or delete photos. */
     public function delete(User $user, PropertyPhoto $photo): Response
     {

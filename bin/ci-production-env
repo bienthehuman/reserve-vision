@@ -36,7 +36,6 @@ declare -A values=(
     [MINIO_ROOT_PASSWORD]="$(secret)"
     [AWS_ACCESS_KEY_ID]="rv-app"
     [AWS_SECRET_ACCESS_KEY]="$(secret)"
-    [AWS_PHOTOS_URL]="http://localhost:${port}/media/photos"
     # Unreachable on purpose: auth mails are queued, so the worker fails them, never a request.
     # app:doctor checks only that the config is complete.
     [MAIL_HOST]="smtp.example.invalid"

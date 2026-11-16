@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Support\Photos\PhotoProcessor;
 use Closure;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
@@ -30,7 +31,7 @@ final class DoctorCommand extends Command
 
     protected $signature = 'app:doctor';
 
-    protected $description = 'Check the database users, queue table, storage disks and mail configuration';
+    protected $description = 'Check the database users, queue table, storage disks, image processing and mail configuration';
 
     public function handle(): int
     {
@@ -71,6 +72,7 @@ final class DoctorCommand extends Command
             'Queue table' => $this->queueTable(...),
             'Storage: photos' => fn (): string => $this->diskRoundTrip('photos'),
             'Storage: proofs' => fn (): string => $this->diskRoundTrip('proofs'),
+            'Image processing' => $this->imageProcessing(...),
             'Mail configuration' => $this->mailConfiguration(...),
         ];
     }
@@ -185,6 +187,38 @@ final class DoctorCommand extends Command
             : $this->configString("filesystems.disks.{$name}.root");
 
         return "{$driver}, {$where}: write, read, delete";
+    }
+
+    /**
+     * Property photos (slice 4.2): GD must decode JPEG and PNG, read EXIF, and encode WebP.
+     * Runs a small JPEG through the same resize code as an upload.
+     */
+    private function imageProcessing(): string
+    {
+        foreach (['imagecreatefromstring', 'imagejpeg', 'imagewebp', 'exif_read_data'] as $function) {
+            if (! function_exists($function)) {
+                throw new RuntimeException("PHP has no {$function}(): install the gd extension (with JPEG and WebP) and exif.");
+            }
+        }
+
+        $image = imagecreatetruecolor(960, 640);
+        ob_start();
+        $encoded = $image !== false && imagejpeg($image);
+        $jpeg = (string) ob_get_clean();
+
+        if (! $encoded) {
+            throw new RuntimeException('GD could not encode a JPEG.');
+        }
+
+        $photo = app(PhotoProcessor::class)->process($jpeg);
+
+        foreach ([$photo->thumb, $photo->full] as $webp) {
+            if (! str_starts_with($webp, 'RIFF') || substr($webp, 8, 4) !== 'WEBP') {
+                throw new RuntimeException('GD did not produce a WebP file.');
+            }
+        }
+
+        return "gd: JPEG to WebP, {$photo->width} × {$photo->height} and a thumbnail";
     }
 
     private function mailConfiguration(): string

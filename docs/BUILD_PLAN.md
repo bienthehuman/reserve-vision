@@ -122,9 +122,9 @@ Ideas that came up and are deliberately not in any slice.
 | `deploy.sh` takes a database backup before migrating | Slice 1.3 |
 | Cache the production image build in CI (Buildx with the GitHub Actions cache) | Slice 1.3 |
 | Make the Vite dev server (HMR) work in Codespaces; today the dev container uses built assets | Slice 1.3 |
-| CSP `img-src` for a photos origin other than the app (external S3 or CDN) | Slice 1.3, for 4.2 |
+| CSP `img-src` for a photos origin other than the app (external S3 or CDN: `AWS_PHOTOS_URL`). Photos are same-origin (`/media/photos`) with MinIO, so 4.2 didn't need it | Slice 1.3, 4.2 |
 | Trim the entry chunk (`app.js`, 112 KB gzipped, mostly React DOM + Inertia) and add a JS budget next to the CSS budget | Slice 1.1 build output |
-| Seed viewing requests and property photos (photos need real files, so after 4.2) | Slice 2.2 |
+| Seed viewing requests | Slice 2.2 |
 | Narrow the "status is written only in `App\Actions`" arch test to reservations if it gets noisy for `PropertyPhoto`/`PaymentProof` status writes | Slice 2.1 |
 | Two-factor authentication and passkeys (Fortify supports both; the routes are off) | Slice 2.4 |
 | Profile and settings pages: change name, phone, email (re-verify) and password | Slice 2.4 |
@@ -146,3 +146,10 @@ Ideas that came up and are deliberately not in any slice.
 | Reorder or bulk-rename beds; a bed count change that adds several at once | Slice 4.1 |
 | Show on the property page which spaces are blocked from archiving, and by whom, before the owner clicks | Slice 4.1 |
 | Barangay as a select from the city's list, with "other" | Slice 4.1 |
+| Replace generated demo photos with a licensed (CC0) photo set | Slice 4.2 |
+| HEIC/HEIF uploads (iPhones' default format; today the owner has to export a JPEG) | Slice 4.2 |
+| Sweep temporary uploads (`uploads/tmp/` on the proofs disk) older than a day: a worker killed at the wrong moment can leave one behind | Slice 4.2 |
+| Retry a failed photo without choosing the file again, when the failure was storage and not the file (today the upload is deleted on failure) | Slice 4.2 |
+| Upload progress per file, and drag-and-drop to reorder next to the Up and Down buttons | Slice 4.2 |
+| Photos per room ("Bed area of Room 2"), not only per property | Slice 4.2 |
+| Tell the owner why a photo failed (unreadable file or storage) instead of one message | Slice 4.2 |

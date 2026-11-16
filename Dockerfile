@@ -14,7 +14,8 @@ ARG NODE_IMAGE=node:24.22-bookworm-slim
 # ---------------------------------------------------------------------------
 FROM ${PHP_IMAGE} AS php-base
 
-RUN install-php-extensions pdo_mysql intl zip bcmath pcntl opcache
+# gd (JPEG, PNG, WebP) and exif (orientation) are for property photos (slice 4.2).
+RUN install-php-extensions pdo_mysql intl zip bcmath pcntl opcache gd exif
 
 # ---------------------------------------------------------------------------
 FROM php-base AS vendor

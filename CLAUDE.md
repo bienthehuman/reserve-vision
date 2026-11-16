@@ -50,7 +50,7 @@ URLs: app http://localhost:8180, styleguide http://localhost:8180/styleguide, he
 
 ### Demo data (slice 2.2)
 
-`bin/setup` runs `php artisan db:seed` on every invocation: the amenity catalogue (always) and `DemoSeeder` (only if `owner@example.com` doesn't exist yet, so reruns change nothing). To reseed from scratch: `docker compose down -v && bin/setup` (the seeder itself takes about 1 s; a whole cold `bin/setup` about a minute). `DemoSeeder` throws in production unless `APP_DEMO=true` (`config('app.demo')`, documented in both env examples); `DatabaseSeeder` skips it there instead. Logins and the "last bed" room are in the [README](README.md#demo-logins); data files are in `database/data/` (`places.php`, `names.php`, `amenities.php`). Ids are assigned by the seeder (max + 1) so rows don't depend on auto-increment counters, and "now" is read once, so a fixed seed gives identical rows on any day apart from the relative dates. Reservations come from `Database\Seeders\Demo\StayScheduler` (back-to-back stays per space), not `ReserveSpace`.
+`bin/setup` runs `php artisan db:seed` on every invocation: the amenity catalogue (always) and `DemoSeeder` (only if `owner@example.com` doesn't exist yet, so reruns change nothing). To reseed from scratch: `docker compose down -v && bin/setup` (the seeder itself takes about 1 s; a whole cold `bin/setup` about a minute). `DemoSeeder` throws in production unless `APP_DEMO=true` (`config('app.demo')`, documented in both env examples); `DatabaseSeeder` skips it there instead. Every published demo property also gets 3 to 6 ready photos (4.2): `Database\Seeders\Demo\DemoPhotoPainter` draws six scenes in four colourways with GD (no third-party images), each goes once through `PhotoProcessor`, and the files are written to the `photos` disk before the transaction commits (about 5 s more on a cold seed; a volume seeded before 4.2 has none until it is reseeded). Logins and the "last bed" room are in the [README](README.md#demo-logins); data files are in `database/data/` (`places.php`, `names.php`, `amenities.php`). Ids are assigned by the seeder (max + 1) so rows don't depend on auto-increment counters, and "now" is read once, so a fixed seed gives identical rows on any day apart from the relative dates. Reservations come from `Database\Seeders\Demo\StayScheduler` (back-to-back stays per space), not `ReserveSpace`.
 
 The "last bed" room is `/rooms/1` (pinned by `DemoSeederTest`); [e2e/reserve.spec.ts](e2e/reserve.spec.ts) is the Phase 2 demo on it (phone viewport only, so the two Playwright projects don't race for the bed; on a dev stack it reuses renter1's existing hold on reruns).
 
@@ -100,7 +100,7 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens weekly PRs f
 
 ### Pinned versions
 
-PHP 8.4.27 (FrankenPHP 1.13.5 image), Composer 2.9, Laravel 13.42, inertia-laravel 3.7, league/flysystem-aws-s3-v3 3.32 (AWS SDK trimmed to S3 by `extra.aws/aws-sdk-php`), laravel/fortify 1.42 (pulls in laravel/passkeys and the 2FA libraries, unused), fakerphp/faker 1.24 (a runtime dependency since 2.4, for `DemoSeeder` in production), Pest 5.3 (ParaTest held below 7.28 by a `conflict` in composer.json, see quirks), Larastan 3.15, Pint 1.32. Node 24.22, Vite 8.3, React 19.3, @inertiajs/react + @inertiajs/vite 3.11, TypeScript 7.0, Bootstrap 5.3.9, React-Bootstrap 2.10, react-bootstrap-icons 1.11, Sass 1.108, Vitest 5.1, Playwright 1.65.1 (exact, matches its browser build), @axe-core/playwright 4.14. MySQL 8.4.13, Mailpit 1.33. Production only: Caddy 2.11 (`caddy:2.11-alpine`), MinIO RELEASE.2026-11-12 (`cgr.dev/chainguard/minio:latest-dev`, pinned by digest). Dev container: Node feature 1.7.1 (`devcontainer-lock.json`).
+PHP 8.4.27 (FrankenPHP 1.13.5 image) with the `gd` (JPEG, PNG, WebP) and `exif` extensions since 4.2 (both Dockerfiles and `setup-php` in CI), Composer 2.9, Laravel 13.42, inertia-laravel 3.7, league/flysystem-aws-s3-v3 3.32 (AWS SDK trimmed to S3 by `extra.aws/aws-sdk-php`), laravel/fortify 1.42 (pulls in laravel/passkeys and the 2FA libraries, unused), fakerphp/faker 1.24 (a runtime dependency since 2.4, for `DemoSeeder` in production), Pest 5.3 (ParaTest held below 7.28 by a `conflict` in composer.json, see quirks), Larastan 3.15, Pint 1.32. Node 24.22, Vite 8.3, React 19.3, @inertiajs/react + @inertiajs/vite 3.11, TypeScript 7.0, Bootstrap 5.3.9, React-Bootstrap 2.10, react-bootstrap-icons 1.11, Sass 1.108, Vitest 5.1, Playwright 1.65.1 (exact, matches its browser build), @axe-core/playwright 4.14. MySQL 8.4.13, Mailpit 1.33. Production only: Caddy 2.11 (`caddy:2.11-alpine`), MinIO RELEASE.2026-11-12 (`cgr.dev/chainguard/minio:latest-dev`, pinned by digest). Dev container: Node feature 1.7.1 (`devcontainer-lock.json`).
 
 ### Production stack (slice 1.3)
 
@@ -116,13 +116,13 @@ Full guide: [DEPLOY.md](DEPLOY.md). Pieces:
 | [bin/ci-production-env](bin/ci-production-env) | Writes a throwaway `.env.production` (random secrets, `DOMAIN=:80`). Refuses to overwrite one it didn't write |
 | [bin/smoke-production](bin/smoke-production) | curl-only smoke test of a running stack, including a demo-owner login (needs demo data). TODO for slice 5.1 (public listing page) |
 
-Media disks ([config/filesystems.php](config/filesystems.php)): `photos` (public) and `proofs` (private). `MEDIA_STORAGE=local` (default; dev and tests, under `storage/app`) or `s3` (production: MinIO, or any S3). Not used by domain code until slice 4.2.
+Media disks ([config/filesystems.php](config/filesystems.php)): `photos` (public) and `proofs` (private). `MEDIA_STORAGE=local` (default; dev and tests, under `storage/app`) or `s3` (production: MinIO, or any S3). Used by property photos since 4.2 ([Photos](#photos-slice-42)).
 
 Proxies: `bootstrap/app.php` trusts `X-Forwarded-*` from any address (`trustProxies(at: '*')`), because the app port is only reachable from Caddy (production) or GitHub's port forwarding (Codespaces).
 
 ### `php artisan app:doctor`
 
-[app/Console/Commands/DoctorCommand.php](app/Console/Commands/DoctorCommand.php). Prints a pass/fail table and exits 1 if anything fails. Checks: connected as `DB_USERNAME`; `CREATE TABLE` denied (1142); `UPDATE` on `audit_logs` rejected by the trigger (probe row in a rolled-back transaction); queue table readable (in production the queue must be `database`); write/read/delete a temp file on `photos` and `proofs`; mail config complete (in production `log`/`array` mailers fail). Run by `deploy.sh` and so by the production workflow; works in dev too (`docker compose exec app php artisan app:doctor`).
+[app/Console/Commands/DoctorCommand.php](app/Console/Commands/DoctorCommand.php). Prints a pass/fail table and exits 1 if anything fails. Checks: connected as `DB_USERNAME`; `CREATE TABLE` denied (1142); `UPDATE` on `audit_logs` rejected by the trigger (probe row in a rolled-back transaction); queue table readable (in production the queue must be `database`); write/read/delete a temp file on `photos` and `proofs`; image processing (GD decodes a JPEG and the photo resize code gives two WebP files, 4.2); mail config complete (in production `log`/`array` mailers fail). Run by `deploy.sh` and so by the production workflow; works in dev too (`docker compose exec app php artisan app:doctor`).
 
 ### Dev container and Codespaces
 
@@ -236,6 +236,43 @@ Phase 3 demo: [e2e/isolation.spec.ts](e2e/isolation.spec.ts) (read-only, both vi
 | Forms | `Pages/Landlord/Properties/Form.tsx`, `Rooms/Form.tsx`; `Components/Form/{SelectField,TextAreaField,CheckboxGroup}`, `Components/ActionButton`. Props from `Support\PropertyFormProps` / `RoomFormProps` |
 
 **T6/T7** are extended: T6's world has a shared `roomA` and a Cebu `propertyA`; `T6_OWN_REFUSED` lists the archive routes whose own-record control is the business rule's `422` (the world's records carry a blocking reservation). T7 walks every non-GET `landlord` route and fails for one it doesn't list. **Concurrency:** `tests/Concurrency/ArchiveRaceTest.php`, with `Exchange::after()` to sample both orders.
+
+### Photos (slice 4.2)
+
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#runtime-topology) has the pipeline in two sentences, [docs/DATA_MODEL.md](docs/DATA_MODEL.md) the columns (`alt`, `width`, `height`; `path` is a stem), [docs/ACCESS.md](docs/ACCESS.md#the-landlord-pages-slice-32) the routes and limits, [DEPLOY.md](DEPLOY.md#storage-for-photos) the storage needs.
+
+| Piece | Where |
+| --- | --- |
+| Pixels | `App\Support\Photos\PhotoProcessor` (plain GD, no library): `probe()` reads type and size from the header, `decodes()`, `process($bytes)` → `App\Data\ProcessedPhoto` (thumb 480 px wide, full 1600 px on the long side, never enlarged, WebP quality 80). Scales first, then applies the EXIF orientation. Limits are its constants: 10 MB, 800 px minimum long side, 40 megapixels. `UnreadablePhoto` = no retry can help |
+| Validation | `App\Rules\PropertyPhotoFile` in `PropertyPhotoUploadRequest`: by content, and the whole file must decode |
+| Files | `PropertyPhoto::DISK` (`photos`, public): `<path>-thumb.webp`, `<path>-full.webp`. `PropertyPhoto::UPLOAD_DISK` (`proofs`, private): the upload at `uploads/tmp/<uuid>` until the job has run. **Never a local temp file**: `app` and `worker` are separate containers in production (`UploadTest` pins it) |
+| Actions | `UploadPropertyPhoto`, `RetryPropertyPhoto`, `DescribePropertyPhoto`, `MovePropertyPhoto`, `DeletePropertyPhoto` (each one audit row: `photo.uploaded`, `.retried`, `.described`, `.moved`, `.deleted`), and the job's two, which write none: `ResizePropertyPhoto`, `FailPropertyPhoto`. Upload, move and delete lock the **property row first**. Trait `Actions\Concerns\StoresPhotoUploads` |
+| Job | `App\Jobs\ProcessPropertyPhoto` (3 tries, backoff 10 s and 60 s, after commit). It only loads the photo and calls the actions, so the arch test "status is written only in `App\Actions`" holds unchanged. Idempotent; if the row was deleted or re-uploaded meanwhile, it removes what it wrote |
+| URLs | `$photo->thumb_url`, `$photo->full_url` (null until ready) = `Storage::disk('photos')->url()` = `/media/photos/<path>-….webp`, relative, in every environment: with `MEDIA_STORAGE=local` the route `media.photos.show` (`Media\ShowLocalPhoto`, registered only for the local driver) streams the file, in production Caddy serves the bucket. So it works in Codespaces without `storage:link`, and the CSP's `img-src 'self'` covers it. `AWS_PHOTOS_URL` overrides the base (another origin needs the backlog's CSP item) |
+| Page | `resources/js/Components/PropertyPhotos.tsx` on `Landlord/Properties/Show`: one request per chosen file, `usePoll(2000, { only: ['photos'] })` while any photo is `processing` (`photos` is a closure prop in `ViewProperty`), Up/Down buttons, a `Modal` to confirm a delete. Styles: `.photo-grid`, `.photo-card` |
+| Routes | `landlord.properties.photos.store`, `landlord.photos.update`, `.move`, `.retry`, `.destroy`. **Keep the DELETE registered last**: T6 calls them in order on one photo |
+
+Tests: `tests/Feature/Photos/` (processor, upload validation, the job, managing). Helpers in `tests/Pest.php`: `photoBytes($w, $h, $format)` (left half red, right half blue), `jpegWithExif($orientation)` (orientation + GPS), `photoUpload()`, `photoColourAt()`, and `fakeMediaDisks()`. `tests/TestCase.php` fakes both media disks for every Feature test (a test that seeded `DemoSeeder` used to leave 400 files in `storage/app`); tests that count files call `fakeMediaDisks()` to start empty. T6's snapshot now includes every file on both disks; T7 lists the five write routes. E2E: [e2e/photos.spec.ts](e2e/photos.spec.ts) (needs the `worker`; fixtures in `e2e/fixtures/` are the painter's own drawings).
+
+To see a failed photo by hand: `docker compose stop worker`, upload, replace the file under `storage/app/private/proofs/uploads/tmp/` with text, `docker compose start worker`.
+
+### Quirks hit in 4.2
+
+- **`post_max_size` is 14 MB** (both php.ini files, sized for one proof), so several 10 MB photos can't go in one request: the page sends one request per file. A body over the limit is a bare `413` before any validation.
+- **`Storage::fake('photos')` forgets the disk's `url`** and falls back to `/storage/…`, which Laravel's own local-disk route answers with `403`. `fakeMediaDisks()` passes the URL through.
+- **GD warnings become exceptions** in Laravel (`HandleExceptions`), so the decode calls use `@` and check for `false`.
+- **GD decodes a truncated JPEG** without complaint (`gd.jpeg_ignore_warning=1`, grey where the data ends), so the "doesn't decode" tests use a PNG header on a broken body. Animated WebP doesn't decode, so it is refused.
+- **`exif_read_data()` reads JPEG only**: a WebP's or PNG's EXIF orientation is ignored (their metadata is still dropped by re-encoding).
+- **A plain lossy WebP from GD is one `VP8 ` chunk**: the no-metadata test asserts the chunk list, not just the absence of the word "Exif".
+- **`queue:work` stops itself (exit code 12) above 128 MB**, measured on the whole PHP process. Inside Pest that is the test process, so the in-test workers pass `--memory=1024`, and no test should build a huge image (the 40-megapixel test writes only a PNG header). On a real worker the stop comes after the job, and the container's restart policy brings it back.
+- **MySQL returns a JSON column's keys in its own order**: compare decoded audit rows with `toEqual`, not `toBe`.
+- **`assert()` fails the arch test** (Pest's security preset), in `database/` too: throw instead.
+- **`sizeOf` is PHP's own function** (case-insensitive `sizeof`): a Pest helper can't be called that.
+- **A form's `aria-label` equal to one of its field labels** makes Playwright's `getByLabel` match both (strict mode violation).
+- **axe reads colours in the middle of a fade**: with React-Bootstrap's `Modal` animation on, the fast production build got `color-contrast` failures on the dialog (blended colours). The delete dialog has `animation={false}`.
+- **Running the production stack next to the dev stack needs more than 8 GB**: with both up plus six Playwright browsers this machine swapped, and unrelated tests timed out (static files took 6 s). `docker compose stop` the dev stack before `npm run e2e` against port 8280.
+- **On S3, `Cache-Control` is stored with the object** (`PropertyPhoto::WRITE_OPTIONS`), so Caddy needs no header rule and a `404` is never cached as immutable.
+- **The local photos disk is under `storage/app/public/photos`**, which is git-ignored; `docker compose down -v` doesn't empty it, but a reseed overwrites the demo files (their paths come from the seeded Faker).
 
 ### Quirks hit in 4.1
 

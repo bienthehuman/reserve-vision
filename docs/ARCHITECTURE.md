@@ -25,6 +25,7 @@ flowchart LR
 | Database | MySQL 8.4 LTS (8.4.13 in dev; primary), MariaDB 11.4 LTS in the CI matrix | slice 1.1 |
 | Queue | Laravel database driver | slice 1.1 |
 | Files | `local`/`public` disks in dev; S3-compatible storage in production (MinIO in the production Compose file) | slice 1.3 |
+| Images | PHP's GD extension (JPEG, PNG, WebP) plus `exif` for orientation, with no image library on top. Same in dev, CI and production; `app:doctor` checks it | slice 4.2 |
 | Mail | Mailpit 1.33 in dev; any SMTP transactional provider in production | slice 1.1 |
 | Maps | Leaflet + OSM tiles, one pin per property, loaded only on the listing page after interaction or in view; follows the OSM tile policy | slice 5.1 |
 | Quality | Pest 5.3, Larastan 3.15 (level max, with a baseline only if forced), Pint 1.32, Vitest 5.1, Playwright 1.65 + axe-core 4.14. Installed and runnable locally in 1.1; CI in 1.2 | slice 1.2 |
@@ -40,6 +41,7 @@ app/
   Exceptions/Domain/  NoSpaceAvailable, HoldLimitReached, InvalidTransition… mapped to 422 with a user-facing message
   Http/Controllers/   thin: authorize, call one action, return an Inertia page or redirect
   Http/Requests/      validation of shape only; business rules live in actions
+  Jobs/               queued work; a job loads its record and calls actions (ProcessPropertyPhoto)
   Models/             Eloquent models, scopes, casts. No business logic
   Models/Concerns/    BelongsToLandlordAccount (global scope + creating hook)
   Policies/           every authorization rule
@@ -66,6 +68,8 @@ Controllers don't touch the query builder for writes. Actions don't know about H
 | proxy | — | Caddy, automatic HTTPS; serves public photos at `/media/photos` |
 
 `app`, `worker`, `scheduler` and `ssr` run one image ([Dockerfile](../Dockerfile)) with different commands. Only Caddy publishes ports. The dev container (Codespaces) runs the dev stack with built assets and the production SSR bundle instead of the Vite dev server. Details: [DEPLOY.md](../DEPLOY.md) and [CLAUDE.md](../CLAUDE.md#production-stack-slice-13).
+
+**Photos** (slice 4.2). An owner's upload is checked by its content, copied to the private disk (which `app` and `worker` both reach; they are separate containers in production), and a `processing` row is saved; the queued `ProcessPropertyPhoto` job then applies the EXIF orientation, re-encodes the pixels as a 480 px thumbnail and a 1600 px full size in WebP on the public disk (which drops every piece of metadata, GPS included), deletes the upload and marks the row `ready`, or `failed` after three tries. Photos are served from `/media/photos/…` on the app's own origin in every environment: a route in dev, Caddy in front of the bucket in production.
 
 **Deployable, not hosted** ([ADR 0007](adr/0007-deployable-not-hosted.md)). On every PR to `main`, CI builds the production image, boots `compose.prod.yaml` with `deploy.sh`, runs migrations as `migrator`, runs `php artisan app:doctor`, and seeds the demo data (`APP_DEMO=true`, throwaway env only), smoke-tests the home and login pages over HTTP (SSR, security headers, session cookie flags, no dev pages) and logs in as a demo owner with a CSRF token, then runs the Playwright + axe suite against it. A public listing page (slice 5.1) joins the smoke test when it exists. The deploy path is proven continuously even without a live host.
 

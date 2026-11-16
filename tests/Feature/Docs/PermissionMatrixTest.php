@@ -44,7 +44,8 @@ const MATRIX_ABILITIES = [
         ['create', Space::class, 'room'], ['update', 'space'],
     ],
     'Upload, reorder or delete photos' => [
-        ['upload', PropertyPhoto::class, 'property'], ['reorder', PropertyPhoto::class, 'property'], ['delete', 'photo'],
+        ['upload', PropertyPhoto::class, 'property'], ['reorder', PropertyPhoto::class, 'property'],
+        ['update', 'photo'], ['retry', 'photo'], ['delete', 'photo'],
     ],
     'Publish or unpublish a property' => [['publish', 'property'], ['unpublish', 'property']],
     'Archive or unarchive a property, room or space' => [

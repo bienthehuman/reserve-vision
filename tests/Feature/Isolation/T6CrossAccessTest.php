@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 /*
 | T6 (BUILD_PLAN.md): landlord A requests landlord B's property, room, reservation
@@ -108,6 +109,12 @@ const T6_BODIES = [
     'landlord.spaces.update' => ['label' => 'Window bed'],
     'landlord.spaces.archive' => [],
     'landlord.spaces.unarchive' => [],
+    'landlord.properties.photos.store' => 'photoFileBody',
+    'landlord.photos.update' => ['alt' => 'The front gate'],
+    'landlord.photos.move' => ['direction' => 'down'],
+    'landlord.photos.retry' => 'photoFileBody',
+    // Registered last of the photo routes (routes/web.php): the calls above need the world's own photo to still exist.
+    'landlord.photos.destroy' => [],
     'rooms.reservations.store' => 'reservationWindow',
 ];
 
@@ -121,6 +128,8 @@ const T6_OWN_REFUSED = [
     'landlord.properties.archive' => 422,
     'landlord.rooms.archive' => 422,
     'landlord.spaces.archive' => 422,
+    // The world's own photo is ready, and only a failed one can be uploaded again.
+    'landlord.photos.retry' => 422,
 ];
 
 /** @return array<string, mixed> */
@@ -144,6 +153,12 @@ function roomBody(): array
         'name' => 'Room Z', 'room_type' => 'shared', 'beds' => 2, 'monthly_rate' => '3000', 'reservation_fee' => '500',
         'deposit_months' => 1, 'advance_months' => 1,
     ];
+}
+
+/** A real JPEG (slice 4.2): the 404 on B's record must not be a validation error about the file. */
+function photoFileBody(): array
+{
+    return ['photo' => photoUpload()];
 }
 
 function reservationWindow(): array
@@ -200,7 +215,10 @@ function t6World(): array
     $w['reservationB'] = Reservation::factory()->for($w['spaceB'], 'space')->for($w['renterB'], 'renter')->proofUploaded()->create();
     $w['proofB'] = PaymentProof::query()->where('reservation_id', $w['reservationB']->id)->sole();
     $w['proofB']->forceFill(['reference_no' => 'BRAVO-REF-7731'])->save();
-    $w['photoB'] = PropertyPhoto::factory()->for($w['propertyB'])->create();
+    $w['photoB'] = PropertyPhoto::factory()->for($w['propertyB'])->create(['alt' => 'Bravo Courtyard Mural']);
+    // B's files (slice 4.2): no request of A may change or remove them, or add one.
+    Storage::disk('photos')->put($w['photoB']->thumbPath(), 'bravo thumbnail');
+    Storage::disk('photos')->put($w['photoB']->fullPath(), 'bravo full size');
     $w['invitationB'] = LandlordInvitation::factory()->create(['landlord_account_id' => $b, 'email' => 'bravo.invitee@example.com', 'invited_by' => $w['ownerB']->id]);
     $w['viewingB'] = ViewingRequest::factory()->for($w['propertyB'])->for($w['renterB'], 'renter')->create();
     $w['unlistedRoomB'] = Room::factory()->for(Property::factory()->create(['landlord_account_id' => $b, 'name' => 'Bravo Unlisted Annex']))->create();
@@ -221,16 +239,24 @@ function t6Secrets(array $w): array
     return [
         'Zelda', 'Quimbyfoss', 'zelda.quimbyfoss@renter-b.test', '09189998877',
         'Bravo Hidden Residences', 'Bravo Secret Room', 'Bravo Unlisted Annex', 'BRAVO-REF-7731', 'bravo.invitee@example.com',
+        'Bravo Courtyard Mural', $w['photoB']->path,
         $w['ownerB']->full_name, $w['caretakerB']->full_name, $w['ownerB']->email,
     ];
 }
 
-/** One hash per table: any inserted, changed or deleted row changes it. */
+/** One hash per table: any inserted, changed or deleted row changes it. And every file on the two media disks, with its content (slice 4.2). */
 function t6Snapshot(): array
 {
-    return collect(T6_TABLES)->mapWithKeys(fn (string $table): array => [
+    $tables = collect(T6_TABLES)->mapWithKeys(fn (string $table): array => [
         $table => md5((string) json_encode(DB::table($table)->orderBy('id')->get())),
     ])->all();
+
+    foreach (['photos', 'proofs'] as $disk) {
+        $tables["files on {$disk}"] = collect(Storage::disk($disk)->allFiles())->sort()->values()
+            ->map(fn (string $path): string => $path.' '.md5((string) Storage::disk($disk)->get($path)))->all();
+    }
+
+    return $tables;
 }
 
 /**
@@ -341,6 +367,7 @@ function t6Print(string $heading, array $covered): void
 }
 
 beforeEach(function (): void {
+    fakeMediaDisks();
     $this->travelTo(CarbonImmutable::parse('2027-03-15 10:00', 'Asia/Manila'));
 });
 
@@ -398,7 +425,8 @@ it('T6: covers every record route there is today (the list moves only on purpose
         ->map(fn (array $info): string => $info['name'])->sort()->values()->all();
 
     expect($names('landlord'))->toBe([
-        'landlord.properties.archive', 'landlord.properties.edit', 'landlord.properties.rooms.create', 'landlord.properties.rooms.store',
+        'landlord.photos.destroy', 'landlord.photos.move', 'landlord.photos.retry', 'landlord.photos.update',
+        'landlord.properties.archive', 'landlord.properties.edit', 'landlord.properties.photos.store', 'landlord.properties.rooms.create', 'landlord.properties.rooms.store',
         'landlord.properties.show', 'landlord.properties.unarchive', 'landlord.properties.update',
         'landlord.reservations.show',
         'landlord.rooms.archive', 'landlord.rooms.edit', 'landlord.rooms.spaces.store', 'landlord.rooms.unarchive', 'landlord.rooms.update',

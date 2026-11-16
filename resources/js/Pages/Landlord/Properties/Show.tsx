@@ -7,6 +7,7 @@ import SubmitButton from '@/Components/Form/SubmitButton';
 import TextField from '@/Components/Form/TextField';
 import { useFocusOnError } from '@/Components/Form/useFocusOnError';
 import PriceTag from '@/Components/PriceTag';
+import PropertyPhotos, { type Photo } from '@/Components/PropertyPhotos';
 import PropertyState from '@/Components/PropertyState';
 import LandlordLayout from '@/Layouts/LandlordLayout';
 
@@ -49,7 +50,10 @@ interface ShowProps {
         can_edit: boolean;
         can_add_room: boolean;
         can_archive: boolean;
+        can_manage_photos: boolean;
+        photo_limit: number;
     };
+    photos: Photo[];
     rooms: Room[];
 }
 
@@ -196,8 +200,8 @@ function RoomCard({ room }: { room: Room }) {
     );
 }
 
-/** One property with its rooms, rates and spaces. Read-only for a caretaker; owners edit, add and archive (slice 4.1). */
-export default function Show({ property, rooms }: ShowProps) {
+/** One property with its photos, rooms, rates and spaces. Read-only for a caretaker; owners edit, add and archive (slices 4.1, 4.2). */
+export default function Show({ property, photos, rooms }: ShowProps) {
     const place = [property.address, property.barangay, property.city].filter(Boolean).join(', ');
 
     return (
@@ -250,6 +254,14 @@ export default function Show({ property, rooms }: ShowProps) {
                         </dl>
                     </Card.Body>
                 </Card>
+
+                <PropertyPhotos
+                    propertyId={property.id}
+                    propertyName={property.name}
+                    photos={photos}
+                    limit={property.photo_limit}
+                    canManage={property.can_manage_photos}
+                />
 
                 <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                     <h2 className="h3 mb-0">Rooms</h2>

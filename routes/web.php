@@ -7,18 +7,23 @@ use App\Http\Controllers\Landlord\ArchivePropertyController;
 use App\Http\Controllers\Landlord\ArchiveRoomController;
 use App\Http\Controllers\Landlord\ArchiveSpaceController;
 use App\Http\Controllers\Landlord\DashboardController;
+use App\Http\Controllers\Landlord\DeletePropertyPhotoController;
+use App\Http\Controllers\Landlord\DescribePropertyPhotoController;
 use App\Http\Controllers\Landlord\EditProperty;
 use App\Http\Controllers\Landlord\EditRoom;
 use App\Http\Controllers\Landlord\ListMembers;
 use App\Http\Controllers\Landlord\ListProperties;
 use App\Http\Controllers\Landlord\ListReservations;
+use App\Http\Controllers\Landlord\MovePropertyPhotoController;
 use App\Http\Controllers\Landlord\NewProperty;
 use App\Http\Controllers\Landlord\NewRoom;
 use App\Http\Controllers\Landlord\RenameSpaceController;
+use App\Http\Controllers\Landlord\RetryPropertyPhotoController;
 use App\Http\Controllers\Landlord\SaveProperty;
 use App\Http\Controllers\Landlord\SaveRoom;
 use App\Http\Controllers\Landlord\StoreInvitation;
 use App\Http\Controllers\Landlord\StoreProperty;
+use App\Http\Controllers\Landlord\StorePropertyPhoto;
 use App\Http\Controllers\Landlord\StoreRoom;
 use App\Http\Controllers\Landlord\StoreSpace;
 use App\Http\Controllers\Landlord\UnarchivePropertyController;
@@ -26,6 +31,7 @@ use App\Http\Controllers\Landlord\UnarchiveRoomController;
 use App\Http\Controllers\Landlord\UnarchiveSpaceController;
 use App\Http\Controllers\Landlord\ViewProperty;
 use App\Http\Controllers\Landlord\ViewReservation;
+use App\Http\Controllers\Media\ShowLocalPhoto;
 use App\Http\Controllers\Reservations\ShowReservation;
 use App\Http\Controllers\Reservations\StoreReservation;
 use App\Http\Controllers\Rooms\ShowRoom;
@@ -38,6 +44,12 @@ Route::get('/', HomeController::class)->name('home');
 Route::get('/styleguide', StyleguideController::class)->name('styleguide');
 
 require __DIR__.'/auth.php';
+
+// Resized property photos (slice 4.2). In production Caddy serves this path from the photos bucket and the
+// request never reaches the app; with MEDIA_STORAGE=local the app streams the file from the photos disk.
+if (config('filesystems.disks.photos.driver') === 'local') {
+    Route::get('/media/photos/{path}', ShowLocalPhoto::class)->where('path', '.+')->name('media.photos.show');
+}
 
 // The minimal room page (slice 2.5; 5.1 replaces it). Only listed rooms: anything else is 404.
 Route::get('/rooms/{room}', ShowRoom::class)->whereNumber('room')->name('rooms.show');
@@ -85,6 +97,14 @@ Route::middleware(['auth', 'verified', 'landlord'])->prefix('landlord')->name('l
     Route::patch('/spaces/{space}', RenameSpaceController::class)->whereNumber('space')->name('spaces.update');
     Route::post('/spaces/{space}/archive', ArchiveSpaceController::class)->whereNumber('space')->name('spaces.archive');
     Route::delete('/spaces/{space}/archive', UnarchiveSpaceController::class)->whereNumber('space')->name('spaces.unarchive');
+
+    // Slice 4.2: photos. Owners only; a caretaker sees them on the property page. The DELETE stays last:
+    // T6 calls these in order on one photo of its own, and the others need it to still exist.
+    Route::post('/properties/{property}/photos', StorePropertyPhoto::class)->whereNumber('property')->name('properties.photos.store');
+    Route::patch('/photos/{photo}', DescribePropertyPhotoController::class)->whereNumber('photo')->name('photos.update');
+    Route::post('/photos/{photo}/move', MovePropertyPhotoController::class)->whereNumber('photo')->name('photos.move');
+    Route::post('/photos/{photo}/retry', RetryPropertyPhotoController::class)->whereNumber('photo')->name('photos.retry');
+    Route::delete('/photos/{photo}', DeletePropertyPhotoController::class)->whereNumber('photo')->name('photos.destroy');
 
     Route::get('/members', ListMembers::class)->name('members.index');
     Route::post('/invitations', StoreInvitation::class)->name('invitations.store');

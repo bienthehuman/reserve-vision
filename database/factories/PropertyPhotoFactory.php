@@ -23,19 +23,22 @@ class PropertyPhotoFactory extends Factory
             'property_id' => Property::factory(),
             'landlord_account_id' => fn (array $attributes): mixed => Property::query()
                 ->whereKey($attributes['property_id'])->value('landlord_account_id'),
-            'path' => 'properties/'.fake()->uuid().'.jpg',
-            'sort' => 0,
+            'path' => 'properties/'.fake()->uuid(),
+            'alt' => null,
+            'width' => 1600,
+            'height' => 1200,
+            'sort' => 1,
             'status' => PhotoStatus::Ready,
         ];
     }
 
     public function processing(): static
     {
-        return $this->state(['status' => PhotoStatus::Processing]);
+        return $this->state(['status' => PhotoStatus::Processing, 'width' => null, 'height' => null]);
     }
 
     public function failed(): static
     {
-        return $this->state(['status' => PhotoStatus::Failed]);
+        return $this->state(['status' => PhotoStatus::Failed, 'width' => null, 'height' => null]);
     }
 }

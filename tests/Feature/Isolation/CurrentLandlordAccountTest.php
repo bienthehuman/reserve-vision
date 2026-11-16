@@ -123,7 +123,7 @@ it('doesn\'t carry a landlord from one job into the next on the same worker', fu
     dispatch(new IsolationProbeJob('first', logInAs: $a->id))->onConnection('database');
     dispatch(new IsolationProbeJob('second'))->onConnection('database');
     dispatch(new IsolationProbeJob('third', logInAs: $b->id))->onConnection('database');
-    $this->artisan('queue:work', ['connection' => 'database', '--stop-when-empty' => true])->assertExitCode(0);
+    $this->artisan('queue:work', ['connection' => 'database', '--stop-when-empty' => true, '--memory' => 1024])->assertExitCode(0);
 
     expect(IsolationProbeJob::$seen['first'])->toBe(['applies' => true, 'account' => $aAccount, 'properties' => [$aProperty->id]])
         ->and(IsolationProbeJob::$seen['second']['applies'])->toBeFalse()

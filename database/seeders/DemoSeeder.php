@@ -4,21 +4,27 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Data\ProcessedPhoto;
 use App\Enums\GenderPolicy;
 use App\Enums\LandlordRole;
 use App\Enums\NameSuffix;
 use App\Enums\PaymentProofStatus;
+use App\Enums\PhotoStatus;
 use App\Enums\PropertyKind;
 use App\Enums\ReservationStatus;
 use App\Enums\RoomType;
 use App\Enums\UserType;
+use App\Models\PropertyPhoto;
+use App\Support\Photos\PhotoProcessor;
 use Carbon\CarbonImmutable;
+use Database\Seeders\Demo\DemoPhotoPainter;
 use Database\Seeders\Demo\StayScheduler;
 use Faker\Factory;
 use Faker\Generator;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -33,6 +39,10 @@ use RuntimeException;
  *   timestamps. Ids are assigned here (max + 1) so the rows don't depend on
  *   auto-increment counters either.
  * - Reservations come from StayScheduler, not ReserveSpace (slice 2.3).
+ * - Every published property gets 3 to 6 ready photos (slice 4.2), painted by
+ *   DemoPhotoPainter and resized by the same PhotoProcessor as an upload. The
+ *   files go to the photos disk before the transaction commits. Their paths
+ *   come from the seeded Faker too, so a reseed overwrites the same files.
  * - Refuses to run in production unless APP_DEMO=true.
  *
  * Tables are filled with chunked inserts. Money is integer centavos.
@@ -116,7 +126,9 @@ final class DemoSeeder extends Seeder
             $this->buildPeople();
             $this->buildListings();
             $this->buildReservations();
+            $this->buildPhotos();
             $this->flush();
+            $this->writePhotoFiles();
         });
 
         $this->command?->info('Seeded demo data.');
@@ -133,7 +145,7 @@ final class DemoSeeder extends Seeder
         $names = require database_path('data/names.php');
         $this->names = $names;
 
-        foreach (['users', 'landlord_accounts', 'landlord_members', 'properties', 'rooms', 'spaces', 'reservations', 'payment_proofs'] as $table) {
+        foreach (['users', 'landlord_accounts', 'landlord_members', 'properties', 'rooms', 'spaces', 'reservations', 'payment_proofs', 'property_photos'] as $table) {
             $max = DB::table($table)->max('id');
             $this->lastId[$table] = is_numeric($max) ? (int) $max : 0;
             $this->rows[$table] = [];
@@ -252,8 +264,14 @@ final class DemoSeeder extends Seeder
 
     // -------------------------------------------------------------- listings
 
-    /** @var list<array{id: int, account: int, kind: string, published: bool}> */
+    /** @var list<array{id: int, account: int, kind: string, published: bool, name: string, created: CarbonImmutable}> */
     private array $listings = [];
+
+    /** @var list<array{path: string, scene: string, palette: string}> */
+    private array $photoFiles = [];
+
+    /** @var array<string, ProcessedPhoto> painted and resized once per process: "scene/palette" */
+    private static array $paintings = [];
 
     /** @var list<array{id: int, room: int, account: int, property: int, label: string, fee: int, special: bool}> */
     private array $spaceRefs = [];
@@ -358,7 +376,7 @@ final class DemoSeeder extends Seeder
             $this->addRoom($account['id'], $id, $kind, $room['name'], $room['type'], $room['spaces'], $room['special'], $place['rate'], $created);
         }
 
-        $this->listings[] = ['id' => $id, 'account' => $account['id'], 'kind' => $kind->value, 'published' => $published];
+        $this->listings[] = ['id' => $id, 'account' => $account['id'], 'kind' => $kind->value, 'published' => $published, 'name' => $name, 'created' => $created];
     }
 
     private function addRoom(int $accountId, int $propertyId, PropertyKind $kind, string $name, RoomType $type, int $spaces, bool $special, float $cityRate, CarbonImmutable $created): void
@@ -701,11 +719,61 @@ final class DemoSeeder extends Seeder
         return null;
     }
 
+    // ------------------------------------------------------------------ photos
+
+    /**
+     * 3 to 6 ready photos for each published property: the front first (the cover), then rooms
+     * that fit its kind, all in one colourway. Called after everything else, so the photos don't
+     * shift the random sequence the rest of the data is built from.
+     */
+    private function buildPhotos(): void
+    {
+        foreach ($this->listings as $listing) {
+            if (! $listing['published']) {
+                continue;
+            }
+
+            $rooms = $listing['kind'] === PropertyKind::BoardingHouse->value
+                ? ['bunks', ...$this->shuffled(['bedroom', 'kitchen', 'bathroom', 'desk'])]
+                : ['bedroom', ...$this->shuffled(['kitchen', 'bathroom', 'desk'])];
+            $scenes = ['front', ...array_slice($rooms, 0, $this->int(2, min(5, count($rooms))))];
+            $palette = $this->pick(array_keys(DemoPhotoPainter::PALETTES));
+
+            foreach ($scenes as $index => $scene) {
+                $path = 'properties/'.$this->faker->uuid();
+                $this->rows['property_photos'][] = [
+                    'id' => $this->nextId('property_photos'), 'property_id' => $listing['id'], 'landlord_account_id' => $listing['account'],
+                    'path' => $path,
+                    'alt' => str_replace(':property', $listing['name'], DemoPhotoPainter::SCENES[$scene]),
+                    'width' => DemoPhotoPainter::WIDTH, 'height' => DemoPhotoPainter::HEIGHT,
+                    'sort' => $index + 1, 'status' => PhotoStatus::Ready->value,
+                    'created_at' => $this->ts($listing['created']), 'updated_at' => $this->ts($listing['created']),
+                ];
+                $this->photoFiles[] = ['path' => $path, 'scene' => $scene, 'palette' => $palette];
+            }
+        }
+    }
+
+    /** Each scene and colourway is painted and resized once, then written under every photo's own path. */
+    private function writePhotoFiles(): void
+    {
+        $disk = Storage::disk(PropertyPhoto::DISK);
+        $painter = new DemoPhotoPainter;
+        $processor = new PhotoProcessor;
+
+        foreach ($this->photoFiles as $file) {
+            $painting = self::$paintings["{$file['scene']}/{$file['palette']}"] ??= $processor->process($painter->paint($file['scene'], $file['palette']));
+
+            $disk->put("{$file['path']}-thumb.webp", $painting->thumb, PropertyPhoto::WRITE_OPTIONS);
+            $disk->put("{$file['path']}-full.webp", $painting->full, PropertyPhoto::WRITE_OPTIONS);
+        }
+    }
+
     // --------------------------------------------------------------- plumbing
 
     private function flush(): void
     {
-        foreach (['users', 'landlord_accounts', 'landlord_members', 'properties', 'property_amenity', 'rooms', 'spaces', 'reservations', 'payment_proofs'] as $table) {
+        foreach (['users', 'landlord_accounts', 'landlord_members', 'properties', 'property_amenity', 'rooms', 'spaces', 'reservations', 'payment_proofs', 'property_photos'] as $table) {
             foreach (array_chunk($this->rows[$table], self::CHUNK) as $chunk) {
                 DB::table($table)->insert($chunk);
             }
