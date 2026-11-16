@@ -379,3 +379,9 @@ $rv-swatches: (
         }
     }
 }
+
+// Free text the owner typed (house rules, payment instructions): keep their line breaks. A class, not a style
+// attribute, because the CSP forbids inline styles.
+.pre-line {
+    white-space: pre-line;
+}

@@ -69,6 +69,8 @@ Then: check the room is reservable, check the renter limits, find the first free
 
 **Proven over real parallel HTTP** by the concurrency suite (`tests/Concurrency`, slice 2.5): T1, T2 and T8b, five rounds each, against a multi-threaded server, in CI on MySQL and MariaDB. Each race also proves that every request was inside the server before the first one finished. With either lock removed the suite fails ([ADR 0001, Evidence](adr/0001-room-lock-vs-exclusion-constraint.md#evidence-slice-25)).
 
+**The landlord side takes the same room lock.** `ArchiveSpace`, `ArchiveRoom`, `UpdateRoom` (fee, type), `AddSpace`, `RenameSpace` and `UnarchiveSpace` lock the room row first and only then read, with locking reads, so an archive and a hold are strictly one after the other: if the hold committed first, the archive sees it and is refused; if the archive committed first, `ReserveSpace` finds the room archived (`RoomNotReservable`). `ArchiveProperty` locks every room of the property by id, then the property row, the same order as `ReserveSpace` (room, then a locking read of the property), so the two can't wait on each other. Proven in `tests/Feature/Landlord/ArchiveLockingTest.php` and by the archive race in the concurrency suite ([ADR 0001](adr/0001-room-lock-vs-exclusion-constraint.md#archive-versus-reserve-slice-41)).
+
 Every other action that changes a reservation's status (confirm, decline, cancel, upload proof…) locks the **reservation row** and re-reads its status before applying the transition. Two caretakers confirming and declining at the same moment can't both win.
 
 ## Lifecycle

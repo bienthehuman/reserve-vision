@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PaymentProofStatus;
 use App\Enums\ReservationStatus;
 use App\Exceptions\Domain\HoldExpired;
 use App\Exceptions\Domain\InvalidTransition;
 use App\Models\Concerns\BelongsToLandlordAccount;
 use App\Models\Scopes\LandlordAccountScope;
+use App\Support\BusinessDate;
 use Carbon\CarbonImmutable;
 use Database\Factories\ReservationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -161,6 +163,59 @@ final class Reservation extends Model
             ->where(fn (Builder $q) => $q
                 ->where($q->qualifyColumn('status'), ReservationStatus::ProofUploaded)
                 ->orWhere(fn (Builder $held) => self::whereLiveHold($held)));
+    }
+
+    /**
+     * A live hold that runs out within the next `$hours` hours (the dashboard's "expiring soon").
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeHoldExpiringWithin(Builder $query, int $hours): void
+    {
+        self::whereLiveHold($query);
+        $query->where($query->qualifyColumn('hold_expires_at'), '<=', Date::now()->addHours($hours));
+    }
+
+    /**
+     * `confirmed` with the move-in from today (business date) to `$days` days ahead, both inclusive.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeMovingInWithin(Builder $query, int $days): void
+    {
+        $today = BusinessDate::today();
+
+        $query->where($query->qualifyColumn('status'), ReservationStatus::Confirmed)
+            ->where($query->qualifyColumn('move_in'), '>=', $today->toDateString())
+            ->where($query->qualifyColumn('move_in'), '<=', $today->addDays($days)->toDateString());
+    }
+
+    /**
+     * `proof_uploaded` whose latest pending proof has waited more than `$hours` hours: past
+     * the reminder threshold of RESERVATIONS.md "Unanswered proofs".
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeProofWaitingOver(Builder $query, int $hours): void
+    {
+        $query->where($query->qualifyColumn('status'), ReservationStatus::ProofUploaded)
+            ->whereHas('paymentProofs', fn (Builder $proofs) => $proofs
+                ->where('payment_proofs.status', PaymentProofStatus::Pending)
+                ->where('payment_proofs.uploaded_at', '<=', Date::now()->subHours($hours)));
+    }
+
+    /**
+     * Stays under way today: `confirmed` or `active` with `move_in <= today < move_out` (business date).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeUnderWayToday(Builder $query): void
+    {
+        $today = BusinessDate::today()->toDateString();
+
+        $query->whereIn($query->qualifyColumn('status'), [ReservationStatus::Confirmed, ReservationStatus::Active])
+            ->where($query->qualifyColumn('move_in'), '<=', $today)
+            ->where($query->qualifyColumn('move_out'), '>', $today);
     }
 
     /**

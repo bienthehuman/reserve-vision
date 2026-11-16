@@ -70,3 +70,10 @@ What this shows:
 
 - The locks are what make the outcome **orderly**: renters queue at the room (or renter) row and the losers get a clear `422`. The locking reads added in 2.3 are a second line of defence: on their own they still prevent double-booking under InnoDB's next-key locking, but only by deadlocking, so under contention users would see errors instead of "no free space". Keep both.
 - The suite catches the bug class it exists for: take away the serialization and it fails on both engines, every round.
+
+### Archive versus reserve (slice 4.1)
+
+`tests/Concurrency/ArchiveRaceTest.php`: one owner archives a single-space room while 3 renters reserve it, 6 rounds, over real parallel HTTP against the 16-thread server. The archive is the quicker request (no rate limiter), so alone it always wins; each round it is sent a little later than the renters (0, 4, … 20 ms, `Exchange::after()`), which sweeps the window and lets a hold win in the later rounds. Every round proves overlap by the server's clock. The outcome is always exactly one of: the room is archived and every reserve is refused (404 or 422), or one hold exists, the other two renters are told there is no space, and the archive is refused with a message naming the reservation. Never both, never neither.
+
+Negative control: with the room lock removed from `ArchiveRoom` (its other reads still locking), the archive deadlocks against the hold's insert and answers `HTTP 500` in the rounds where a hold got in first: the race test fails. Lock restored.
+

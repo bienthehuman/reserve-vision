@@ -211,6 +211,13 @@ it('refuses to run in production without APP_DEMO', function (): void {
     expect(DB::table('users')->count())->toBe($before);
 });
 
+it('gives every demo property payment instructions, and a first-published date to the published ones', function (): void {
+    expect(DB::table('properties')->whereNull('payment_instructions')->orWhere('payment_instructions', '')->count())->toBe(0)
+        ->and(DB::table('properties')->where('payment_instructions', 'not like', '%GCash%')->where('payment_instructions', 'not like', '%Maya%')->count())->toBe(0)
+        ->and(DB::table('properties')->where('is_published', true)->whereNull('first_published_at')->count())->toBe(0)
+        ->and(DB::table('properties')->where('is_published', false)->whereNotNull('first_published_at')->count())->toBe(0);
+});
+
 it('produces the same business data every time', function (): void {
     /*
      * A hash of every business column (ids included, passwords, tokens and
@@ -220,7 +227,7 @@ it('produces the same business data every time', function (): void {
      * and say why in the PR. An unexpected change means something stopped being
      * deterministic: look for an unseeded random call or an unordered query.
      */
-    $expected = '31f8e3f2a360d570ea1bed84900bf49d4bfeb33b7c04de4fd41a6c92410835f1';
+    $expected = '40390f7c85ec8f153082fae06adbcf614d762cd179cfc58d3fe01a641faa43c5';
 
     // Amenities are reference data with auto-increment ids, whose counter survives a
     // rolled-back test, so they are hashed by slug, not by id.

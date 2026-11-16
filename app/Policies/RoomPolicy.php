@@ -33,19 +33,13 @@ final class RoomPolicy
         return $this->landlordOn($user, $room->landlord_account_id, self::OWNERS);
     }
 
-    /** Create or edit properties, rooms, spaces, rates. */
-    public function updateRate(User $user, Room $room): Response
-    {
-        return $this->landlordOn($user, $room->landlord_account_id, self::OWNERS);
-    }
-
-    /** Archive or unarchive a room or space. */
+    /** Archive or unarchive a property, room or space. */
     public function archive(User $user, Room $room): Response
     {
         return $this->landlordOn($user, $room->landlord_account_id, self::OWNERS);
     }
 
-    /** Archive or unarchive a room or space. */
+    /** Archive or unarchive a property, room or space. */
     public function unarchive(User $user, Room $room): Response
     {
         return $this->landlordOn($user, $room->landlord_account_id, self::OWNERS);

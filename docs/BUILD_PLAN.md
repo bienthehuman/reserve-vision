@@ -126,7 +126,6 @@ Ideas that came up and are deliberately not in any slice.
 | Trim the entry chunk (`app.js`, 112 KB gzipped, mostly React DOM + Inertia) and add a JS budget next to the CSS budget | Slice 1.1 build output |
 | Seed viewing requests and property photos (photos need real files, so after 4.2) | Slice 2.2 |
 | Narrow the "status is written only in `App\Actions`" arch test to reservations if it gets noisy for `PropertyPhoto`/`PaymentProof` status writes | Slice 2.1 |
-| Landlord edits that archive a space or room (or change its fee) lock the room row first, so they queue behind `ReserveSpace` like renters do | Slice 2.3, for 4.x |
 | Two-factor authentication and passkeys (Fortify supports both; the routes are off) | Slice 2.4 |
 | Profile and settings pages: change name, phone, email (re-verify) and password | Slice 2.4 |
 | Social login (Google, Facebook) | Slice 2.4 |
@@ -141,3 +140,9 @@ Ideas that came up and are deliberately not in any slice.
 | Search reservations by renter name or room, and a date filter, on the landlord list (the demo owner has 328, so finding one means paging) | Slice 3.2 |
 | Revoke an invitation and resend from the members page (the policy ability `revoke` exists; the UI is 4.3) | Slice 3.2 |
 | Show a caretaker's email on the members page, if owners ask for it (today names only) | Slice 3.2 |
+| Map picker for latitude and longitude (Leaflet, with the listing page's map) instead of typing numbers; 5.1 covers the map, so make the form field use it there | Slice 4.1 |
+| Redirect old slugs: let a published property's slug change and keep the old URL working with a 301 | Slice 4.1 |
+| Delete a room or space that was never reserved (today only archive) | Slice 4.1 |
+| Reorder or bulk-rename beds; a bed count change that adds several at once | Slice 4.1 |
+| Show on the property page which spaces are blocked from archiving, and by whom, before the owner clicks | Slice 4.1 |
+| Barangay as a select from the city's list, with "other" | Slice 4.1 |

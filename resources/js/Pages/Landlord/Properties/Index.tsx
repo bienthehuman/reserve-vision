@@ -5,6 +5,7 @@ import PropertyState from '@/Components/PropertyState';
 import LandlordLayout from '@/Layouts/LandlordLayout';
 
 interface IndexProps {
+    can_create: boolean;
     properties: {
         id: number;
         name: string;
@@ -19,18 +20,25 @@ interface IndexProps {
 
 const kindLabel = { apartment: 'Apartment', boarding_house: 'Boarding house' } as const;
 
-/** The account's properties, read-only until slice 4.1 adds editing. */
-export default function Index({ properties }: IndexProps) {
+/** The account's properties; owners can add one (slice 4.1). */
+export default function Index({ properties, can_create: canCreate }: IndexProps) {
     return (
         <LandlordLayout>
             <Head title="Properties" />
             <Container className="py-4 py-md-5">
-                <h1 className="h2 mb-4">Properties</h1>
+                <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+                    <h1 className="h2 mb-0">Properties</h1>
+                    {canCreate && (
+                        <Link href="/landlord/properties/create" className="btn btn-primary">
+                            Add a property
+                        </Link>
+                    )}
+                </div>
 
                 {properties.length === 0 ? (
                     <div className="text-center text-body-secondary py-5">
                         <Building aria-hidden="true" focusable="false" size={32} className="mb-2" />
-                        <p className="mb-0">No properties yet.</p>
+                        <p className="mb-0">No properties yet.{canCreate && ' Add your first one to start taking reservations.'}</p>
                     </div>
                 ) : (
                     <Table className="stack-table align-middle">

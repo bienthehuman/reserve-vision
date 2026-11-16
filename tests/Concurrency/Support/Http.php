@@ -26,11 +26,18 @@ final readonly class Http
         /** @var array<int, Exchange> $byHandle */
         $byHandle = [];
 
-        // 1. Prepare everything.
+        // 1. Prepare everything. A request with a delay (Exchange::after()) is built now but added later.
+        /** @var list<array{float, CurlHandle}> $pending */
+        $pending = [];
         foreach ($exchanges as $exchange) {
             $handle = $this->handle($exchange);
             $byHandle[spl_object_id($handle)] = $exchange;
-            curl_multi_add_handle($multi, $handle);
+
+            if ($exchange->delay > 0.0) {
+                $pending[] = [$exchange->delay, $handle];
+            } else {
+                curl_multi_add_handle($multi, $handle);
+            }
         }
 
         // 2. Release them together.
@@ -40,6 +47,13 @@ final readonly class Http
         }
 
         do {
+            foreach ($pending as $i => [$delay, $handle]) {
+                if (microtime(true) - $released >= $delay) {
+                    curl_multi_add_handle($multi, $handle);
+                    unset($pending[$i]);
+                }
+            }
+
             $status = curl_multi_exec($multi, $running);
 
             while (($done = curl_multi_info_read($multi)) !== false) {
@@ -60,9 +74,11 @@ final readonly class Http
             }
 
             if ($running > 0) {
-                curl_multi_select($multi, 0.01);
+                curl_multi_select($multi, $pending === [] ? 0.01 : 0.0005);
+            } elseif ($pending !== []) {
+                usleep(200);
             }
-        } while ($running > 0 && $status === CURLM_OK);
+        } while (($running > 0 || $pending !== []) && $status === CURLM_OK);
 
         curl_multi_close($multi);
     }

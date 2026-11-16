@@ -97,8 +97,30 @@ const T6_PARAMETERS = [
  * @var array<string, Closure>
  */
 const T6_BODIES = [
-    'landlord.rooms.rate.update' => ['monthly_rate' => '8000'],
+    'landlord.properties.update' => 'propertyBody',
+    'landlord.properties.archive' => [],
+    'landlord.properties.unarchive' => [],
+    'landlord.properties.rooms.store' => 'roomBody',
+    'landlord.rooms.update' => 'roomBody',
+    'landlord.rooms.archive' => [],
+    'landlord.rooms.unarchive' => [],
+    'landlord.rooms.spaces.store' => [],
+    'landlord.spaces.update' => ['label' => 'Window bed'],
+    'landlord.spaces.archive' => [],
+    'landlord.spaces.unarchive' => [],
     'rooms.reservations.store' => 'reservationWindow',
+];
+
+/**
+ * Routes whose control (the same call on the actor's OWN record, as the owner) is a business-rule
+ * refusal, not a success. The world's own property, room and space carry a blocking reservation
+ * (proof uploaded), so archiving them is refused with 422: the control still proves the URL and body
+ * are valid and that the 404 on B's record was the isolation's. The archive actions' own tests cover the success.
+ */
+const T6_OWN_REFUSED = [
+    'landlord.properties.archive' => 422,
+    'landlord.rooms.archive' => 422,
+    'landlord.spaces.archive' => 422,
 ];
 
 /** @return array<string, mixed> */
@@ -107,6 +129,21 @@ function t6Body(string $routeName): array
     $body = T6_BODIES[$routeName];
 
     return is_array($body) ? $body : $body();
+}
+
+/** A valid edit of the world's own property (published, so its city stays as it is). */
+function propertyBody(): array
+{
+    return ['kind' => 'boarding_house', 'name' => 'Alpha Home', 'city' => 'cebu-city', 'address' => '9 Narra St', 'gender_policy' => 'any', 'amenities' => []];
+}
+
+/** A valid room form. The world's own room is shared, so `room_type` stays; `beds` is only read for a new shared room. */
+function roomBody(): array
+{
+    return [
+        'name' => 'Room Z', 'room_type' => 'shared', 'beds' => 2, 'monthly_rate' => '3000', 'reservation_fee' => '500',
+        'deposit_months' => 1, 'advance_months' => 1,
+    ];
 }
 
 function reservationWindow(): array
@@ -131,11 +168,12 @@ function t6World(): array
     $w['caretakerA'] = landlordUserOf($a, LandlordRole::Caretaker);
     $w['renterA'] = User::factory()->renter()->create(['first_name' => 'Aida', 'last_name' => 'Alvarez']);
     $w['memberA'] = $w['caretakerA']->landlordMember()->sole();
-    $w['propertyA'] = Property::factory()->published()->create(['landlord_account_id' => $a, 'name' => 'Alpha Home']);
-    $w['roomA'] = Room::factory()->for($w['propertyA'])->create();
+    $w['propertyA'] = Property::factory()->published()->create(['landlord_account_id' => $a, 'name' => 'Alpha Home', 'city' => 'Cebu City', 'city_slug' => 'cebu-city']);
+    // Shared, so the space routes have a bed to add, rename and archive; the reservation below blocks archiving it.
+    $w['roomA'] = Room::factory()->shared(beds: 2)->for($w['propertyA'])->create();
     // In a property of its own: renter A already holds a bed in Alpha Home, and a second one in the same property is T8's rule.
     $w['listedRoomA'] = Room::factory()->for(Property::factory()->published()->create(['landlord_account_id' => $a, 'name' => 'Alpha Annex']))->create();
-    $w['spaceA'] = $w['roomA']->spaces()->sole();
+    $w['spaceA'] = $w['roomA']->spaces()->orderBy('id')->firstOrFail();
     $w['reservationA'] = Reservation::factory()->for($w['spaceA'], 'space')->for(User::factory()->renter()->create(), 'renter')->proofUploaded()->create();
     $w['proofA'] = PaymentProof::query()->where('reservation_id', $w['reservationA']->id)->sole();
     $w['photoA'] = PropertyPhoto::factory()->for($w['propertyA'])->create();
@@ -281,7 +319,13 @@ function t6Run(mixed $test, array $routes, array $w, string $context, User $acto
         $status = $own->getStatusCode();
         expect($status)->not->toBe(404, "control for {$label}: the actor's own record is a 404")->toBeLessThan(500);
         if ($mayAct) {
-            expect($status)->toBeLessThan(400, "control for {$label}: the actor's own record should succeed, got {$status}");
+            $expected = T6_OWN_REFUSED[$info['name']] ?? null;
+
+            if ($expected === null) {
+                expect($status)->toBeLessThan(400, "control for {$label}: the actor's own record should succeed, got {$status}");
+            } else {
+                expect($status)->toBe($expected, "control for {$label}: the actor's own record should be refused by the business rule ({$expected}), got {$status}");
+            }
         }
 
         $covered[] = "{$info['method']} ".preg_replace('/\{(\w+)\}/', '{$1}', $info['route']->uri()).' ['.$info['name'].']';
@@ -353,6 +397,12 @@ it('T6: covers every record route there is today (the list moves only on purpose
         ->filter(fn (array $info): bool => $info['parameters'] !== [])
         ->map(fn (array $info): string => $info['name'])->sort()->values()->all();
 
-    expect($names('landlord'))->toBe(['landlord.properties.show', 'landlord.reservations.show', 'landlord.rooms.rate.update'])
+    expect($names('landlord'))->toBe([
+        'landlord.properties.archive', 'landlord.properties.edit', 'landlord.properties.rooms.create', 'landlord.properties.rooms.store',
+        'landlord.properties.show', 'landlord.properties.unarchive', 'landlord.properties.update',
+        'landlord.reservations.show',
+        'landlord.rooms.archive', 'landlord.rooms.edit', 'landlord.rooms.spaces.store', 'landlord.rooms.unarchive', 'landlord.rooms.update',
+        'landlord.spaces.archive', 'landlord.spaces.unarchive', 'landlord.spaces.update',
+    ])
         ->and($names('renter'))->toBe(['reservations.show', 'rooms.reservations.store']);
 });

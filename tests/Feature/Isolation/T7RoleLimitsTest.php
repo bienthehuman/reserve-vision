@@ -8,11 +8,15 @@ use App\Models\Property;
 use App\Models\Room;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 
 /*
-| T7 (BUILD_PLAN.md): a caretaker tries to change a rate or invite a member.
-| Expected: 403, nothing changed, no audit row. The owner can do both, and each
-| writes exactly one audit row. (Another account's records are T6: 404, not 403.)
+| T7 (BUILD_PLAN.md): a caretaker tries to change a rate or invite a member, and (4.1) to use
+| every other write route of the landlord pages: create or edit a property or room, add or
+| rename a space, archive or unarchive any of them. Expected: 403, nothing changed, no audit
+| row, on every one of them, and the edit forms (GET) refuse them too. The owner can do each
+| one, and each writes exactly one audit row. (Another account's records are T6: 404, not 403.)
+| A test walks the route list, so a write route added later can't be left out.
 */
 
 /** An account with an owner, a caretaker and a room at ₱6,500. */
@@ -29,68 +33,131 @@ function t7Account(): array
 /** The tables a write could touch, as one comparable value. */
 function t7State(): string
 {
-    return md5((string) json_encode(collect(['rooms', 'landlord_invitations', 'landlord_members', 'audit_logs'])
-        ->map(fn (string $table) => DB::table($table)->orderBy('id')->get())));
+    return md5((string) json_encode(collect(['properties', 'property_amenity', 'rooms', 'spaces', 'landlord_invitations', 'landlord_members', 'audit_logs'])
+        ->map(fn (string $table) => DB::table($table)->orderBy($table === 'property_amenity' ? 'property_id' : 'id')->get())));
 }
 
-it('T7: a caretaker changing a rate gets 403, and nothing changes', function (): void {
-    [, $caretaker, $room] = t7Account();
-    $before = t7State();
+/**
+ * Every write route of the landlord pages (4.1), by name: method, a path from the account's
+ * records, and a valid body, so a 403 can only be the role. Built from t7Account().
+ *
+ * @return array<string, array{string, string, array<string, mixed>}>
+ */
+function t7WriteRoutes(array $account): array
+{
+    [, , $room] = $account;
+    $property = $room->property;
+    $beds = Room::factory()->shared(beds: 3)->for($property)->create();
+    $space = $beds->spaces()->orderBy('id')->firstOrFail();
+    $room2 = [
+        'name' => 'Edited', 'room_type' => 'private', 'monthly_rate' => '7000', 'reservation_fee' => '1000',
+        'deposit_months' => 1, 'advance_months' => 1,
+    ];
 
-    $this->actingAs($caretaker)->patch("/landlord/rooms/{$room->id}/rate", ['monthly_rate' => '1'])->assertForbidden();
-    $this->actingAs($caretaker)->withHeaders(['X-Inertia' => 'true'])->patch("/landlord/rooms/{$room->id}/rate", ['monthly_rate' => '1'])->assertForbidden();
-    $this->actingAs($caretaker)->patchJson("/landlord/rooms/{$room->id}/rate", ['monthly_rate' => '1'])->assertForbidden();
+    return [
+        'landlord.invitations.store' => ['POST', '/landlord/invitations', ['email' => 'new@example.com']],
+        'landlord.properties.store' => ['POST', '/landlord/properties', [
+            'kind' => 'apartment', 'name' => 'New Place', 'city' => 'manila', 'address' => '1 Rizal St', 'gender_policy' => 'any', 'amenities' => [],
+        ]],
+        'landlord.properties.update' => ['PUT', "/landlord/properties/{$property->id}", [
+            'kind' => 'apartment', 'name' => 'Renamed', 'city' => $property->city_slug, 'address' => '2 Rizal St', 'gender_policy' => 'any', 'amenities' => [],
+        ]],
+        'landlord.properties.archive' => ['POST', "/landlord/properties/{$property->id}/archive", []],
+        'landlord.properties.unarchive' => ['DELETE', "/landlord/properties/{$property->id}/archive", []],
+        'landlord.properties.rooms.store' => ['POST', "/landlord/properties/{$property->id}/rooms", $room2],
+        'landlord.rooms.update' => ['PUT', "/landlord/rooms/{$room->id}", $room2],
+        'landlord.rooms.archive' => ['POST', "/landlord/rooms/{$room->id}/archive", []],
+        'landlord.rooms.unarchive' => ['DELETE', "/landlord/rooms/{$room->id}/archive", []],
+        'landlord.rooms.spaces.store' => ['POST', "/landlord/rooms/{$beds->id}/spaces", []],
+        'landlord.spaces.update' => ['PATCH', "/landlord/spaces/{$space->id}", ['label' => 'Window bed']],
+        'landlord.spaces.archive' => ['POST', "/landlord/spaces/{$space->id}/archive", []],
+        'landlord.spaces.unarchive' => ['DELETE', "/landlord/spaces/{$space->id}/archive", []],
+    ];
+}
 
-    expect($room->fresh()->monthly_rate)->toBe(650000)
-        ->and(t7State())->toBe($before)
-        ->and(auditRows())->toBeEmpty();
+it('T7: every write route of the landlord pages is covered here', function (): void {
+    $writes = collect(Route::getRoutes()->getRoutes())
+        ->filter(fn ($route) => in_array('landlord', $route->gatherMiddleware(), true) && array_diff($route->methods(), ['GET', 'HEAD']) !== [])
+        ->map(fn ($route) => $route->getName())->sort()->values()->all();
+
+    expect(array_keys(t7WriteRoutes(t7Account())))->toEqualCanonicalizing($writes);
 });
 
-it('T7: a caretaker creating an invitation gets 403, and nothing changes', function (): void {
-    [, $caretaker] = t7Account();
+it('T7: a caretaker gets 403 on every write route, with a valid body or an empty one, and nothing changes', function (): void {
+    $account = t7Account();
+    [, $caretaker] = $account;
+    $routes = t7WriteRoutes($account);
     $before = t7State();
 
-    $this->actingAs($caretaker)->post('/landlord/invitations', ['email' => 'new@example.com'])->assertForbidden();
+    foreach ($routes as $name => [$method, $path, $body]) {
+        $this->actingAs($caretaker)->call($method, $path, $body)->assertForbidden("{$name} ({$method} {$path}) should be 403 for a caretaker");
+        $this->actingAs($caretaker)->call($method, $path, [])->assertForbidden("{$name} with an empty body should be 403, before validation");
+        $this->actingAs($caretaker)->withHeaders(['X-Inertia' => 'true'])->call($method, $path, $body)->assertForbidden();
+    }
+
+    expect(t7State())->toBe($before)->and(auditRows())->toBeEmpty();
+});
+
+it('T7: a caretaker gets 403 on the edit forms, which the property page doesn\'t link to either', function (): void {
+    [, $caretaker, $room] = t7Account();
+
+    foreach (['/landlord/properties/create', "/landlord/properties/{$room->property_id}/edit", "/landlord/properties/{$room->property_id}/rooms/create", "/landlord/rooms/{$room->id}/edit"] as $path) {
+        $this->actingAs($caretaker)->get($path)->assertForbidden();
+    }
+
+    $this->actingAs($caretaker)->get("/landlord/properties/{$room->property_id}")->assertOk()->assertInertia(fn ($page) => $page
+        ->where('property.can_edit', false)->where('property.can_add_room', false)->where('property.can_archive', false)
+        ->where('rooms.0.can_edit', false)->where('rooms.0.can_archive', false)->where('rooms.0.can_add_space', false)
+        ->where('rooms.0.spaces.0.can_edit', false)->where('rooms.0.spaces.0.can_archive', false));
+    $this->actingAs($caretaker)->get('/landlord/properties')->assertOk()->assertInertia(fn ($page) => $page->where('can_create', false));
+});
+
+it('T7: a caretaker creating an invitation gets 403 (kept from 3.2: the role, not the route list, is the point)', function (): void {
+    [, $caretaker] = t7Account();
+
     $this->actingAs($caretaker)->postJson('/landlord/invitations', ['email' => 'new@example.com', 'role' => 'owner'])->assertForbidden();
 
-    expect(LandlordInvitation::query()->count())->toBe(0)
-        ->and(t7State())->toBe($before)
-        ->and(auditRows())->toBeEmpty();
+    expect(LandlordInvitation::query()->count())->toBe(0);
 });
 
-it('T7: a caretaker is refused before validation, so a bad body is 403 too', function (): void {
-    [, $caretaker, $room] = t7Account();
+it('T7: the owner can do each write, with exactly one audit row each', function (): void {
+    $account = t7Account();
+    [$owner] = $account;
+    $routes = t7WriteRoutes($account);
 
-    $this->actingAs($caretaker)->patch("/landlord/rooms/{$room->id}/rate", [])->assertForbidden();
-    $this->actingAs($caretaker)->post('/landlord/invitations', [])->assertForbidden();
+    $expected = [
+        'landlord.invitations.store' => 'invitation.created',
+        'landlord.properties.store' => 'property.created',
+        'landlord.properties.update' => 'property.updated',
+        'landlord.properties.archive' => 'property.archived',
+        'landlord.properties.unarchive' => 'property.unarchived',
+        'landlord.properties.rooms.store' => 'room.created',
+        'landlord.rooms.update' => 'room.updated',
+        'landlord.rooms.archive' => 'room.archived',
+        'landlord.rooms.unarchive' => 'room.unarchived',
+        'landlord.rooms.spaces.store' => 'space.added',
+        'landlord.spaces.update' => 'space.renamed',
+        'landlord.spaces.archive' => 'space.archived',
+        'landlord.spaces.unarchive' => 'space.unarchived',
+    ];
+    expect(array_keys($expected))->toEqualCanonicalizing(array_keys($routes));
+
+    foreach ($routes as $name => [$method, $path, $body]) {
+        $count = auditRows()->count();
+
+        $this->actingAs($owner)->call($method, $path, $body)->assertRedirect();
+
+        $rows = auditRows()->slice($count);
+        expect($rows)->toHaveCount(1, "{$name} should write one audit row")
+            ->and($rows->first()->action)->toBe($expected[$name], "{$name} audit action");
+    }
 });
 
-it('T7: the owner changes the rate, with exactly one audit row', function (): void {
-    [$owner, , $room] = t7Account();
-
-    $this->actingAs($owner)->patch("/landlord/rooms/{$room->id}/rate", ['monthly_rate' => '7200'])->assertRedirect();
-
-    expect($room->fresh()->monthly_rate)->toBe(720000)
-        ->and(auditRows())->toHaveCount(1)
-        ->and(auditRows('room.rate_changed'))->toHaveCount(1);
-});
-
-it('T7: the owner invites a caretaker, with exactly one audit row', function (): void {
-    [$owner] = t7Account();
-
-    $this->actingAs($owner)->post('/landlord/invitations', ['email' => 'new@example.com'])->assertRedirect('/landlord/members');
-
-    expect(LandlordInvitation::query()->count())->toBe(1)
-        ->and(auditRows())->toHaveCount(1)
-        ->and(auditRows('invitation.created'))->toHaveCount(1);
-});
-
-it('T7: a renter gets 403 on both writes too', function (): void {
-    [, , $room] = t7Account();
+it('T7: a renter gets 403 on every write route too', function (): void {
+    $account = t7Account();
     $renter = User::factory()->renter()->create();
 
-    $this->actingAs($renter)->patch("/landlord/rooms/{$room->id}/rate", ['monthly_rate' => '1'])->assertForbidden();
-    $this->actingAs($renter)->post('/landlord/invitations', ['email' => 'new@example.com'])->assertForbidden();
-
-    expect($room->fresh()->monthly_rate)->toBe(650000)->and(auditRows())->toBeEmpty();
+    foreach (t7WriteRoutes($account) as $name => [$method, $path, $body]) {
+        $this->actingAs($renter)->call($method, $path, $body)->assertForbidden("{$name} should be 403 for a renter");
+    }
 });

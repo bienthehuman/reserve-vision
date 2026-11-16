@@ -27,7 +27,7 @@ it('lists only the account\'s properties', function (): void {
     expect($response->getContent())->not->toContain('Theirs House');
 });
 
-it('shows a property with its rooms, rates and spaces; the rate form is the owner\'s', function (LandlordRole $role, bool $canChangeRate): void {
+it('shows a property with its rooms, rates and spaces; the edit buttons are the owner\'s', function (LandlordRole $role, bool $canEdit): void {
     $owner = landlordUser();
     $account = accountIdOf($owner);
     $user = $role === LandlordRole::Owner ? $owner : landlordUserOf($account, $role);
@@ -41,12 +41,12 @@ it('shows a property with its rooms, rates and spaces; the rate form is the owne
         ->has('rooms', 2)
         ->where('rooms.0.name', 'Private One')
         ->where('rooms.0.monthly_rate', 650000)
-        ->where('rooms.0.can_change_rate', $canChangeRate)
+        ->where('rooms.0.can_edit', $canEdit)
         ->has('rooms.0.spaces', 1)
         ->where('rooms.1.name', 'Shared Two')
         ->where('rooms.1.deposit_months', 2)
         ->has('rooms.1.spaces', 3)
-        ->where('rooms.1.can_change_rate', $canChangeRate));
+        ->where('rooms.1.can_edit', $canEdit));
 })->with([
     'owner' => [LandlordRole::Owner, true],
     'caretaker' => [LandlordRole::Caretaker, false],

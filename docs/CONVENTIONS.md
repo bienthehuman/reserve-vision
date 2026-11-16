@@ -21,7 +21,7 @@ A PR merges only when every one of these checks is green (the CI workflows are d
 | --- | --- | --- |
 | `MySQL 8.4 / Pest` | Tests (MySQL 8.4) | Pest (unit, feature, arch) as the `app` user, 4 workers |
 | `MariaDB 11.4 / Pest` | Tests (MariaDB 11.4) | The same on MariaDB |
-| `MySQL 8.4 / Concurrency` | Tests (MySQL 8.4) | T1, T2, T8b: real parallel HTTP against a 16-thread FrankenPHP server, 5 rounds each, every race proven to overlap inside the server |
+| `MySQL 8.4 / Concurrency` | Tests (MySQL 8.4) | T1, T2, T8b and archive-versus-reserve: real parallel HTTP against a 16-thread FrankenPHP server, 5–6 rounds each, every race proven to overlap inside the server |
 | `MariaDB 11.4 / Concurrency` | Tests (MariaDB 11.4) | The same on MariaDB |
 | `Pint + Larastan` | Quality | Code style, static analysis at max level |
 | `TypeScript + Vitest + build` | Quality | `tsc --noEmit`, Vitest, production build (client + SSR), CSS budget |

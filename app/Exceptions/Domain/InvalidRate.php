@@ -10,4 +10,9 @@ final class InvalidRate extends BusinessRuleException
     {
         return new self('A monthly rate must be more than ₱0 and at most ₱42,949,672.');
     }
+
+    public static function fee(): self
+    {
+        return new self('A reservation fee must be at least ₱0 and at most ₱42,949,672.');
+    }
 }
