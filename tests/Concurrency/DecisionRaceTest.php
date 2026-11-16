@@ -34,14 +34,15 @@ const DECISION_ROUNDS = 6;
 
 /**
  * Left alone, one side tends to win every round (it reaches the lock a few milliseconds sooner), so each round
- * gives one side a small head start, alternating and growing: round 1 delays the second request 5 ms, round 2 the
- * first 5 ms, round 3 the second 10 ms… Both orders get sampled; the server's clock must still show overlap.
+ * gives one side a small head start, alternating and growing: round 1 delays the second request 2 ms, round 2 the
+ * first 2 ms, round 3 the second 4 ms… up to 6 ms. Both orders get sampled; the server's clock must still show overlap,
+ * and on CI the renter's cancel takes only about 15 ms, so a longer head start can miss it (15 ms did).
  *
  * @param  array{Exchange, Exchange}  $pair
  */
 function staggered(array $pair, int $round): void
 {
-    $pair[$round % 2 === 1 ? 1 : 0]->after(intdiv($round + 1, 2) * 0.005);
+    $pair[$round % 2 === 1 ? 1 : 0]->after(intdiv($round + 1, 2) * 0.002);
 }
 
 /**

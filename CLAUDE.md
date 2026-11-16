@@ -369,7 +369,7 @@ Tests: `tests/Feature/Landlord/DecisionsTest.php` (each action, every guard and 
 - **A target status doesn't identify a move**: `proof_uploaded` → `cancelled` is the renter's cancel, `confirmed` → `cancelled` also the owner's withdraw. `DecisionPanel` looks moves up by action name in `ReservationStatus::transitions()`.
 - **A plain `PUT` that breaks a rule gets the `422` page**, not the redirect back (`BusinessRuleException` does that for plain `POST`s only). The refund form is Inertia, which gets the `error` flash; tests check the refusals as JSON.
 - **"First statement is the lock" tests see the scope's membership lookup first** when a landlord is logged in (`landlord_members`, then `landlord_accounts`): `DecisionsTest` filters those two out.
-- **Left alone, one racer wins every round** (the renter's cancel always beat the landlord's confirm by a few ms), so only one order was ever tested; `staggered()` alternates a 5, 10, 15 ms head start.
+- **Left alone, one racer wins every round** (the renter's cancel always beat the landlord's confirm by a few ms), so only one order was ever tested; `staggered()` alternates a 2, 4, 6 ms head start. Not more: on CI the renter's cancel takes about 15 ms, and a 15 ms head start once let it finish before the confirm started (the overlap check failed).
 - **Torres Boarding House and Ramos Studio Units are fully booked** for every 1-month stay in the window (the seed), so the decisions demo uses Magno's 8-bed rooms. And it creates a confirmed reservation the owner's `?status=confirmed` list shows first, so the Phase 3 caretaker test now compares the `?status=active` list, which no e2e test changes.
 
 ### Quirks hit in 5.3
