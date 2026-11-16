@@ -74,3 +74,20 @@ export async function chooseAddress(page: Page, place: { province: string; city:
 
 /** Loyola Heights, Quezon City: the address the e2e properties use. */
 export const LOYOLA_HEIGHTS = { province: 'Metro Manila', city: 'Quezon City', barangay: 'Loyola Heights' };
+
+/**
+ * Axe on a page that has JavaScript switched off (axe can't run inside one). The server's HTML, minus its scripts,
+ * is put into a normal page of the same origin, so the same styles and the same markup are judged.
+ */
+export async function expectNoAxeViolationsWithoutScripts(page: Page): Promise<void> {
+    const origin = new URL(page.url()).origin;
+    const html = (await page.content()).replace(/<script[\s\S]*?<\/script>/gi, '');
+    const context = await page.context().browser()!.newContext({ javaScriptEnabled: true, viewport: page.viewportSize() ?? undefined });
+    const copy = await context.newPage();
+    await copy.setContent(html.replace('<head>', `<head><base href="${origin}/">`), { waitUntil: 'load' });
+    try {
+        await expectNoAxeViolations(copy);
+    } finally {
+        await context.close();
+    }
+}

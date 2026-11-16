@@ -104,7 +104,8 @@ it('renders a domain error as a flash on the room page for Inertia, and 422 JSON
         ->assertRedirect("/rooms/{$room->id}?move_in=2027-04-01")
         ->assertSessionHas('error', NoSpaceAvailable::forDates()->getMessage());
 
-    $this->flushHeaders()->get("/rooms/{$room->id}?move_in=2027-04-01")
+    $property = Property::query()->published()->findOrFail($room->property_id);
+    $this->flushHeaders()->get("/listings/{$property->city_slug}/{$property->slug}?move_in=2027-04-01")
         ->assertSee('role="alert"', false)
         ->assertSee('This room has no free space');
 

@@ -10,6 +10,7 @@ use App\Models\City;
 use App\Models\LandlordAccount;
 use App\Models\LandlordMember;
 use App\Models\Property;
+use App\Models\PropertyPhoto;
 use App\Models\Province;
 use App\Models\Reservation;
 use App\Models\Room;
@@ -373,4 +374,32 @@ function fakeMediaDisks(): void
 {
     Storage::fake('photos', ['url' => config('filesystems.disks.photos.url'), 'visibility' => 'public']);
     Storage::fake('proofs');
+}
+
+/*
+| Listing pages (tests/Feature/Listings, slice 5.1).
+*/
+
+/**
+ * A published Manila property named "Casa Verde" with a private room at ₱6,500 and a 4-bed shared room at ₱3,500,
+ * and two ready photos (the cover has an owner's description, the second doesn't). Returns [property, private room, shared room].
+ *
+ * @return array{0: Property, 1: Room, 2: Room}
+ */
+function listedProperty(string $name = 'Casa Verde'): array
+{
+    $property = Property::factory()->published()->at(placeIn('manila'))->state([
+        'name' => $name,
+        'slug' => Str::slug($name),
+        'kind' => 'boarding_house',
+        'address' => '12 Lacson Ave',
+        'house_rules' => 'No visitors after 10 PM. The reservation fee is refunded if we decline.',
+        'payment_instructions' => 'GCash 0917 000 0000, ask for Ate Lorna',
+    ])->create();
+    $private = Room::factory()->for($property)->create(['name' => 'Corner Room', 'monthly_rate' => 650000, 'reservation_fee' => 150000, 'deposit_months' => 2, 'advance_months' => 1]);
+    $shared = Room::factory()->shared(beds: 4)->for($property)->create(['name' => 'Bedspace Room', 'monthly_rate' => 350000]);
+    PropertyPhoto::factory()->for($property)->create(['sort' => 1, 'alt' => 'The front gate of Casa Verde']);
+    PropertyPhoto::factory()->for($property)->create(['sort' => 2]);
+
+    return [$property, $private, $shared];
 }

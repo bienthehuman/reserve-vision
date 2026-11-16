@@ -37,7 +37,8 @@ When a renter breaks both limits at once, the per-property message wins: it's th
 
 | Route | Who | What |
 | --- | --- | --- |
-| `GET /rooms/{room}` | anyone | The minimal room page (slice 5.1 replaces it): rate, fee, free spaces for `?move_in=Y-m-d&months=n` (default today, 6 months), and the reserve form. Listed rooms only (`Room::scopeListed()`: room not archived, property published and not archived, account verified), anything else `404`. A renter with an open reservation in the room gets a link to it instead of the form |
+| `GET /listings/{city}/{slug}` | anyone | The listing page (slice 5.1, [ACCESS.md](ACCESS.md#public-pages-slice-51)): each listed room with its rate, fee, deposit and advance months, beds, and the free beds for `?move_in=Y-m-d&months=n` (default today, 6 months), and a reserve form per room. Listed rooms only (`Room::scopeListed()`: room not archived, property published and not archived, account verified), anything else `404`. A renter with an open reservation in a room gets a link to it instead of that room's form |
+| `GET /rooms/{room}` | anyone | The 2.5 room page: a `301` to the room's anchor on its listing page, keeping `move_in` and `months`. Listed rooms only, else `404` |
 | `POST /rooms/{room}/reservations` | renter, email verified | `StoreReservationRequest` checks the shape only (`move_in` is `Y-m-d`, `months` a whole number), then `ReserveSpace` decides. Success: redirect to `/reservations/{id}`, or `201` JSON (`reservation.id`, `space_id`, `status`, `hold_expires_at`). Broken rule: the `error` flash back on the room page, or `422 {message}` JSON. Guests go to `/login` and come back to the room page; landlords get `403` |
 | `GET /reservations/{reservation}` | the reservation's renter | "Your hold": status badge, space, stay, fee, `hold_expires_at` in Manila time. Anyone else's reservation is `404` |
 

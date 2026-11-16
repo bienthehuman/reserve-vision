@@ -2,16 +2,17 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 import { collectConsoleErrors, expectNoAxeViolations, logIn } from './support';
 
 /**
- * Phase 2 demo (slice 2.5): two renters want the seeded "last bed" (README,
- * "Demo logins"). renter1 reserves it through the room page and sees the hold;
+ * Phase 2 demo (slice 2.5, through the listing page since 5.1): two renters want the seeded "last bed" (README,
+ * "Demo logins"). renter1 reserves it on the listing page and sees the hold;
  * renter2 then tries the same room and dates and is told there's no space.
  *
  * Phone viewport only: the two projects run in parallel, and two runs racing
  * for the same bed would make each other fail.
  */
 
-/** DemoSeeder's "Last Bed Room" (Santos Bedspace House), id 1 on a freshly seeded database. */
-const lastBedRoom = '/rooms/1';
+/** DemoSeeder's Santos Bedspace House, whose "Last Bed Room" is room 1 on a freshly seeded database. */
+const lastBedListing = '/listings/manila/santos-bedspace-house';
+const lastBedRoom = (page: Page) => page.locator('#room-1');
 
 /** The 1st of next month in Manila: beds A-C are confirmed from that date, bed D is free. */
 function firstOfNextMonthInManila(): string {
@@ -37,17 +38,19 @@ async function loggedInPage(browser: Browser, email: string): Promise<{ page: Pa
     return { page, errors, close: () => context.close() };
 }
 
-/** Opens the last-bed room, hydrated. */
-async function openLastBedRoom(page: Page): Promise<void> {
-    await page.goto(lastBedRoom);
+/** Opens the last-bed house's listing page, hydrated. */
+async function openLastBedListing(page: Page): Promise<void> {
+    await page.goto(lastBedListing);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { level: 1, name: 'Last Bed Room' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Santos Bedspace House' })).toBeVisible();
+    await expect(lastBedRoom(page).getByRole('heading', { level: 3, name: 'Last Bed Room' })).toBeVisible();
 }
 
-/** Picks the stay; the page re-counts the free beds (a partial reload that updates the URL). */
+/** Picks the stay and asks for the free beds (a plain form: the page reloads with the move-in in the link). */
 async function chooseStay(page: Page, moveIn: string): Promise<void> {
     await page.getByLabel('Move-in date').fill(moveIn);
     await page.getByLabel("How long you'll stay").selectOption('6');
+    await page.getByRole('button', { name: 'Check free beds' }).click();
     await expect(page).toHaveURL(new RegExp(`move_in=${moveIn}`));
 }
 
@@ -58,9 +61,9 @@ test('Phase 2 demo: renter1 takes the last bed, renter2 is told it is gone', asy
 
     // renter1 reserves the last bed.
     const renter1 = await loggedInPage(browser, 'renter1@example.com');
-    await openLastBedRoom(renter1.page);
+    await openLastBedListing(renter1.page);
 
-    const existingHold = renter1.page.getByRole('link', { name: 'View your hold' });
+    const existingHold = lastBedRoom(renter1.page).getByRole('link', { name: 'View your hold' });
     if (await existingHold.isVisible()) {
         // A rerun on the same dev stack within 24 hours: renter1 already holds the bed.
         // CI always starts from a freshly seeded stack, so it takes the full path below.
@@ -68,14 +71,14 @@ test('Phase 2 demo: renter1 takes the last bed, renter2 is told it is gone', asy
         await existingHold.click();
     } else {
         await chooseStay(renter1.page, moveIn);
-        await expect(renter1.page.getByTestId('free-spaces')).toContainText('1 of 4 beds free');
+        await expect(renter1.page.getByTestId('free-spaces-1')).toContainText('1 of 4 beds free');
         expect(renter1.errors).toEqual([]);
         await expectNoAxeViolations(renter1.page);
         // axe's injected <style> is blocked by the CSP (CLAUDE.md quirks, 1.1), and the
         // hold page is the same document after an Inertia visit: start counting afresh.
         renter1.errors.length = 0;
 
-        await renter1.page.getByRole('button', { name: 'Reserve' }).click();
+        await lastBedRoom(renter1.page).getByRole('button', { name: 'Reserve Last Bed Room' }).click();
     }
 
     await expect(renter1.page).toHaveURL(/\/reservations\/\d+$/);
@@ -89,14 +92,14 @@ test('Phase 2 demo: renter1 takes the last bed, renter2 is told it is gone', asy
 
     // renter2 tries the same room and dates.
     const renter2 = await loggedInPage(browser, 'renter2@example.com');
-    await openLastBedRoom(renter2.page);
+    await openLastBedListing(renter2.page);
     await chooseStay(renter2.page, moveIn);
-    await expect(renter2.page.getByTestId('free-spaces')).toContainText('0 of 4 beds free');
+    await expect(renter2.page.getByTestId('free-spaces-1')).toContainText('0 of 4 beds free');
 
-    await renter2.page.getByRole('button', { name: 'Reserve' }).click();
+    await lastBedRoom(renter2.page).getByRole('button', { name: 'Reserve Last Bed Room' }).click();
 
     await expect(renter2.page.getByRole('alert')).toHaveText(/no free space for those dates/);
-    await expect(renter2.page).toHaveURL(new RegExp(`${lastBedRoom}\\?`));
+    await expect(renter2.page).toHaveURL(new RegExp(`${lastBedListing}\\?`));
     expect(renter2.errors).toEqual([]);
     await expectNoAxeViolations(renter2.page);
     await renter2.close();

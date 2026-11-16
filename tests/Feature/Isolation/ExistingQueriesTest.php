@@ -8,6 +8,7 @@ use App\Models\Property;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\User;
+use App\Support\Listings\ListingCards;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia;
 
@@ -31,9 +32,15 @@ function busySharedRoom(?int $accountId = null): Room
     return $room;
 }
 
+/** The room's listing page with a stay. */
+function listingUrlOf(Room $room, string $query = '?move_in=2027-04-01&months=6'): string
+{
+    return ListingCards::url(Property::query()->published()->findOrFail($room->property_id)).$query;
+}
+
 it('shows a landlord another account\'s listed room exactly as a guest sees it', function (LandlordRole $role): void {
     $room = busySharedRoom();
-    $url = "/rooms/{$room->id}?move_in=2027-04-01&months=6";
+    $url = listingUrlOf($room);
     $guestProps = null;
 
     $this->get($url)->assertOk()->assertInertia(function (AssertableInertia $page) use (&$guestProps): void {
@@ -43,26 +50,26 @@ it('shows a landlord another account\'s listed room exactly as a guest sees it',
     $this->actingAs(landlordUser(role: $role))->get($url)
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('Rooms/Show')
-            ->where('room.name', 'Blue Room')
-            ->where('room.space_count', 3)
-            ->where('freeSpaces', 2)
-            ->where('property.name', $guestProps['property']['name'])
-            ->where('openReservation', null));
+            ->component('Listings/Show')
+            ->where('rooms.0.name', 'Blue Room')
+            ->where('rooms.0.space_count', 3)
+            ->where('rooms.0.free_spaces', 2)
+            ->where('listing.name', $guestProps['listing']['name'])
+            ->where('rooms.0.open_reservation', null));
 
-    expect($guestProps['room']['space_count'])->toBe(3)->and($guestProps['freeSpaces'])->toBe(2);
+    expect($guestProps['rooms'][0]['space_count'])->toBe(3)->and($guestProps['rooms'][0]['free_spaces'])->toBe(2);
 })->with([LandlordRole::Owner, LandlordRole::Caretaker]);
 
 it('shows a landlord their own listed room with the same counts', function (): void {
     $owner = landlordUser();
     $room = busySharedRoom(LandlordMember::query()->where('user_id', $owner->id)->value('landlord_account_id'));
 
-    $this->actingAs($owner)->get("/rooms/{$room->id}?move_in=2027-04-01&months=6")
+    $this->actingAs($owner)->get(listingUrlOf($room))
         ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page->where('room.space_count', 3)->where('freeSpaces', 2));
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('rooms.0.space_count', 3)->where('rooms.0.free_spaces', 2));
 });
 
-it('is still a 404 on the public room page for the landlord\'s own unlisted room', function (): void {
+it('is still a 404 on the public room redirect for the landlord\'s own unlisted room', function (): void {
     $owner = landlordUser();
     $account = LandlordMember::query()->where('user_id', $owner->id)->value('landlord_account_id');
     $room = Room::factory()->for(Property::factory()->state(['landlord_account_id' => $account, 'is_published' => false]))->create();

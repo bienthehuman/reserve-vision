@@ -47,9 +47,9 @@ export default function Show({ reservation, room, property }: ReservationPagePro
                                     </dd>
                                     <dt className="col-sm-5">Room</dt>
                                     <dd className="col-sm-7">
-                                        <Link href={`/rooms/${room.id}`} className="link-action">
+                                        <a href={`/rooms/${room.id}`} className="link-action">
                                             {room.name}
-                                        </Link>
+                                        </a>
                                         , {property.name}
                                         <span className="d-block small text-body-secondary">{place}</span>
                                     </dd>

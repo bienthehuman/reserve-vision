@@ -122,6 +122,18 @@ A valid token shows the account's name, the role and who sent the invitation, an
 
 `AcceptInvitation` locks the invitation row first, then the user row, so two accepts of one link (or an accept and a revoke or resend) run one after the other: exactly one membership. Accepting sets `accepted_at` and writes one audit row on the account, `invitation.accepted`, with the new member as the actor. The role is the invitation's, never the request's.
 
+### Public pages (slice 5.1)
+
+| Page | What it shows | Notes |
+| --- | --- | --- |
+| `GET /` | The pitch and the 6 newest listings (`first_published_at`, then id) as cards | |
+| `GET /listings` | Every published listing, 12 to a page, newest first | A plain list; slice 5.2 turns it into search results |
+| `GET /listings/{city}/{slug}` | The photos (cover first), name, kind, gender policy, the full address with an "Open in Maps" link, the landlord account's name, the from-price, amenities, house rules (which carry the refund rule), and each room with its fees, deposit, advance and free beds for a stay | `city` is the property's `city_slug`. Only `Property::published()` (published, not archived, verified account): anything else, a wrong city or an unknown slug is `404`, for a landlord too. Photos come through `PropertyPhoto::shown()` (ready photos of a published property), rooms through `Room::listed()` |
+| `GET /rooms/{room}` | Nothing: `301` to the room's anchor on its listing | Listed rooms only, else `404` |
+| `GET /sitemap.xml`, `GET /robots.txt` | The home page and every published listing; the crawl rules | Production's `robots.txt` names the sitemap and disallows `/landlord`, `/reservations`, `/invitations`, `/login` and `/register`; every other environment disallows everything |
+
+**Never on these pages:** the landlord's phone or email (a renter reaches them after reserving), the property's payment instructions (shown on the hold page), and anything about other renters, including how many are on hold. Free beds are a count for the stay in the link, nothing more. The reserve button of each room is a plain `<form method="post">` with a `_token`, so it works without JavaScript; a broken rule (no free bed, a move-in outside the window…) comes back as the `error` flash on the listing page (`BusinessRuleException` redirects a plain form post back, like an Inertia one). A guest who presses it is sent to log in and comes back to the listing with the same stay.
+
 ## Permission matrix
 
 | Action | Owner | Caretaker | Renter | Public |

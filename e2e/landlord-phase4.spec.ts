@@ -108,13 +108,14 @@ test('phase 4: publish a new property, invite a caretaker who joins by the email
     expect(propertyPath).toMatch(/^\/landlord\/properties\/\d+$/);
     await clean();
 
-    // The listing is reachable: the room page of slice 2.5, for someone who isn't logged in.
+    // The listing is reachable for someone who isn't logged in: the room's old URL redirects to its listing page.
     const roomId = (await page.getByRole('link', { name: 'Edit room Room 1' }).getAttribute('href'))?.match(/rooms\/(\d+)\/edit/)?.[1];
     expect(roomId).toBeTruthy();
     const visitor = await browser.newContext(phone);
     const roomPage = await visitor.newPage();
     const roomResponse = await roomPage.goto(`/rooms/${roomId}`);
     expect(roomResponse?.status()).toBe(200);
+    expect(roomPage.url()).toMatch(/\/listings\/[a-z0-9-]+\/[a-z0-9-]+#room-\d+$/);
     await expect(roomPage.getByText(name).first()).toBeVisible();
     await visitor.close();
 
