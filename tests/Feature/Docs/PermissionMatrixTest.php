@@ -62,7 +62,7 @@ const MATRIX_ABILITIES = [
     'Record a refund' => [['recordRefund', 'reservation']],
     'Answer viewing requests' => [['answer', 'viewing'], ['markDone', 'viewing']],
     'Invite or remove caretakers, revoke invites' => [
-        ['viewAny', LandlordInvitation::class], ['create', LandlordInvitation::class], ['revoke', 'invitation'], ['remove', 'member'],
+        ['viewAny', LandlordInvitation::class], ['create', LandlordInvitation::class], ['resend', 'invitation'], ['revoke', 'invitation'], ['remove', 'member'],
     ],
     'View audit log' => [['viewAny', AuditLog::class], ['view', 'auditLog']],
     'Reserve a space, upload proof, cancel own reservation' => [

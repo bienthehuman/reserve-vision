@@ -1,7 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useState, type FormEvent } from 'react';
 import { Badge, Button, Card, Container, ListGroup } from 'react-bootstrap';
-import { DoorOpen, GeoAlt, Pencil, PlusLg } from 'react-bootstrap-icons';
+import { CheckCircleFill, Circle, DoorOpen, GeoAlt, Pencil, PlusLg } from 'react-bootstrap-icons';
 import EmptyState from '@/Components/EmptyState';
 import PageHeader from '@/Components/PageHeader';
 import ActionButton from '@/Components/ActionButton';
@@ -37,6 +37,16 @@ interface Room {
     spaces: Space[];
 }
 
+interface ChecklistItem {
+    key: string;
+    label: string;
+    done: boolean;
+    /** Why it isn't done, when there is nothing to tap. */
+    hint: string | null;
+    /** Where to fix it. */
+    fix: { href: string; label: string } | null;
+}
+
 interface ShowProps {
     property: {
         id: number;
@@ -52,9 +62,12 @@ interface ShowProps {
         can_edit: boolean;
         can_add_room: boolean;
         can_archive: boolean;
+        can_publish: boolean;
         can_manage_photos: boolean;
         photo_limit: number;
     };
+    /** What publishing still needs: owners only, while the property isn't published. */
+    checklist: ChecklistItem[] | null;
     photos: Photo[];
     rooms: Room[];
 }
@@ -203,8 +216,92 @@ function RoomCard({ room }: { room: Room }) {
     );
 }
 
-/** One property with its photos, rooms, rates and spaces. Read-only for a caretaker; owners edit, add and archive (slices 4.1, 4.2). */
-export default function Show({ property, photos, rooms }: ShowProps) {
+/**
+ * Publishing (slice 4.3), for owners. Not published: the list of what a listing needs, each missing item with a
+ * link to fix it, and "Publish", which stays disabled until the list is done (the server checks again).
+ * Published: what that means, and "Unpublish".
+ */
+function ListingCard({ property, checklist }: { property: ShowProps['property']; checklist: ChecklistItem[] | null }) {
+    if (!property.can_publish) {
+        return null;
+    }
+
+    if (property.is_published) {
+        return (
+            <Card className="mb-4">
+                <Card.Body>
+                    <h2 className="h3 mb-2">This property is published</h2>
+                    <p>Renters can find it and reserve its rooms and beds. If you unpublish it, nobody new can reserve; the reservations it already has stay as they are.</p>
+                    <div className="button-row">
+                        <ActionButton href={`/landlord/properties/${property.id}/publish`} method="delete" size="md">
+                            Unpublish
+                        </ActionButton>
+                    </div>
+                </Card.Body>
+            </Card>
+        );
+    }
+
+    const items = checklist ?? [];
+    const left = items.filter((item) => !item.done).length;
+
+    return (
+        <Card className="mb-4">
+            <Card.Body>
+                <h2 className="h3 mb-2">{left === 0 ? 'Ready to publish' : 'Before you publish'}</h2>
+                <p className="text-body-secondary" id="publish-status">
+                    {left === 0
+                        ? 'Everything a listing needs is here. Publish it so renters can find and reserve it.'
+                        : `Renters can't see this property yet. ${left === 1 ? 'One thing is' : `${left} things are`} still needed.`}
+                </p>
+                <ul className="checklist" aria-label="What a listing needs">
+                    {items.map((item) => (
+                        <li key={item.key}>
+                            {item.done ? (
+                                <CheckCircleFill aria-hidden="true" focusable="false" className="checklist__icon checklist__icon--done" />
+                            ) : (
+                                <Circle aria-hidden="true" focusable="false" className="checklist__icon" />
+                            )}
+                            <span>
+                                <span className="visually-hidden">{item.done ? 'Done: ' : 'Still needed: '}</span>
+                                {item.label}
+                                {!item.done && item.hint && <span className="checklist__hint">{item.hint}</span>}
+                                {!item.done && item.fix && (
+                                    <span className="checklist__hint">
+                                        {item.fix.href.startsWith('#') ? (
+                                            <a href={item.fix.href} className="link-action">
+                                                {item.fix.label}
+                                            </a>
+                                        ) : (
+                                            <Link href={item.fix.href} className="link-action">
+                                                {item.fix.label}
+                                            </Link>
+                                        )}
+                                    </span>
+                                )}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+                <div className="button-row">
+                    <ActionButton
+                        href={`/landlord/properties/${property.id}/publish`}
+                        method="post"
+                        size="md"
+                        variant="primary"
+                        disabled={left > 0}
+                        describedBy="publish-status"
+                    >
+                        Publish
+                    </ActionButton>
+                </div>
+            </Card.Body>
+        </Card>
+    );
+}
+
+/** One property with its photos, rooms, rates and spaces. Read-only for a caretaker; owners edit, add, archive and publish (slices 4.1 to 4.3). */
+export default function Show({ property, checklist, photos, rooms }: ShowProps) {
     return (
         <LandlordLayout>
             <Head title={property.name} />
@@ -244,6 +341,8 @@ export default function Show({ property, photos, rooms }: ShowProps) {
                     </p>
                 </PageHeader>
 
+                <ListingCard property={property} checklist={checklist} />
+
                 <Card className="mb-4">
                     <Card.Body>
                         <h2 className="h3 mb-3">Details</h2>
@@ -252,7 +351,7 @@ export default function Show({ property, photos, rooms }: ShowProps) {
                             <dd className="col-sm-8">{genderLabel[property.gender_policy]}</dd>
                             <dt className="col-sm-4">How renters pay the reservation fee</dt>
                             <dd className="col-sm-8 pre-line">
-                                {property.payment_instructions ?? 'Not added yet. You need this before you can publish.'}
+                                {property.payment_instructions ?? 'Not added yet.'}
                             </dd>
                             <dt className="col-sm-4">House rules</dt>
                             <dd className="col-sm-8 pre-line">

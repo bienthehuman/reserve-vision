@@ -20,8 +20,8 @@ The source of truth for the schema. Migrations must match it.
 | --- | --- | --- |
 | `users` | id, first_name, middle_name, last_name, suffix, email, phone, type, password, email_verified_at, timestamps | `first_name` and `last_name` are required; `middle_name` and `suffix` are optional. `suffix` is `VARCHAR(8)` validated by the `NameSuffix` enum and the form, with **no CHECK** (see [CONVENTIONS](CONVENTIONS.md#names)). `phone` is a Philippine mobile number stored normalized as `09XXXXXXXXX` (`App\Support\PhilippineMobile`; registration accepts `+63…`, spaces and dashes). `type IN ('renter','landlord')`, default `renter`. One user is one type; a landlord who wants to rent uses a second account (decision to check). Unique email |
 | `landlord_accounts` | id, name, slug, contact_phone, is_verified, verified_at\*, timestamps | Unique slug. `is_verified` is set by `php artisan landlord:verify {slug}`. Only verified accounts can publish |
-| `landlord_members` | id, landlord_account_id, user_id, role, timestamps | `role IN ('owner','caretaker')`. **Unique `user_id`**: a landlord user belongs to exactly one account, which makes "current account" unambiguous. At least one owner per account, enforced in `RemoveMember` |
-| `landlord_invitations`\* | id, landlord_account_id, email, role, token_hash, invited_by, expires_at, accepted_at, revoked_at, timestamps | Needed for caretaker invites. The token is stored hashed and expires after 7 days. Correction: owner revokes |
+| `landlord_members` | id, landlord_account_id, user_id, role, timestamps | `role IN ('owner','caretaker')`. **Unique `user_id`**: a landlord user belongs to exactly one account, which makes "current account" unambiguous. At least one owner per account, enforced in `RemoveMember`, which locks all of the account's member rows first. Removing deletes the row (the audit log keeps who and when); the user stays, without a membership |
+| `landlord_invitations`\* | id, landlord_account_id, email, role, token_hash, invited_by, expires_at, accepted_at, revoked_at, timestamps | Needed for caretaker invites. The token is stored hashed and expires after 7 days. **Pending** means `accepted_at` and `revoked_at` are null and `expires_at` is in the future; only a pending invitation can be accepted. Sending it again replaces `token_hash` and moves `expires_at` (also for an expired one); cancelling sets `revoked_at`; accepting sets `accepted_at` and creates the member with the invitation's `role`. Correction: owner revokes |
 
 ### Listings
 
@@ -51,10 +51,11 @@ Each write action lists how a mistake is undone, so no flow is a dead end.
 | --- | --- | --- |
 | Create or edit property, room, space | owner | Edit again; archive instead of delete. Rates already snapshotted on reservations don't change. A room's type can change only while no reservation has ever pointed at its spaces; a published property's slug and city can't change |
 | Archive property, room or space | owner | Unarchive (a property comes back as a draft). Archiving is blocked while a blocking reservation exists on it, now or in the future, and the message names the reservations to resolve. Archiving a property also unpublishes it. The one space of a private room can't be archived alone: archive the room |
-| Publish property | owner | Unpublish. Existing reservations are unaffected |
+| Publish property | owner | Unpublish, at any time. Existing reservations are unaffected. `first_published_at` stays, so the slug and city stay locked |
 | Upload photo | owner | Delete it (the row and both files), move it up or down, change its description. A photo that failed to resize is uploaded again in place, or deleted |
-| Invite caretaker | owner | Revoke the invite; remove the member |
-| Remove member | owner | Re-invite. The last owner can't be removed |
+| Invite caretaker | owner | Cancel the invitation (`revoked_at`), or send it again if the email was lost or the link expired (the old link dies); once accepted, remove the member |
+| Accept an invitation | the invited person | The owner removes the member |
+| Remove member | owner | Re-invite: a removed person is a landlord user without a membership, and joins again with one button. The last owner can't be removed, and nobody removes themself |
 | Reservation transitions | see [RESERVATIONS.md](RESERVATIONS.md#correction-paths) | see there |
 | Viewing request | renter | Renter cancels. Landlord's accept or decline can be changed until `preferred_at` passes |
 | Verify landlord account | operator (CLI) | `landlord:verify --revoke {slug}` unpublishes all of the account's properties |
@@ -170,7 +171,7 @@ erDiagram
 | `users.type` has `DEFAULT 'renter'` | The column is added to a table that may already hold rows; a `NOT NULL` column without a default would leave `''`, which the CHECK rejects. Registration always sets it explicitly |
 | `properties` has no `lat`/`lng`, has `province`, a required `barangay` and an optional `address` (review after 4.2) | Coordinates are too much to ask of a landlord, and nothing read them. Addresses are entered the standard Philippine way instead: street address (optional), barangay, city, province |
 | `landlord_invitations.token_hash` is `CHAR(64)` (SHA-256 hex), unique | The token is high-entropy, so a fast hash is enough and lookups by hash need no per-row work |
-| `landlord_invitations.role` allows `owner` and `caretaker` | Same CHECK as `landlord_members.role`; `InviteCaretaker` (a later slice) decides what may be invited |
+| `landlord_invitations.role` allows `owner` and `caretaker` | Same CHECK as `landlord_members.role`; `CreateInvitation` only ever writes `caretaker` (inviting a co-owner is in the backlog) |
 | Extra indexes: `reservations (status, hold_expires_at)`, `properties (landlord_account_id, is_published)`, `rooms (landlord_account_id, property_id)`, `viewing_requests (landlord_account_id, status)` and `(renter_id, status)`, `property_photos (property_id, sort)` | Queries the plan already names: the expiry job, the dashboard, the photo gallery |
 | `audit_logs` has no foreign keys | History must outlive and never block changes to what it describes |
 | Money columns are `INT UNSIGNED` | Up to ₱42.9 million per amount, with no `BIGINT` needed. An unsigned column refuses a negative value (error 1264) before any CHECK runs; the `>= 0` CHECKs stay as documentation of intent |

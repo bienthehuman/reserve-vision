@@ -1084,3 +1084,59 @@ $rv-swatches: (
     outline: $rv-focus-outline-width solid var(--bs-primary);
     outline-offset: $rv-focus-outline-offset;
 }
+
+// The buttons of a table row (slice 4.3): right-aligned in the last column, and below `md`,
+// where a row is a card, a line of their own with no caption.
+.stack-table__actions {
+  text-align: right;
+  white-space: nowrap;
+
+  @include media-breakpoint-down(md) {
+    white-space: normal;
+
+    .stack-table &,
+    .stack-table & .button-row {
+      justify-content: flex-end;
+    }
+
+    .stack-table &::before {
+      content: none;
+    }
+
+    &:empty {
+      display: none !important;
+    }
+  }
+}
+
+// What a property still needs before it can be published (slice 4.3). Done or not is said in
+// words (visually hidden) and by the icon's shape, not by color alone.
+.checklist {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    gap: 0.625rem;
+    align-items: flex-start;
+  }
+
+  &__icon {
+    flex: 0 0 auto;
+    margin-top: 0.2rem;
+    color: $rv-muted;
+
+    &--done {
+      color: $success;
+    }
+  }
+
+  &__hint {
+    display: block;
+    color: $rv-muted;
+    font-size: $rv-font-size-small;
+  }
+}

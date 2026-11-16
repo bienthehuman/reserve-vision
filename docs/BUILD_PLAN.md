@@ -66,8 +66,10 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | --- | --- | --- |
 | 4.1 | Dashboard + property/room/space editing | Real dashboard; owner CRUD with archive, extending 3.2's pages; caretaker read-only; axe clean |
 | 4.2 | Photos | Upload, queued WebP resize (thumb + full), reorder, delete, processing state |
-| 4.3 | Publish + caretaker invites | Publish rules (verified, a room, a ready photo); invitation email, acceptance, expiry and revoke (creation exists from 3.2); remove member; last-owner guard |
+| 4.3 | Publish + caretaker invites | Publish rules (verified, a room with a space, a ready photo, payment instructions) as a checklist; invitation email, acceptance, expiry, resend and revoke (creation exists from 3.2); remove member; last-owner guard |
 | 4.4 | Places | Every province, city and barangay from the PSA's PSGC list, imported into our own tables (no live API); the property form's address becomes dependent dropdowns; unique city slugs for listing URLs, the seven existing ones unchanged. Added after the UI review, before 5.1's search by place |
+
+| — | **Phase demo** | Playwright ([e2e/landlord-phase4.spec.ts](../e2e/landlord-phase4.spec.ts), phone viewport, both stacks): the owner creates a property with a shared room, uploads a photo, sees the checklist complete and publishes, and the room page opens; invites a caretaker, who joins through the emailed link (Mailpit; on the production stack a link from `landlord:invite`) and sees read-only pages; the owner removes them and their next request is `403`. Tag `v0.4.0` after 4.4 |
 
 ### Phase 5: Renter side (batch 5)
 
@@ -141,7 +143,6 @@ Ideas that came up and are deliberately not in any slice.
 | Policies for `LandlordAccount` (account settings) and `User` (profile) once those pages exist, with matrix rows | Slice 3.1 |
 | Factories that work while a landlord is logged in (today fixtures must be created before `actingAs()`, or the write guard refuses them) | Slice 3.1 |
 | Search reservations by renter name or room, and a date filter, on the landlord list (the demo owner has 328, so finding one means paging) | Slice 3.2 |
-| Revoke an invitation and resend from the members page (the policy ability `revoke` exists; the UI is 4.3) | Slice 3.2 |
 | Show a caretaker's email on the members page, if owners ask for it (today names only) | Slice 3.2 |
 | A map on the listing page. `lat`/`lng` were dropped (review after 4.2): if a map comes back, place the pin by geocoding the address or with a "drop a pin" picker, never typed coordinates | Slice 4.1, UI review |
 | Let an owner fix an ugly generated listing link (`-2`) before publishing; the form field was removed as too technical | UI review |
@@ -157,4 +158,11 @@ Ideas that came up and are deliberately not in any slice.
 | Retry a failed photo without choosing the file again, when the failure was storage and not the file (today the upload is deleted on failure) | Slice 4.2 |
 | Upload progress per file, and drag-and-drop to reorder next to the Up and Down buttons | Slice 4.2 |
 | Photos per room ("Bed area of Room 2"), not only per property | Slice 4.2 |
+| Invite a co-owner (today only caretakers can be invited; the `role` column already allows `owner`) | Slice 4.3 |
+| Change a member's role (caretaker to owner and back) without removing and inviting again | Slice 4.3 |
+| Let a member leave an account themself (today another owner removes them) | Slice 4.3 |
+| After "Log out" on the invitation page (logged in with another email), come back to the invitation instead of the home page | Slice 4.3 |
+| Tell the owner by email when an invitation is accepted | Slice 4.3 |
+| Show on the members page who was removed and when (the audit log has it; there is no page for it yet) | Slice 4.3 |
+| A preview of the listing before publishing | Slice 4.3 |
 | Tell the owner why a photo failed (unreadable file or storage) instead of one message | Slice 4.2 |

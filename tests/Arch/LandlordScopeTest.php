@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Console\Commands\DoctorCommand;
+use App\Models\LandlordInvitation;
 use App\Models\Property;
 use App\Models\Reservation;
 use App\Models\Room;
@@ -22,6 +23,7 @@ const NAMED_ESCAPES = [
     Space::class.'::scopeListed',
     Reservation::class.'::scopeOwnedByRenter',
     Reservation::class.'::scopeOnListedSpaces',
+    LandlordInvitation::class.'::scopeForToken', // slice 4.3: the invitation link, opened by someone who isn't a member yet
 ];
 
 /**

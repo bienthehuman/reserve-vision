@@ -82,6 +82,17 @@ final class CurrentLandlordAccount
         return $this->resolve() ?? throw NoCurrentLandlordAccount::make();
     }
 
+    /**
+     * Drops what was resolved, so the next call reads the membership again. For the one
+     * request in which a logged-in user's membership appears: AcceptInvitation (slice 4.3).
+     */
+    public function forget(): void
+    {
+        $this->user()?->unsetRelation('landlordMember');
+        $this->resolvedFor = null;
+        $this->member = null;
+    }
+
     private function resolve(): ?LandlordMember
     {
         $user = $this->user();

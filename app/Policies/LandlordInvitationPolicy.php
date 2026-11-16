@@ -26,6 +26,12 @@ final class LandlordInvitationPolicy
         return $this->landlordRole($user, self::OWNERS);
     }
 
+    /** Invite or remove caretakers, revoke invites: a new link for an invitation that hasn't been answered. */
+    public function resend(User $user, LandlordInvitation $invitation): Response
+    {
+        return $this->landlordOn($user, $invitation->landlord_account_id, self::OWNERS);
+    }
+
     /** Invite or remove caretakers, revoke invites. */
     public function revoke(User $user, LandlordInvitation $invitation): Response
     {

@@ -5,9 +5,11 @@ declare(strict_types=1);
 use App\Exceptions\Domain\BusinessRuleException;
 use App\Http\Middleware\EnsureUserIsLandlord;
 use App\Http\Middleware\EnsureUserIsRenter;
+use App\Http\Middleware\ExposeRequestTiming;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SecurityHeaders;
 use App\Models\User;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -31,6 +33,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
+
+        // The concurrency suite's timing probe (a no-op unless CONCURRENCY_PROBE, never in production) wraps
+        // the whole route, auth included: a racer refused by `landlord` or a policy still gets the headers.
+        $middleware->prependToPriorityList(AuthenticatesRequests::class, ExposeRequestTiming::class);
 
         $middleware->alias([
             'landlord' => EnsureUserIsLandlord::class,
