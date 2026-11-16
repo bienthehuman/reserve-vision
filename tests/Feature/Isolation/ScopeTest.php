@@ -206,7 +206,7 @@ it('isn\'t active in a queued job on a worker', function (): void {
     IsolationProbeJob::$seen = [];
 
     dispatch(new IsolationProbeJob('system'))->onConnection('database');
-    $this->artisan('queue:work', ['connection' => 'database', '--stop-when-empty' => true])->assertExitCode(0);
+    $this->artisan('queue:work', ['connection' => 'database', '--stop-when-empty' => true, '--memory' => 1024])->assertExitCode(0);
 
     expect(IsolationProbeJob::$seen['system']['applies'])->toBeFalse()
         ->and(IsolationProbeJob::$seen['system']['properties'])->toContain($a->id)->toContain($b->id);

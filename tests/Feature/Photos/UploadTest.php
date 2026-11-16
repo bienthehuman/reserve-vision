@@ -139,15 +139,10 @@ it('rejects a file that is not a photo it can use, and stores nothing', function
         'This photo is larger than 10 MB. Choose a smaller one, or export it at a lower quality.',
     ],
     'more than 40 megapixels' => [
-        // A PNG of one flat colour compresses to a few kilobytes, so the size limit doesn't catch it first.
-        fn () => photoUpload('poster.png', (function (): string {
-            $image = imagecreate(8000, 5001);
-            imagecolorallocate($image, 200, 200, 200);
-            ob_start();
-            imagepng($image);
-
-            return (string) ob_get_clean();
-        })()),
+        // Only the header says 8000 × 5001: the size is read from it and refused before anything is decoded,
+        // so the test needs no 40-megapixel image in memory (which once pushed CI's test process over the
+        // queue worker's 128 MB stop, failing another test's `queue:work` with exit code 12).
+        fn () => photoUpload('poster.png', "\x89PNG\r\n\x1a\n".pack('N', 13).'IHDR'.pack('NNC5', 8000, 5001, 8, 2, 0, 0, 0).str_repeat("\0", 64)),
         'This photo has too many pixels (8000 × 5001). Resize it to 40 megapixels or fewer.',
     ],
     'no file at all' => [fn () => null, 'Choose a photo to upload.'],
@@ -230,7 +225,7 @@ it('resizes through the real database queue, as the worker does', function (): v
 
     // The worker has no logged-in user.
     $this->app['auth']->forgetGuards();
-    $this->artisan('queue:work', ['connection' => 'database', '--stop-when-empty' => true])->assertExitCode(0);
+    $this->artisan('queue:work', ['connection' => 'database', '--stop-when-empty' => true, '--memory' => 1024])->assertExitCode(0);
 
     $photo->refresh();
     expect($photo->status)->toBe(PhotoStatus::Ready)

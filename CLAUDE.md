@@ -264,6 +264,7 @@ To see a failed photo by hand: `docker compose stop worker`, upload, replace the
 - **GD decodes a truncated JPEG** without complaint (`gd.jpeg_ignore_warning=1`, grey where the data ends), so the "doesn't decode" tests use a PNG header on a broken body. Animated WebP doesn't decode, so it is refused.
 - **`exif_read_data()` reads JPEG only**: a WebP's or PNG's EXIF orientation is ignored (their metadata is still dropped by re-encoding).
 - **A plain lossy WebP from GD is one `VP8 ` chunk**: the no-metadata test asserts the chunk list, not just the absence of the word "Exif".
+- **`queue:work` stops itself (exit code 12) above 128 MB**, measured on the whole PHP process. Inside Pest that is the test process, so the in-test workers pass `--memory=1024`, and no test should build a huge image (the 40-megapixel test writes only a PNG header). On a real worker the stop comes after the job, and the container's restart policy brings it back.
 - **MySQL returns a JSON column's keys in its own order**: compare decoded audit rows with `toEqual`, not `toBe`.
 - **`assert()` fails the arch test** (Pest's security preset), in `database/` too: throw instead.
 - **`sizeOf` is PHP's own function** (case-insensitive `sizeof`): a Pest helper can't be called that.
