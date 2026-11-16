@@ -6,6 +6,7 @@ import ErrorSummary from '@/Components/Form/ErrorSummary';
 import SubmitButton from '@/Components/Form/SubmitButton';
 import TextField from '@/Components/Form/TextField';
 import { useFocusOnError } from '@/Components/Form/useFocusOnError';
+import PageHeader from '@/Components/PageHeader';
 import LandlordLayout from '@/Layouts/LandlordLayout';
 import { formatDate, formatDateTime } from '@/lib/dates';
 
@@ -34,8 +35,11 @@ export default function Index({ members, invitations }: IndexProps) {
         <LandlordLayout>
             <Head title="Members" />
             <Container className="py-4 py-md-5">
-                <h1 className="h2 mb-4">Members</h1>
+                <PageHeader title="Members">
+                    <p className="page-header__subtitle">The people who can manage this account's properties and reservations.</p>
+                </PageHeader>
 
+                <Card className="table-card">
                 <Table className="stack-table align-middle">
                     <thead>
                         <tr>
@@ -54,17 +58,19 @@ export default function Index({ members, invitations }: IndexProps) {
                         ))}
                     </tbody>
                 </Table>
+                </Card>
 
-                <h2 className="h3 mt-5 mb-3">Pending invitations</h2>
+                <h2 className="h3 mt-5 mb-3">Invitations waiting for an answer</h2>
                 {invitations.length === 0 ? (
-                    <p className="text-body-secondary">No pending invitations.</p>
+                    <p className="text-body-secondary">No one has been invited yet.</p>
                 ) : (
+                    <Card className="table-card">
                     <Table className="stack-table align-middle">
                         <thead>
                             <tr>
                                 <th scope="col">Email</th>
                                 <th scope="col">Role</th>
-                                <th scope="col">Expires</th>
+                                <th scope="col">Good until</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -74,22 +80,23 @@ export default function Index({ members, invitations }: IndexProps) {
                                         {invitation.email}
                                     </td>
                                     <td data-label="Role">{roleLabel[invitation.role]}</td>
-                                    <td data-label="Expires">
+                                    <td data-label="Good until">
                                         {formatDateTime(invitation.expires_at)}
-                                        {invitation.is_expired && ' (expired)'}
+                                        {invitation.is_expired && ' (no longer valid)'}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </Table>
+                    </Card>
                 )}
 
-                <Card className="auth-card mt-4">
-                    <Card.Body className="p-3 p-sm-4">
-                        <h2 className="h3">Invite a caretaker</h2>
+                <Card className="form-card mt-4">
+                    <Card.Body>
+                        <h2 className="h3 mb-3">Invite a caretaker</h2>
                         <Alert variant="info" className="d-flex gap-2 align-items-start">
                             <InfoCircle aria-hidden="true" focusable="false" className="flex-shrink-0 mt-1" />
-                            <span>The invite email arrives in a later version. For now the invitation is only saved here.</span>
+                            <span>We don't email invitations yet. For now, an invitation is only listed on this page.</span>
                         </Alert>
                         <ErrorSummary ref={summaryRef} errors={form.errors} order={['email']} />
                         <form noValidate onSubmit={submit} aria-label="Invite a caretaker">
@@ -102,7 +109,7 @@ export default function Index({ members, invitations }: IndexProps) {
                                 value={form.data.email}
                                 onChange={(value) => form.setData('email', value)}
                                 error={form.errors.email}
-                                help="A caretaker can see reservations and properties, but can't change rates or invite people. Valid for 7 days."
+                                help="A caretaker can see reservations and properties, but can't change prices or invite people. The invitation is good for 7 days."
                                 required
                             />
                             <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">

@@ -98,6 +98,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | 2026-11-14 | Deployable, not hosted; CI proves the production stack instead | [ADR 0007](adr/0007-deployable-not-hosted.md) |
 | 2026-11-14 | Landlord verification by artisan command; no admin web role | [ACCESS.md](ACCESS.md#actors) |
 | 2026-11-14 | Design system: ube primary (also prices), mango highlight, Plus Jakarta Sans headings; hue chosen to differ from Hilom/PesoTrack teal and the portfolio's orange, light mode only in v1 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
+| 2026-11-16 | UI review after 4.2: design system retuned (surface layer, one control height and radius, link styles, account menu, pager), addresses standardized as street / barangay / city / province, `lat`/`lng` dropped. 4.3's publish rule no longer asks for coordinates | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md), [DATA_MODEL.md](DATA_MODEL.md) |
 | 2026-11-16 | Phase 3 split into 3.1 (isolation core) and 3.2 (minimal landlord pages + T6/T7): T6 and T7 need landlord routes, and none existed. T6 also covers renter routes | this file |
 | 2026-11-15 | Auth gets its own slice (2.4), before the concurrency harness (now 2.5), which needs logged-in renters. Phase 2 ends with tag `v0.2.0`; the PoC tag becomes `v0.3.0-poc` | this file |
 | 2026-11-15 | Transition-table doc test moves from 6.1 to 2.1, so the lifecycle is locked before any action uses it | this file |
@@ -140,7 +141,10 @@ Ideas that came up and are deliberately not in any slice.
 | Search reservations by renter name or room, and a date filter, on the landlord list (the demo owner has 328, so finding one means paging) | Slice 3.2 |
 | Revoke an invitation and resend from the members page (the policy ability `revoke` exists; the UI is 4.3) | Slice 3.2 |
 | Show a caretaker's email on the members page, if owners ask for it (today names only) | Slice 3.2 |
-| Map picker for latitude and longitude (Leaflet, with the listing page's map) instead of typing numbers; 5.1 covers the map, so make the form field use it there | Slice 4.1 |
+| A map on the listing page. `lat`/`lng` were dropped (review after 4.2): if a map comes back, place the pin by geocoding the address or with a "drop a pin" picker, never typed coordinates | Slice 4.1, UI review |
+| More cities, and provinces beyond the seven in `database/data/places.php` (a province → city → barangay list such as the PSGC) | UI review |
+| Let an owner fix an ugly generated listing link (`-2`) before publishing; the form field was removed as too technical | UI review |
+| A styled list for date fields (the dropdown list is styled in Chromium via `appearance: base-select`; the date picker is still the browser's) | UI review |
 | Redirect old slugs: let a published property's slug change and keep the old URL working with a 301 | Slice 4.1 |
 | Delete a room or space that was never reserved (today only archive) | Slice 4.1 |
 | Reorder or bulk-rename beds; a bed count change that adds several at once | Slice 4.1 |

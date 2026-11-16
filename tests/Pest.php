@@ -170,7 +170,7 @@ function ownerWithRoom(int $beds = 0, string $name = 'Alpha Home'): array
 {
     $owner = landlordUser();
     $property = Property::factory()->published()->create([
-        'landlord_account_id' => accountIdOf($owner), 'name' => $name, 'city' => 'Manila', 'city_slug' => 'manila', 'slug' => Str::slug($name),
+        'landlord_account_id' => accountIdOf($owner), 'name' => $name, 'city' => 'Manila', 'city_slug' => 'manila', 'province' => 'Metro Manila', 'slug' => Str::slug($name),
     ]);
     $room = ($beds > 0 ? Room::factory()->shared(beds: $beds) : Room::factory())->for($property)->create(['name' => 'Room 1', 'monthly_rate' => 650000, 'reservation_fee' => 150000]);
 

@@ -49,7 +49,7 @@ final class CreateProperty
     }
 
     /**
-     * @param  array{city: string, slug: string, lat: float, lng: float, spread: float, rate: float, barangays: list<string>}  $place
+     * @param  array{city: string, slug: string, province: string, rate: float, barangays: list<string>}  $place
      */
     private function insert(LandlordAccount $account, PropertyDetails $details, array $place): Property
     {
@@ -67,12 +67,11 @@ final class CreateProperty
                     'kind' => $details->kind,
                     'name' => $details->name,
                     'slug' => $slug,
+                    'address' => $details->address,
+                    'barangay' => $details->barangay,
                     'city' => $place['city'],
                     'city_slug' => $place['slug'],
-                    'barangay' => $details->barangay,
-                    'address' => $details->address,
-                    'lat' => $details->lat ?? Places::coordinate($place['lat']),
-                    'lng' => $details->lng ?? Places::coordinate($place['lng']),
+                    'province' => $place['province'],
                     'gender_policy' => $details->genderPolicy,
                     'house_rules' => $details->houseRules,
                     'payment_instructions' => $details->paymentInstructions,

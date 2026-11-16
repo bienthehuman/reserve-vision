@@ -1,11 +1,12 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import type { FormEvent } from 'react';
-import { Alert, Container } from 'react-bootstrap';
+import { Alert, Card, Container } from 'react-bootstrap';
 import ErrorSummary from '@/Components/Form/ErrorSummary';
 import SelectField from '@/Components/Form/SelectField';
 import SubmitButton from '@/Components/Form/SubmitButton';
 import TextField from '@/Components/Form/TextField';
 import { useFocusOnError } from '@/Components/Form/useFocusOnError';
+import PageHeader from '@/Components/PageHeader';
 import LandlordLayout from '@/Layouts/LandlordLayout';
 import { pesosText } from '@/lib/money';
 
@@ -61,13 +62,21 @@ export default function Form({ property, room, type_locked: typeLocked }: FormPr
         <LandlordLayout>
             <Head title={editing ? `Edit ${room.name}` : 'Add a room'} />
             <Container className="py-4 py-md-5">
-                <p className="mb-2">
-                    <Link href={`/landlord/properties/${property.id}`}>Back to {property.name}</Link>
-                </p>
-                <h1 className="h2 mb-4">{editing ? `Edit ${room.name}` : `Add a room to ${property.name}`}</h1>
+                <PageHeader
+                    title={editing ? `Edit ${room.name}` : 'Add a room'}
+                    eyebrow={property.name}
+                    back={{ href: `/landlord/properties/${property.id}`, label: `Back to ${property.name}` }}
+                />
 
-                <form noValidate onSubmit={submit} className="room-form">
+                <form noValidate onSubmit={submit} className="room-form form-card">
                     <ErrorSummary ref={summaryRef} errors={form.errors} order={FIELD_ORDER} />
+
+                    <Card>
+                        <section className="form-section" aria-labelledby="section-room">
+                            <h2 id="section-room" className="h3 form-section__title">
+                                The room
+                            </h2>
+                            <p className="form-section__intro">A private room is rented whole. A shared room is rented one bed at a time.</p>
 
                     <TextField
                         name="name"
@@ -85,13 +94,13 @@ export default function Form({ property, room, type_locked: typeLocked }: FormPr
                         value={form.data.room_type}
                         onChange={(value) => form.setData('room_type', value as 'private' | 'shared')}
                         options={[
-                            { value: 'private', label: 'Private room (one space, rented whole)' },
+                            { value: 'private', label: 'Private room (rented whole)' },
                             { value: 'shared', label: 'Shared room (rented by the bed)' },
                         ]}
                         error={form.errors.room_type}
                         help={
                             typeLocked
-                                ? "The type can't change because this room has had a reservation: the reservations point to its beds."
+                                ? "The room type can't be changed because this room has already been reserved."
                                 : undefined
                         }
                         disabled={typeLocked}
@@ -106,20 +115,28 @@ export default function Form({ property, room, type_locked: typeLocked }: FormPr
                             value={form.data.beds}
                             onChange={(value) => form.setData('beds', value)}
                             error={form.errors.beds}
-                            help="From 2 to 12. They are named Bed A, Bed B and so on; you can rename them, or add a bed later."
+                            help="From 2 to 12. They start as Bed A, Bed B and so on. You can rename them or add more later."
                             required
                         />
                     )}
                     {becomingPrivate && (
                         <Alert variant="info" className="mb-3">
-                            Making this room private keeps one space, named "Whole room", and removes its other beds. That works because none has been reserved.
+                            Making this room private removes its beds: it will be rented as one whole room. You can do this because none of its beds has been reserved.
                         </Alert>
                     )}
                     {editing && room.room_type === 'shared' && !becomingPrivate && (
                         <p className="text-body-secondary">
-                            It has {room.bed_count} {room.bed_count === 1 ? 'bed' : 'beds'} in use. Add, rename or archive beds on the property page.
+                            This room has {room.bed_count} {room.bed_count === 1 ? 'bed' : 'beds'}. You can add, rename or archive beds on the property page.
                         </p>
                     )}
+
+                        </section>
+
+                        <section className="form-section" aria-labelledby="section-prices">
+                            <h2 id="section-prices" className="h3 form-section__title">
+                                Prices
+                            </h2>
+                            <p className="form-section__intro">What a renter pays to reserve, and when they move in.</p>
 
                     <div className="row">
                         <div className="col-sm-6">
@@ -130,7 +147,7 @@ export default function Form({ property, room, type_locked: typeLocked }: FormPr
                                 value={form.data.monthly_rate}
                                 onChange={(value) => form.setData('monthly_rate', value)}
                                 error={form.errors.monthly_rate}
-                                help="Pesos, for example 6500 or 6500.50. For a shared room, the price of one bed."
+                                help="In pesos, for example 6500. For a shared room, this is the price of one bed."
                                 required
                             />
                         </div>
@@ -142,7 +159,7 @@ export default function Form({ property, room, type_locked: typeLocked }: FormPr
                                 value={form.data.reservation_fee}
                                 onChange={(value) => form.setData('reservation_fee', value)}
                                 error={form.errors.reservation_fee}
-                                help="Renters pay it to hold a space. A reservation keeps the fee it was made with, so changing it only affects new ones."
+                                help="What a renter pays to reserve. Changing it later only affects new reservations."
                                 required
                             />
                         </div>
@@ -153,6 +170,7 @@ export default function Form({ property, room, type_locked: typeLocked }: FormPr
                             <SelectField
                                 name="deposit_months"
                                 label="Deposit"
+                                help="Returned when the renter moves out."
                                 value={form.data.deposit_months}
                                 onChange={(value) => form.setData('deposit_months', value)}
                                 options={months}
@@ -163,7 +181,8 @@ export default function Form({ property, room, type_locked: typeLocked }: FormPr
                         <div className="col-sm-6">
                             <SelectField
                                 name="advance_months"
-                                label="Advance"
+                                label="Advance rent"
+                                help="Paid ahead when the renter moves in."
                                 value={form.data.advance_months}
                                 onChange={(value) => form.setData('advance_months', value)}
                                 options={months}
@@ -173,9 +192,17 @@ export default function Form({ property, room, type_locked: typeLocked }: FormPr
                         </div>
                     </div>
 
-                    <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">
-                        {editing ? 'Save room' : 'Add room'}
-                    </SubmitButton>
+                        </section>
+
+                        <div className="form-actions">
+                            <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">
+                                {editing ? 'Save changes' : 'Add room'}
+                            </SubmitButton>
+                            <Link href={`/landlord/properties/${property.id}`} className="btn btn-outline-primary">
+                                Cancel
+                            </Link>
+                        </div>
+                    </Card>
                 </form>
             </Container>
         </LandlordLayout>

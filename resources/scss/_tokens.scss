@@ -5,13 +5,16 @@
 $rv-primary: #5b3e96; // ube
 $rv-primary-hover: #47307a;
 $rv-primary-subtle: #f1ecf8;
+$rv-primary-border: #c9bce3; // the line of a secondary button and of a hovered card
 $rv-mango: #f7c948; // background only, always with ink text
-$rv-ink: #1f2a2e;
-$rv-muted: #5b6770;
-$rv-border-strong: #7d878f;
-$rv-border: #d9dee1;
-$rv-surface: #ffffff;
-$rv-bg: #faf8f5;
+// Neutrals lean towards ube (hue 260°), so text, lines and the page belong to the brand color.
+$rv-ink: #211d2b;
+$rv-muted: #5e596b;
+$rv-border-strong: #827c90;
+$rv-border: #e2deea;
+$rv-surface: #ffffff; // cards, tables, forms, inputs: the layer content sits on
+$rv-surface-muted: #faf9fc; // table headers, hovered rows, wells inside a surface
+$rv-bg: #f6f4fa; // the page, one step darker than a surface
 
 // Semantic: base and subtle background
 $rv-success: #1e7b45;
@@ -23,7 +26,7 @@ $rv-danger-subtle: #fdecea;
 $rv-info: #1d5fa8;
 $rv-info-subtle: #e8f0fa;
 $rv-secondary: $rv-muted;
-$rv-secondary-subtle: #eef0f1;
+$rv-secondary-subtle: #efedf3;
 
 // Typography
 $rv-font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -44,12 +47,21 @@ $rv-font-size-price: 1.25rem;
 
 // Space, shape and depth
 $rv-spacer: 1rem;
-$rv-radius-sm: 0.375rem;
-$rv-radius: 0.625rem;
-$rv-radius-lg: 1rem;
-$rv-shadow-sm: 0 1px 2px rgb(31 42 46 / 0.06);
-$rv-shadow: 0 4px 16px rgb(31 42 46 / 0.08);
-$rv-shadow-lg: 0 12px 32px rgb(31 42 46 / 0.12);
+$rv-radius-sm: 0.375rem; // menu items, chips, things inside a control
+$rv-radius: 0.5rem; // every control: buttons of both sizes, inputs, dropdowns
+$rv-radius-lg: 0.75rem; // cards, tables, menus, photos
+$rv-radius-xl: 1rem; // modals, sheets
+$rv-shadow-sm: 0 1px 2px rgb(33 29 43 / 0.05);
+$rv-shadow: 0 4px 16px rgb(33 29 43 / 0.08);
+$rv-shadow-lg: 0 12px 32px rgb(33 29 43 / 0.14);
+
+// Controls: a button, an input and a dropdown side by side are the same height.
+// 40 px with a mouse, 44 px on a touch screen (pointer: coarse).
+$rv-control-height: 2.5rem;
+$rv-control-height-sm: 2rem;
+$rv-control-height-touch: 2.75rem;
+$rv-control-height-sm-touch: 2.5rem;
+$rv-font-size-control: 0.9375rem;
 $rv-container-max: 1140px;
 $rv-gutter-phone: 1rem;
 $rv-motion: 150ms ease-out;

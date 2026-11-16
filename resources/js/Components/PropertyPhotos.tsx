@@ -209,7 +209,7 @@ function PhotoCard({ photo, count, canManage }: { photo: Photo; count: number; c
                                 Describe
                             </Button>
                         )}
-                        <Button type="button" size="sm" variant="danger" aria-label={`Delete ${name}`} onClick={() => setConfirming(true)}>
+                        <Button type="button" size="sm" variant="outline-danger" aria-label={`Delete ${name}`} onClick={() => setConfirming(true)}>
                             Delete
                         </Button>
                     </div>
@@ -305,9 +305,9 @@ export default function PropertyPhotos({ propertyId, propertyName, photos, limit
     };
 
     return (
-        <Card className="auth-card mb-4">
-            <Card.Body className="p-3 p-sm-4">
-                <div className="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-2">
+        <Card className="mb-4">
+            <Card.Body>
+                <div className="card-title-row align-items-baseline mb-2">
                     <h2 className="h3 mb-0">Photos</h2>
                     <span className="small text-body-secondary">
                         {photos.length} of {limit}
@@ -320,7 +320,7 @@ export default function PropertyPhotos({ propertyId, propertyName, photos, limit
                     </p>
                 ) : (
                     <>
-                        <p className="small text-body-secondary">The first photo is the cover: the one renters see in search results.</p>
+                        <p className="small text-body-secondary">The first photo is the cover: the one renters see first when they search.</p>
                         <ul className="photo-grid list-unstyled">
                             {photos.map((photo) => (
                                 <PhotoCard key={photo.id} photo={photo} count={photos.length} canManage={canManage} />
@@ -341,12 +341,12 @@ export default function PropertyPhotos({ propertyId, propertyName, photos, limit
                             name="photos"
                             multiple
                             accept={ACCEPT}
-                            className="form-control mb-1"
+                            className="form-control mb-2"
                             aria-describedby={helpId}
                             disabled={progress !== null}
                         />
                         <p id={helpId} className="form-text mb-3">
-                            JPEG, PNG or WebP, up to 10 MB each and at least 800 pixels on the longer side. You can choose several at once.
+                            JPEG, PNG or WebP photos, up to 10 MB each. Photos straight from a phone camera work best: very small pictures (under 800 pixels on the longer side) are refused. You can choose several at once.
                         </p>
                         <SubmitButton processing={progress !== null} pendingLabel="Uploading…" className="">
                             Upload photos

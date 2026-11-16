@@ -12,7 +12,7 @@ body *:not(html):not(style):not(br):not(tr):not(code) {
 body {
     -webkit-text-size-adjust: none;
     background-color: #FFFFFF;
-    color: #1F2A2E;
+    color: #211d2b;
     height: 100%;
     line-height: 1.4;
     margin: 0;
@@ -39,7 +39,7 @@ a img {
 /* Typography */
 
 h1 {
-    color: #1F2A2E;
+    color: #211d2b;
     font-size: 18px;
     font-weight: bold;
     margin-top: 0;
@@ -81,7 +81,7 @@ img {
     -premailer-cellpadding: 0;
     -premailer-cellspacing: 0;
     -premailer-width: 100%;
-    background-color: #FAF8F5;
+    background-color: #f6f4fa;
     margin: 0;
     padding: 0;
     width: 100%;
@@ -126,9 +126,9 @@ img {
     -premailer-cellpadding: 0;
     -premailer-cellspacing: 0;
     -premailer-width: 100%;
-    background-color: #FAF8F5;
-    border-bottom: 1px solid #FAF8F5;
-    border-top: 1px solid #FAF8F5;
+    background-color: #f6f4fa;
+    border-bottom: 1px solid #f6f4fa;
+    border-top: 1px solid #f6f4fa;
     margin: 0;
     padding: 0;
     width: 100%;
@@ -139,7 +139,7 @@ img {
     -premailer-cellspacing: 0;
     -premailer-width: 570px;
     background-color: #FFFFFF;
-    border-color: #D9DEE1;
+    border-color: #e2deea;
     border-radius: 4px;
     border-width: 1px;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
@@ -155,7 +155,7 @@ img {
 /* Subcopy */
 
 .subcopy {
-    border-top: 1px solid #D9DEE1;
+    border-top: 1px solid #e2deea;
     margin-top: 25px;
     padding-top: 25px;
 }
@@ -177,13 +177,13 @@ img {
 }
 
 .footer p {
-    color: #5B6770;
+    color: #5e596b;
     font-size: 12px;
     text-align: center;
 }
 
 .footer a {
-    color: #5B6770;
+    color: #5e596b;
     text-decoration: underline;
 }
 
@@ -198,13 +198,13 @@ img {
 }
 
 .table th {
-    border-bottom: 1px solid #D9DEE1;
+    border-bottom: 1px solid #e2deea;
     margin: 0;
     padding-bottom: 8px;
 }
 
 .table td {
-    color: #1F2A2E;
+    color: #211d2b;
     font-size: 15px;
     line-height: 18px;
     margin: 0;
@@ -273,13 +273,13 @@ img {
 }
 
 .panel-content {
-    background-color: #FAF8F5;
-    color: #1F2A2E;
+    background-color: #f6f4fa;
+    color: #211d2b;
     padding: 16px;
 }
 
 .panel-content p {
-    color: #1F2A2E;
+    color: #211d2b;
 }
 
 .panel-item {

@@ -19,15 +19,15 @@ it('shows a verified owner the dashboard', function (): void {
         ->where('role', 'owner'));
 
     expect($response->getContent())
-        ->toContain('Proofs to review')->toContain('Occupancy today')
+        ->toContain('Payments to review')->toContain('Occupancy today')
         ->not->toContain('awaiting verification');
 });
 
-it('tells the owner of an unverified account that it is awaiting verification (ACCESS.md flow A)', function (): void {
+it('tells the owner of an unverified account that it is still being checked (ACCESS.md flow A)', function (): void {
     $response = $this->actingAs(landlordUser(verifiedAccount: false))->get('/landlord');
 
     $response->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->where('account.isVerified', false));
-    expect($response->getContent())->toContain('Your account is awaiting verification');
+    expect($response->getContent())->toContain('Your account is being checked');
 });
 
 it('lets a caretaker in too', function (): void {

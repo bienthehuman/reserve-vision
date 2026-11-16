@@ -56,9 +56,9 @@ test('4.2: the owner uploads photos, waits for them to be ready, reorders, descr
     const name = `E2E Photos ${Date.now()}`;
     await page.goto('/landlord/properties/create');
     await page.waitForLoadState('networkidle');
-    await page.getByLabel('Name', { exact: true }).fill(name);
+    await page.getByLabel('Property name', { exact: true }).fill(name);
+    await page.getByLabel('Barangay', { exact: true }).fill('Loyola Heights');
     await page.getByLabel('City', { exact: true }).selectOption('quezon-city');
-    await page.getByLabel('Street address').fill('12 Mabini Street');
     await page.getByRole('button', { name: 'Save as a draft' }).click();
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
     await page.waitForLoadState('networkidle');

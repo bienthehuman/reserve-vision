@@ -81,7 +81,11 @@ export default function Login({ canResetPassword, demoLogins }: LoginProps) {
                             checked={form.data.remember}
                             onChange={(event) => form.setData('remember', event.target.checked)}
                         />
-                        {canResetPassword && <Link href="/forgot-password">Forgot your password?</Link>}
+                        {canResetPassword && (
+                            <Link href="/forgot-password" className="link-action">
+                                Forgot your password?
+                            </Link>
+                        )}
                     </div>
                     <SubmitButton processing={form.processing} pendingLabel="Logging in…">
                         Log in

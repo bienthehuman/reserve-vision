@@ -13,10 +13,12 @@ interface ActionButtonProps {
     /** Sent with a POST, e.g. `{ direction: 'up' }`. */
     data?: Record<string, string>;
     disabled?: boolean;
+    /** Small in a list or on a card (the default); `md` next to full-size buttons in a page header. */
+    size?: 'sm' | 'md';
 }
 
-/** A small button that sends one Inertia request and shows it is working (disabled while it runs). */
-export default function ActionButton({ href, method, children, accessibleName, variant = 'outline-primary', data = {}, disabled = false }: ActionButtonProps) {
+/** A button that sends one Inertia request and shows it is working (disabled while it runs). */
+export default function ActionButton({ href, method, children, accessibleName, variant = 'outline-primary', data = {}, disabled = false, size = 'sm' }: ActionButtonProps) {
     const [processing, setProcessing] = useState(false);
 
     const send = () => {
@@ -30,7 +32,7 @@ export default function ActionButton({ href, method, children, accessibleName, v
     };
 
     return (
-        <Button type="button" size="sm" variant={variant} disabled={processing || disabled} aria-label={accessibleName} onClick={send}>
+        <Button type="button" size={size === 'sm' ? 'sm' : undefined} variant={variant} disabled={processing || disabled} aria-label={accessibleName} onClick={send}>
             {processing ? 'Working…' : children}
         </Button>
     );

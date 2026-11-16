@@ -19,7 +19,7 @@ export default function AuthCard({ title, intro, children, footer, wide = false 
         <Container className="py-4 py-md-5">
             <Row className="justify-content-center">
                 <Col {...columns}>
-                    <Card className="auth-card">
+                    <Card>
                         <Card.Body className={wide ? 'p-3 p-sm-4 p-md-5' : 'p-3 p-sm-4'}>
                             <h1 className="h2 mb-2">{title}</h1>
                             {intro && <div className="text-body-secondary mb-4">{intro}</div>}

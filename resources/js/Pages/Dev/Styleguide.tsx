@@ -1,7 +1,8 @@
 import { Head } from '@inertiajs/react';
 import type { ReactNode } from 'react';
-import { Alert, Button, Col, Container, Form, Row } from 'react-bootstrap';
-import { ExclamationCircle } from 'react-bootstrap-icons';
+import { Alert, Button, Card, Col, Container, Form, Row, Table } from 'react-bootstrap';
+import { ArrowLeft, ExclamationCircle } from 'react-bootstrap-icons';
+import Pager from '@/Components/Pager';
 import PriceTag from '@/Components/PriceTag';
 import StatusBadge from '@/Components/StatusBadge';
 import PublicLayout from '@/Layouts/PublicLayout';
@@ -58,12 +59,110 @@ export default function Styleguide() {
                     <div className="d-flex flex-wrap gap-2">
                         <Button variant="primary">Reserve</Button>
                         <Button variant="outline-primary">Save for later</Button>
+                        <Button variant="outline-danger">Delete photo</Button>
                         <Button variant="danger">Cancel reservation</Button>
-                        <Button variant="link">View house rules</Button>
                         <Button variant="primary" disabled>
                             Reserved
                         </Button>
                     </div>
+                    <p className="small text-body-secondary mt-3 mb-2">Small, for rows and cards. Same radius, never next to a full-size control.</p>
+                    <div className="d-flex flex-wrap gap-2">
+                        <Button size="sm" variant="primary">
+                            Add a bed
+                        </Button>
+                        <Button size="sm" variant="outline-primary">
+                            Rename
+                        </Button>
+                        <Button size="sm" variant="outline-danger">
+                            Delete
+                        </Button>
+                    </div>
+                    <p className="small text-body-secondary mt-3 mb-2">One height: a field, a dropdown and a button on one line.</p>
+                    <div className="toolbar__filters">
+                        <Form.Group controlId="sg-filter">
+                            <Form.Label>Status</Form.Label>
+                            <Form.Select defaultValue="held">
+                                <option value="">All statuses</option>
+                                <option value="held">On hold</option>
+                                <option value="confirmed">Confirmed</option>
+                            </Form.Select>
+                        </Form.Group>
+                        <Button variant="outline-primary">Filter</Button>
+                        <Button variant="primary">Search</Button>
+                    </div>
+                </Section>
+
+                <Section id="links" title="Links">
+                    <p>
+                        In a sentence a link keeps its underline: <a href="#links">read the house rules</a> before you reserve.
+                    </p>
+                    <p className="d-flex flex-wrap gap-4 align-items-center">
+                        <a href="#links" className="back-link">
+                            <ArrowLeft aria-hidden="true" focusable="false" />
+                            Back to properties
+                        </a>
+                        <a href="#links" className="link-plain">
+                            Santos Bedspace House
+                        </a>
+                        <a href="#links" className="link-action">
+                            Forgot your password?
+                        </a>
+                    </p>
+                </Section>
+
+                <Section id="surfaces" title="Surfaces">
+                    <Row className="g-3">
+                        <Col md={6}>
+                            <Card>
+                                <Card.Body>
+                                    <h3 className="mb-3">Card</h3>
+                                    <dl className="details row">
+                                        <dt className="col-sm-5">Monthly rate</dt>
+                                        <dd className="col-sm-7">
+                                            <PriceTag centavos={650000} per="month" />
+                                        </dd>
+                                        <dt className="col-sm-5">Who can stay</dt>
+                                        <dd className="col-sm-7">Anyone</dd>
+                                    </dl>
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                        <Col md={6}>
+                            <Card className="table-card">
+                                <Table className="stack-table align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Renter</th>
+                                            <th scope="col">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td data-label="Renter">
+                                                <a href="#surfaces" className="link-plain">
+                                                    Jasmine Ocampo
+                                                </a>
+                                            </td>
+                                            <td data-label="Status">
+                                                <StatusBadge status="held" />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td data-label="Renter">
+                                                <a href="#surfaces" className="link-plain">
+                                                    Nicole Mendoza
+                                                </a>
+                                            </td>
+                                            <td data-label="Status">
+                                                <StatusBadge status="confirmed" />
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </Table>
+                            </Card>
+                        </Col>
+                    </Row>
+                    <Pager page={1} lastPage={22} prevHref={null} nextHref="#surfaces" />
                 </Section>
 
                 <Section id="forms" title="Form field with an error">

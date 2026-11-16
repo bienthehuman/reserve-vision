@@ -14,15 +14,16 @@ it('offers "Log in" and "Sign up" to guests', function (): void {
         ->toMatch('/<a[^>]*href="\/register"[^>]*>Sign up<\/a>/');
 });
 
-it('shows a landlord their name, Dashboard and Log out', function (): void {
+it('gives a landlord the account menu: their name, the way to the dashboard and Log out', function (): void {
     $landlord = landlordUser();
 
     $html = (string) $this->actingAs($landlord)->get('/')->getContent();
 
     expect($html)
         ->toContain(e($landlord->full_name))
-        ->toMatch('/<a[^>]*href="\/landlord"[^>]*>Dashboard<\/a>/')
-        ->toMatch('/<button[^>]*>Log out<\/button>/')
+        ->toMatch('/<button[^>]*class="user-menu__trigger"[^>]*aria-expanded="false"/')
+        ->toMatch('/<a[^>]*href="\/landlord"[^>]*>(<svg.*?<\/svg>)?Dashboard<\/a>/')
+        ->toMatch('/<button[^>]*>(<svg.*?<\/svg>)?Log out<\/button>/')
         ->not->toMatch('/>Sign up</');
 });
 

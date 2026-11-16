@@ -1,7 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { Alert, Card, Col, Container, Row } from 'react-bootstrap';
-import { ExclamationTriangle, HourglassSplit } from 'react-bootstrap-icons';
+import { BoxArrowInRight, ExclamationTriangle, FileEarmarkCheck, Hourglass, HourglassSplit, HouseDoor } from 'react-bootstrap-icons';
+import PageHeader from '@/Components/PageHeader';
 import LandlordLayout from '@/Layouts/LandlordLayout';
 
 interface DashboardProps {
@@ -19,20 +20,26 @@ interface FigureCardProps {
     title: string;
     href: string;
     figure: ReactNode;
+    Icon: ComponentType<SVGProps<SVGSVGElement>>;
     children?: ReactNode;
 }
 
 /** One figure: the title is the link (stretched over the card), so the whole card is the target. */
-function FigureCard({ title, href, figure, children }: FigureCardProps) {
+function FigureCard({ title, href, figure, Icon, children }: FigureCardProps) {
     return (
-        <Card className="h-100 position-relative">
-            <Card.Body className="p-3 p-sm-4">
-                <h2 className="h3 mb-2">
-                    <Link href={href} className="stretched-link">
-                        {title}
-                    </Link>
-                </h2>
-                <p className="display-5 fw-bold text-primary mb-1">{figure}</p>
+        <Card className="figure-card">
+            <Card.Body>
+                <div className="figure-card__head">
+                    <span className="figure-card__icon">
+                        <Icon aria-hidden="true" focusable="false" />
+                    </span>
+                    <h2 className="figure-card__title">
+                        <Link href={href} className="link-plain stretched-link">
+                            {title}
+                        </Link>
+                    </h2>
+                </div>
+                <p className="figure-card__value">{figure}</p>
                 {children}
             </Card.Body>
         </Card>
@@ -52,17 +59,16 @@ export default function Dashboard({ account, role, figures }: DashboardProps) {
         <LandlordLayout>
             <Head title="Dashboard" />
             <Container className="py-4 py-md-5">
-                <p className="text-body-secondary mb-1">{role === 'owner' ? 'Owner' : 'Caretaker'}</p>
-                <h1 className="h2 mb-4">{account.name}</h1>
+                <PageHeader title={account.name} eyebrow={role === 'owner' ? 'Owner' : 'Caretaker'} />
 
                 {!account.isVerified && (
-                    <Alert variant="warning" className="d-flex gap-2 align-items-start">
+                    <Alert variant="warning" className="d-flex gap-2 align-items-start mb-4">
                         <HourglassSplit aria-hidden="true" focusable="false" className="flex-shrink-0 mt-1" />
                         <div>
-                            <h2 className="h3 mb-1">Your account is awaiting verification</h2>
+                            <h2 className="h3 mb-1">Your account is being checked</h2>
                             <p className="mb-0">
-                                We check every landlord before their listings go live. You'll be able to publish once your
-                                account is verified.
+                                We check every landlord before their listings can be seen by renters. You can set everything
+                                up now and publish as soon as we're done.
                             </p>
                         </div>
                     </Alert>
@@ -70,43 +76,43 @@ export default function Dashboard({ account, role, figures }: DashboardProps) {
 
                 <Row className="g-3">
                     <Col xs={12} md={6}>
-                        <FigureCard title="Proofs to review" href="/landlord/reservations?status=proof_uploaded" figure={proofs.count}>
+                        <FigureCard title="Payments to review" href="/landlord/reservations?status=proof_uploaded" figure={proofs.count} Icon={FileEarmarkCheck}>
                             {proofs.overdue > 0 ? (
-                                <p className="mb-0 d-flex gap-2 align-items-start">
-                                    <ExclamationTriangle aria-hidden="true" focusable="false" className="flex-shrink-0 mt-1 text-warning-emphasis" />
+                                <p className="figure-card__note d-flex gap-2 align-items-start">
+                                    <ExclamationTriangle aria-hidden="true" focusable="false" className="flex-shrink-0 mt-1 text-body" />
                                     <span>
-                                        <Link href="/landlord/reservations?show=proofs_overdue" className="position-relative">
+                                        <Link href="/landlord/reservations?show=proofs_overdue" className="link-action position-relative">
                                             {proofs.overdue} waiting more than {proofs.overdue_hours} hours
                                         </Link>
                                     </span>
                                 </p>
                             ) : (
-                                <p className="mb-0 text-body-secondary">
+                                <p className="figure-card__note">
                                     {proofs.count === 0 ? 'Nothing is waiting for you.' : `None has waited more than ${proofs.overdue_hours} hours.`}
                                 </p>
                             )}
                         </FigureCard>
                     </Col>
                     <Col xs={12} md={6}>
-                        <FigureCard title="Holds expiring soon" href="/landlord/reservations?show=holds_expiring" figure={holds.count}>
-                            <p className="mb-0 text-body-secondary">
-                                {plural(holds.count, 'hold runs', 'holds run')} out within {holds.hours} hours.
+                        <FigureCard title="Holds ending soon" href="/landlord/reservations?show=holds_expiring" figure={holds.count} Icon={Hourglass}>
+                            <p className="figure-card__note">
+                                {holds.count === 0 ? `No hold ends in the next ${holds.hours} hours.` : `Ending within ${holds.hours} hours unless the renter pays.`}
                             </p>
                         </FigureCard>
                     </Col>
                     <Col xs={12} md={6}>
-                        <FigureCard title="Move-ins this week" href="/landlord/reservations?show=moving_in" figure={moveIns.count}>
-                            <p className="mb-0 text-body-secondary">
-                                Confirmed {plural(moveIns.count, 'stay starts', 'stays start')} from today to {moveIns.days} days ahead.
+                        <FigureCard title="Move-ins this week" href="/landlord/reservations?show=moving_in" figure={moveIns.count} Icon={BoxArrowInRight}>
+                            <p className="figure-card__note">
+                                Confirmed renters moving in within the next {moveIns.days} days.
                             </p>
                         </FigureCard>
                     </Col>
                     <Col xs={12} md={6}>
-                        <FigureCard title="Occupancy today" href="/landlord/properties" figure={`${occupancy.occupied} of ${occupancy.total}`}>
-                            <p className="mb-0 text-body-secondary">
+                        <FigureCard title="Occupancy today" href="/landlord/properties" figure={`${occupancy.occupied} of ${occupancy.total}`} Icon={HouseDoor}>
+                            <p className="figure-card__note">
                                 {occupancy.total === 0
-                                    ? 'No spaces to rent yet. Add a property and its rooms.'
-                                    : `${percent}% of your ${plural(occupancy.total, 'space is', 'spaces are')} occupied.`}
+                                    ? 'Nothing to rent out yet. Add a property and its rooms.'
+                                    : `${percent}% of your rooms and beds ${plural(occupancy.total, 'is', 'are')} occupied.`}
                             </p>
                         </FigureCard>
                     </Col>

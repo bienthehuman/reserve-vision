@@ -134,11 +134,15 @@ describe('CHECK constraints', function (): void {
             ->where('id', $reservation->id)->update(['proof_rejections' => 3])))->toBeIn(CHECK_VIOLATION);
     });
 
-    it('rejects a latitude out of range', function (): void {
+    it('requires a barangay and a province, but not a street address', function (): void {
         $property = Property::factory()->create();
 
-        expect(dbErrorCode(fn () => DB::table('properties')
-            ->where('id', $property->id)->update(['lat' => 91])))->toBeIn(CHECK_VIOLATION);
+        DB::table('properties')->where('id', $property->id)->update(['address' => null]);
+
+        foreach (['barangay', 'province'] as $column) {
+            expect(dbErrorCode(fn () => DB::table('properties')
+                ->where('id', $property->id)->update([$column => null])))->toBe(1048);
+        }
     });
 });
 

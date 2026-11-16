@@ -21,9 +21,9 @@ class PropertyFactory extends Factory
      */
     public function definition(): array
     {
-        $cities = ['Cebu City', 'Davao City', 'Quezon City', 'Baguio', 'Iloilo City'];
+        $cities = ['Cebu City' => 'Cebu', 'Davao City' => 'Davao del Sur', 'Quezon City' => 'Metro Manila', 'Baguio' => 'Benguet', 'Iloilo City' => 'Iloilo'];
         $kinds = ['Residences', 'Boarding House', 'Apartments', 'Dormitory'];
-        $city = $cities[fake()->numberBetween(0, count($cities) - 1)];
+        $city = array_keys($cities)[fake()->numberBetween(0, count($cities) - 1)];
         $name = fake()->lastName().' '.$kinds[fake()->numberBetween(0, count($kinds) - 1)];
 
         return [
@@ -31,12 +31,11 @@ class PropertyFactory extends Factory
             'kind' => fake()->randomElement(PropertyKind::cases()),
             'name' => $name,
             'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(1, 999999),
+            'address' => fake()->buildingNumber().' '.fake()->streetName(),
+            'barangay' => 'Barangay '.fake()->numberBetween(1, 200),
             'city' => $city,
             'city_slug' => Str::slug($city),
-            'barangay' => 'Barangay '.fake()->numberBetween(1, 200),
-            'address' => fake()->buildingNumber().' '.fake()->streetName(),
-            'lat' => fake()->randomFloat(6, 6, 18),
-            'lng' => fake()->randomFloat(6, 120, 126),
+            'province' => $cities[$city],
             'gender_policy' => GenderPolicy::Any,
             'house_rules' => 'No smoking. Quiet hours 10pm to 6am. The reservation fee is refundable if declined.',
             'payment_instructions' => 'GCash 0917 123 4567 (J. Santos) or BPI 1234-5678-90.',

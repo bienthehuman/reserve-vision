@@ -278,7 +278,7 @@ final class DemoSeeder extends Seeder
 
     private function buildListings(): void
     {
-        /** @var list<array{city: string, slug: string, lat: float, lng: float, spread: float, rate: float, barangays: list<string>}> $places */
+        /** @var list<array{city: string, slug: string, province: string, rate: float, barangays: list<string>}> $places */
         $places = require database_path('data/places.php');
         /** @var array<string, string> $catalogue */
         $catalogue = require database_path('data/amenities.php');
@@ -309,7 +309,7 @@ final class DemoSeeder extends Seeder
 
     /**
      * @param  array{id: int, owner: int, caretaker: ?int, verified: bool}  $account
-     * @param  array{city: string, slug: string, lat: float, lng: float, spread: float, rate: float, barangays: list<string>}  $place
+     * @param  array{city: string, slug: string, province: string, rate: float, barangays: list<string>}  $place
      * @param  list<int>  $amenityIds
      */
     private function addProperty(array $account, PropertyKind $kind, array $place, array $amenityIds, bool $lastBedHouse): void
@@ -333,13 +333,17 @@ final class DemoSeeder extends Seeder
         $published = $account['verified'] && ($lastBedHouse || $this->chance(90));
         $created = $this->now->subDays($this->int(500, 560));
 
+        $street = $this->int(1, 480).' '.$this->pick(['Mabini', 'Rizal', 'Bonifacio', 'Luna', 'Del Pilar', 'Mabuhay', 'Sampaguita', 'Narra', 'Acacia', 'Kalayaan']).' Street';
+        // Two draws that used to place the property on a map (lat and lng, dropped with the address change).
+        // They stay so every later draw, and with it the rest of the demo data, is what it was.
+        $this->int(-1000, 1000);
+        $this->int(-1000, 1000);
+
         $this->rows['properties'][] = [
             'id' => $id, 'landlord_account_id' => $account['id'], 'kind' => $kind->value,
-            'name' => $name, 'slug' => $slug, 'city' => $place['city'], 'city_slug' => $place['slug'],
-            'barangay' => $barangay,
-            'address' => $this->int(1, 480).' '.$this->pick(['Mabini', 'Rizal', 'Bonifacio', 'Luna', 'Del Pilar', 'Mabuhay', 'Sampaguita', 'Narra', 'Acacia', 'Kalayaan']).' Street, Barangay '.$barangay.', '.$place['city'],
-            'lat' => number_format($place['lat'] + ($this->int(-1000, 1000) / 1000) * $place['spread'], 6, '.', ''),
-            'lng' => number_format($place['lng'] + ($this->int(-1000, 1000) / 1000) * $place['spread'], 6, '.', ''),
+            'name' => $name, 'slug' => $slug,
+            'address' => $street,
+            'barangay' => $barangay, 'city' => $place['city'], 'city_slug' => $place['slug'], 'province' => $place['province'],
             'gender_policy' => $gender,
             'house_rules' => $this->houseRules($boarding),
             'payment_instructions' => $this->paymentInstructions($id, $surname),

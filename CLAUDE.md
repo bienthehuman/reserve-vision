@@ -225,7 +225,7 @@ Phase 3 demo: [e2e/isolation.spec.ts](e2e/isolation.spec.ts) (read-only, both vi
 
 ### Landlord editing (slice 4.1)
 
-[docs/ACCESS.md](docs/ACCESS.md#the-landlord-pages-slice-32) lists the pages and rows; [docs/DATA_MODEL.md](docs/DATA_MODEL.md) the new columns (`properties.payment_instructions`, `properties.first_published_at`).
+[docs/ACCESS.md](docs/ACCESS.md#the-landlord-pages-slice-32) lists the pages and rows; [docs/DATA_MODEL.md](docs/DATA_MODEL.md) the new columns (`properties.payment_instructions`, `properties.first_published_at`). The address fields changed afterwards: see [UI review after 4.2](#ui-review-after-42-choreui-review-pass).
 
 | Piece | Where |
 | --- | --- |
@@ -256,6 +256,31 @@ Tests: `tests/Feature/Photos/` (processor, upload validation, the job, managing)
 
 To see a failed photo by hand: `docker compose stop worker`, upload, replace the file under `storage/app/private/proofs/uploads/tmp/` with text, `docker compose start worker`.
 
+### UI review after 4.2 (`chore/ui-review-pass`)
+
+[docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) is the spec; `/styleguide` shows every piece.
+
+| Piece | Where |
+| --- | --- |
+| Surfaces | The page is `bg`; content sits on white cards (`$card-bg`). Tables: `<Card className="table-card"><Table className="stack-table">`. Forms: `form.form-card` > `Card` > `section.form-section` (titled) + `div.form-actions` (primary button, then Cancel). Label/value pairs: `dl.details.row` |
+| Controls | One height: `--rv-control-height` (40 px, 44 px under `pointer: coarse`) as `min-height` on `.btn`, `.form-control`, `.form-select`; `--rv-control-height-sm` for `.btn-sm`. One radius (`$rv-radius`) for both button sizes and fields. `.btn` is `inline-flex` with a gap, so an icon goes in as a sibling of the text. Never put a `btn-sm` next to a full-size control (`ActionButton` takes `size="md"` for page headers) |
+| Buttons | `primary` (one per view), `outline-primary` (everything else), `outline-danger` (opens a confirmation), `danger` (confirms it). No `outline-secondary`, no `btn-link` |
+| Links | Underlined in a sentence; standing alone: `.link-plain` (ink), `.link-action` (ube), `.back-link` (via `PageHeader`) |
+| Components | `Components/PageHeader` (back link, eyebrow, title, subtitle children, actions), `UserMenu` (the header's account menu: a disclosure button, not a Bootstrap dropdown, so no Popper and no inline styles for the CSP), `Pager`, `EmptyState` |
+| Dropdown list | `@supports (appearance: base-select)` in `_components.scss` styles the open list of every `.form-select` in Chromium (which is what Playwright and axe run); other browsers keep their native list |
+| Address | `properties`: `address` (street, nullable), `barangay`, `city` + `city_slug`, `province` (from `database/data/places.php`, never from the request). `$property->full_address`. No `lat`/`lng`. The form has no slug field (`PropertyRequest` still accepts `slug`) |
+
+E2E: the account menu is closed by default, so `Log out` is hidden until `openAccountMenu(page)` ([e2e/support.ts](e2e/support.ts)).
+
+Quirks:
+
+- **`dropColumn` on a column a CHECK names fails** on MySQL and MariaDB: drop the constraint first (`ALTER TABLE … DROP CONSTRAINT`, which both accept).
+- **`DemoSeeder` still draws the two numbers that were `lat` and `lng`** and throws them away, so every later Faker draw (and the rest of the demo data, which the e2e tests and README name) is unchanged.
+- **A flex `td` (`.stack-table` on a phone) lays its children side by side**: wrap two stacked lines in one `<span>`.
+- **Text in SSR HTML is escaped** (`'` → `&#x27;`): Pest `toContain()` on a sentence with an apostrophe fails. Assert a part without one.
+- **An axe run earlier in a test leaves a CSP error in `errors`** (its injected `<style>`): clear the list (`errors.length = 0`) before asserting it again later in the same test.
+- **Disabled buttons keep full opacity** and use their own muted colors (`--bs-btn-disabled-*`), so the pager's disabled `span.btn.disabled` (not a real `disabled` control, which axe would skip) still passes the contrast check.
+
 ### Quirks hit in 4.2
 
 - **`post_max_size` is 14 MB** (both php.ini files, sized for one proof), so several 10 MB photos can't go in one request: the page sends one request per file. A body over the limit is a bare `413` before any validation.
@@ -276,7 +301,7 @@ To see a failed photo by hand: `docker compose stop worker`, upload, replace the
 
 ### Quirks hit in 4.1
 
-- **Validation `between` on a `string` field compares the length.** `lat`/`lng` are `numeric` (not `string`) so `between:-90,90` is a value check.
+- **Validation `between` on a `string` field compares the length**; make the field `numeric` for a value check (`lat`/`lng` did, before they were dropped).
 - **A slug can't be checked for uniqueness through the scope**, which hides other accounts' properties and `withoutGlobalScope` is forbidden: `CreateProperty` lets the database's unique key decide and retries `-2`, `-3`… on `UniqueConstraintViolationException` (inside a savepoint).
 - **Slug and city lock together** once `first_published_at` is set: the city is in the public URL too.
 - **Axe `label-content-name-mismatch`**: a button's `aria-label` must contain its visible text ("Archive room Room 1" for "Archive room"), or the page fails.

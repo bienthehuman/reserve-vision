@@ -89,7 +89,7 @@ test('Phase 3 demo: the owner sees the account\'s reservations, with the last-be
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Reservation for');
     await expect(page.getByText('Last Bed Room', { exact: false }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: /@example\.com$/ })).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: 'Payment proofs' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Proof of payment' })).toBeVisible();
     await expectCleanPage(owner);
 
     await page.goto('/landlord/properties');
@@ -104,7 +104,7 @@ test('Phase 3 demo: the owner sees the account\'s reservations, with the last-be
 
     await page.goto('/landlord/members');
     await expect(page.getByRole('heading', { level: 1, name: 'Members' })).toBeVisible();
-    await expect(page.getByText('The invite email arrives in a later version')).toBeVisible();
+    await expect(page.getByText("We don't email invitations yet")).toBeVisible();
     await expectCleanPage(owner);
 
     await owner.close();
