@@ -54,8 +54,13 @@ return [
         | backend for both: `local` (dev and tests, under storage/app) or `s3`
         | (production: MinIO in compose.prod.yaml, or any S3-compatible service).
         |
-        |   photos  public bucket: listing photos, served without signing
-        |   proofs  private bucket: payment proofs, never public (ADR 0003)
+        |   photos  public bucket: listing photos, served without signing. URLs are
+        |           `/media/photos/<path>` on the app's own origin in both modes, so
+        |           the CSP's img-src 'self' covers them: locally a route streams the
+        |           file (routes/web.php, registered only for the local driver), in
+        |           production Caddy proxies the bucket. AWS_PHOTOS_URL overrides it.
+        |   proofs  private bucket: payment proofs, never public (ADR 0003), and
+        |           photo uploads waiting for the resize job (`uploads/tmp/`, slice 4.2)
         */
         'photos' => env('MEDIA_STORAGE', 'local') === 's3' ? [
             'driver' => 's3',
@@ -63,7 +68,7 @@ return [
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
             'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
             'bucket' => env('AWS_PHOTOS_BUCKET'),
-            'url' => env('AWS_PHOTOS_URL'),
+            'url' => env('AWS_PHOTOS_URL') ?: '/media/photos',
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => (bool) env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'visibility' => 'public',
@@ -72,7 +77,7 @@ return [
         ] : [
             'driver' => 'local',
             'root' => storage_path('app/public/photos'),
-            'url' => rtrim((string) env('APP_URL', 'http://localhost'), '/').'/storage/photos',
+            'url' => '/media/photos',
             'visibility' => 'public',
             'throw' => true,
             'report' => false,

@@ -82,7 +82,7 @@ It runs as the `app` database user and exits non-zero for an unknown slug.
 ```bash
 alias rv='docker compose -f compose.prod.yaml --env-file .env.production'
 rv ps                                  # every service "healthy" (minio-setup "exited (0)")
-rv exec app php artisan app:doctor     # database users, queue table, storage, mail
+rv exec app php artisan app:doctor     # database users, queue table, storage, images, mail
 rv logs -f --tail=100 app worker       # logs (JSON from Caddy, Laravel to stderr)
 ```
 
@@ -94,7 +94,22 @@ rv logs -f --tail=100 app worker       # logs (JSON from Caddy, Laravel to stder
 | App user has no DDL | `CREATE TABLE` is denied to `app` (error 1142) |
 | Queue table | The `jobs` and `failed_jobs` tables can be read |
 | Storage: photos / proofs | A temporary file can be written, read back and deleted on each disk |
+| Image processing | PHP has GD with JPEG and WebP, and `exif`: a small JPEG goes through the same resize as an uploaded photo |
 | Mail configuration | A valid `MAIL_FROM_ADDRESS`, and `MAIL_HOST` and `MAIL_PORT` for SMTP. In production, the `log` and `array` mailers fail it |
+
+### Storage for photos
+
+Each property photo is stored twice in the photos bucket, both as WebP: a thumbnail 480 px wide and a full size of at most 1600 px on the longer side. The original upload (up to 10 MB) is kept only until the worker has resized it, in the **proofs** bucket under `uploads/tmp/`, and is then deleted.
+
+| | Typical | Upper end |
+| --- | --- | --- |
+| Thumbnail | 20–40 kB | 80 kB |
+| Full size | 150–350 kB | 700 kB |
+| One property with all 12 photos | about 4 MB | about 9 MB |
+
+These are estimates for camera photos at WebP quality 80, not measurements from a live site; the generated demo photos are far smaller (about 20 kB a pair, 4 MB for the whole demo set). A thousand full properties is then 4 to 9 GB, so the 20 GB disk above is enough to start, and `minio-data` is the volume to watch. The worker needs memory for the decoded original: up to 160 MB for the largest accepted photo (40 megapixels), inside PHP's 256 MB limit. Photos are served with `Cache-Control: public, max-age=31536000, immutable`; a replaced photo gets a new URL.
+
+`AWS_PHOTOS_URL` can stay empty with MinIO: photo URLs are then `/media/photos/…` on the site's own address, which Caddy serves from the bucket.
 
 ## Updates
 
@@ -225,7 +240,7 @@ MinIO is there so the stack runs on one host without an account anywhere. To use
 
     and deploy with `COMPOSE_FILE=compose.prod.yaml:compose.s3.yaml ./deploy.sh <tag>` (put `COMPOSE_FILE` in your shell profile so `rv` uses it too).
 
-5. Photos are then served from another origin, so the CSP's `img-src` must allow it. Slice 4.2, which adds photo uploads, adds that setting.
+5. Photos are then served from another origin, so the CSP's `img-src` must allow it. That setting doesn't exist yet (it is in the backlog): until it does, keep photos on the app's origin by leaving `AWS_PHOTOS_URL` empty and pointing Caddy's `/media/photos/*` block at the bucket.
 
 `app:doctor` checks both buckets on every deploy.
 

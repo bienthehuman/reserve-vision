@@ -21,7 +21,8 @@ it('passes when the environment is healthy', function (): void {
         ->expectsOutputToContain('jobs: 0 pending, 0 failed')
         ->expectsOutputToContain('Storage: photos')
         ->expectsOutputToContain('Storage: proofs')
-        ->expectsOutputToContain('All 7 checks passed.')
+        ->expectsOutputToContain('gd: JPEG to WebP, 960 × 640 and a thumbnail')
+        ->expectsOutputToContain('All 8 checks passed.')
         ->assertExitCode(0);
 
     expect(Storage::disk('photos')->allFiles())->toBeEmpty()
@@ -37,7 +38,7 @@ it('fails when a disk cannot be written', function (): void {
     Storage::forgetDisk('proofs');
 
     $this->artisan('app:doctor')
-        ->expectsOutputToContain('1 of 7 checks failed.')
+        ->expectsOutputToContain('1 of 8 checks failed.')
         ->assertExitCode(1);
 });
 

@@ -5,15 +5,18 @@ declare(strict_types=1);
 use App\Enums\ReservationStatus;
 use Carbon\CarbonImmutable;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\Demo\DemoPhotoPainter;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 // Self-checks of the demo data (slice 2.2). Each test seeds inside its own
 // transaction (about a second), with "now" frozen so the data is the same every day.
 
 beforeEach(function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-11-15 10:00:00', 'Asia/Manila'));
+    Storage::fake('photos'); // the demo photos are real files (slice 4.2)
     $this->seed(DemoSeeder::class);
 });
 
@@ -189,7 +192,7 @@ it('creates the demo logins and the last-bed room', function (): void {
 });
 
 it('does nothing when run again', function (): void {
-    $tables = ['users', 'landlord_accounts', 'landlord_members', 'properties', 'property_amenity', 'amenities', 'rooms', 'spaces', 'reservations', 'payment_proofs'];
+    $tables = ['users', 'landlord_accounts', 'landlord_members', 'properties', 'property_amenity', 'amenities', 'rooms', 'spaces', 'reservations', 'payment_proofs', 'property_photos'];
     $count = fn (): array => array_map(fn (string $t): int => DB::table($t)->count(), $tables);
     $before = $count();
 
@@ -218,6 +221,39 @@ it('gives every demo property payment instructions, and a first-published date t
         ->and(DB::table('properties')->where('is_published', false)->whereNotNull('first_published_at')->count())->toBe(0);
 });
 
+it('gives every published property 3 to 6 ready photos, resized like an upload, and none to a draft', function (): void {
+    $photos = DB::table('property_photos')->orderBy('property_id')->orderBy('sort')->get();
+    $published = DB::table('properties')->where('is_published', true)->pluck('name', 'id');
+
+    expect($photos->pluck('status')->unique()->all())->toBe(['ready'])
+        ->and($photos->pluck('property_id')->unique()->sort()->values()->all())->toBe($published->keys()->sort()->values()->all())
+        ->and($photos->pluck('path')->unique())->toHaveCount($photos->count());
+
+    foreach ($photos->groupBy('property_id') as $propertyId => $ofProperty) {
+        expect($ofProperty->count())->toBeBetween(3, 6)
+            ->and($ofProperty->pluck('sort')->all())->toBe(range(1, $ofProperty->count()))
+            ->and($ofProperty->first()->alt)->toBe("Front of {$published[$propertyId]}"); // the cover
+    }
+
+    // The files: a 480 px wide thumbnail and a 1600 px full size, both WebP, for every row and nothing else.
+    $disk = Storage::disk('photos');
+    expect($disk->allFiles())->toHaveCount($photos->count() * 2);
+
+    $cover = $photos->first();
+    $thumb = getimagesizefromstring($disk->get("{$cover->path}-thumb.webp"));
+    $full = getimagesizefromstring($disk->get("{$cover->path}-full.webp"));
+    expect([$thumb[0], $thumb[1], $thumb['mime']])->toBe([480, 360, 'image/webp'])
+        ->and([$full[0], $full[1], $full['mime']])->toBe([$cover->width, $cover->height, 'image/webp'])
+        ->and([$cover->width, $cover->height])->toBe([1600, 1200]);
+});
+
+it('paints the same demo photo every time', function (): void {
+    $painter = new DemoPhotoPainter;
+
+    expect(hash('sha256', $painter->paint('bunks', 'ube')))->toBe(hash('sha256', $painter->paint('bunks', 'ube')))
+        ->and($painter->paint('bunks', 'ube'))->not->toBe($painter->paint('bunks', 'mango'));
+});
+
 it('produces the same business data every time', function (): void {
     /*
      * A hash of every business column (ids included, passwords, tokens and
@@ -227,7 +263,7 @@ it('produces the same business data every time', function (): void {
      * and say why in the PR. An unexpected change means something stopped being
      * deterministic: look for an unseeded random call or an unordered query.
      */
-    $expected = '40390f7c85ec8f153082fae06adbcf614d762cd179cfc58d3fe01a641faa43c5';
+    $expected = 'add13395b9c3136db4a20c69155fc6f8367eb4f4e45247031e7196b0ea2565a0';
 
     // Amenities are reference data with auto-increment ids, whose counter survives a
     // rolled-back test, so they are hashed by slug, not by id.
@@ -243,6 +279,7 @@ it('produces the same business data every time', function (): void {
         'spaces' => DB::table('spaces')->orderBy('id'),
         'reservations' => DB::table('reservations')->orderBy('id'),
         'payment_proofs' => DB::table('payment_proofs')->orderBy('id'),
+        'property_photos' => DB::table('property_photos')->orderBy('id'),
     ];
     $skip = ['password', 'remember_token', 'created_at', 'updated_at'];
 

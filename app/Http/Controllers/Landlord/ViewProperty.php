@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Landlord;
 
+use App\Enums\PhotoStatus;
 use App\Models\Property;
+use App\Models\PropertyPhoto;
 use App\Models\Room;
 use App\Models\Space;
 use Illuminate\Support\Facades\Gate;
@@ -12,9 +14,10 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * One property with its rooms and spaces. Read-only for a caretaker; for an owner the
+ * One property with its photos, rooms and spaces. Read-only for a caretaker; for an owner the
  * `can_*` flags (the policies' answers; every endpoint asks again) switch on the edit,
- * add and archive buttons.
+ * add and archive buttons. `photos` is a closure: while a photo is processing the page
+ * polls for that prop alone (slice 4.2).
  */
 final class ViewProperty
 {
@@ -40,7 +43,20 @@ final class ViewProperty
                 'can_edit' => Gate::allows('update', $property),
                 'can_add_room' => Gate::allows('create', [Room::class, $property]),
                 'can_archive' => Gate::allows('archive', $property),
+                'can_manage_photos' => Gate::allows('upload', [PropertyPhoto::class, $property]),
+                'photo_limit' => PropertyPhoto::LIMIT,
             ],
+            'photos' => fn (): array => $property->photos()->orderBy('id')->get()->map(fn (PropertyPhoto $photo): array => [
+                'id' => $photo->id,
+                'status' => $photo->status->value,
+                'position' => $photo->sort,
+                'alt' => $photo->alt,
+                'alt_text' => $photo->altText($property->name),
+                'thumb_url' => $photo->thumb_url,
+                'full_url' => $photo->full_url,
+                'width' => $photo->status === PhotoStatus::Ready ? $photo->width : null,
+                'height' => $photo->status === PhotoStatus::Ready ? $photo->height : null,
+            ])->all(),
             'rooms' => $rooms->map(fn (Room $room): array => [
                 'id' => $room->id,
                 'name' => $room->name,

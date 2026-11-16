@@ -14,8 +14,10 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Concurrency\ConcurrencyTestCase;
 use Tests\TestCase;
@@ -204,4 +206,80 @@ function roomForm(array $overrides = []): array
         'deposit_months' => 1, 'advance_months' => 2,
         ...$overrides,
     ];
+}
+
+/*
+| Photos (tests/Feature/Photos, slice 4.2). Real images, made with GD.
+*/
+
+/**
+ * The bytes of a real image: the left half red, the right half blue, so a test can tell which way up it is.
+ * `$format`: jpeg, png, webp or gif.
+ */
+function photoBytes(int $width = 1200, int $height = 900, string $format = 'jpeg'): string
+{
+    $image = imagecreatetruecolor($width, $height);
+    imagefilledrectangle($image, 0, 0, intdiv($width, 2) - 1, $height, (int) imagecolorallocate($image, 220, 30, 30));
+    imagefilledrectangle($image, intdiv($width, 2), 0, $width, $height, (int) imagecolorallocate($image, 30, 30, 220));
+
+    ob_start();
+    match ($format) {
+        'png' => imagepng($image),
+        'webp' => imagewebp($image),
+        'gif' => imagegif($image),
+        default => imagejpeg($image, null, 90),
+    };
+
+    return (string) ob_get_clean();
+}
+
+/**
+ * A JPEG like a phone's: an EXIF block with the orientation (1 to 8) and a GPS position
+ * (14° 35' 58" N), written by hand right after the start-of-image marker.
+ */
+function jpegWithExif(int $orientation, int $width = 1200, int $height = 800): string
+{
+    $tiff = 'II'.pack('vV', 42, 8)
+        // IFD0 at 8: Orientation, and a pointer to the GPS IFD at 38.
+        .pack('v', 2)
+        .pack('vvVvv', 0x0112, 3, 1, $orientation, 0)
+        .pack('vvVV', 0x8825, 4, 1, 38)
+        .pack('V', 0)
+        // GPS IFD at 38: GPSLatitudeRef "N", GPSLatitude (three rationals at 68).
+        .pack('v', 2)
+        .pack('vvV', 0x0001, 2, 2)."N\0\0\0"
+        .pack('vvVV', 0x0002, 5, 3, 68)
+        .pack('V', 0)
+        .pack('VVVVVV', 14, 1, 35, 1, 58, 1);
+    $exif = "Exif\0\0".$tiff;
+    $jpeg = photoBytes($width, $height);
+
+    return substr($jpeg, 0, 2)."\xFF\xE1".pack('n', strlen($exif) + 2).$exif.substr($jpeg, 2);
+}
+
+/** An uploaded file with real image bytes (or any bytes you give it). */
+function photoUpload(string $name = 'room.jpg', ?string $bytes = null): UploadedFile
+{
+    return UploadedFile::fake()->createWithContent($name, $bytes ?? photoBytes());
+}
+
+/** The colour at a point of an encoded image, as "red", "blue" or "other" (WebP is lossy, so by the dominant channel). */
+function photoColourAt(string $bytes, float $x, float $y): string
+{
+    $image = imagecreatefromstring($bytes);
+    $rgb = imagecolorat($image, (int) (imagesx($image) * $x), (int) (imagesy($image) * $y));
+    [$red, $blue] = [($rgb >> 16) & 0xFF, $rgb & 0xFF];
+
+    return match (true) {
+        $red > 150 && $blue < 100 => 'red',
+        $blue > 150 && $red < 100 => 'blue',
+        default => 'other',
+    };
+}
+
+/** Fakes the two media disks, so a test's files never touch storage/app. The photos disk keeps its public URL. */
+function fakeMediaDisks(): void
+{
+    Storage::fake('photos', ['url' => config('filesystems.disks.photos.url'), 'visibility' => 'public']);
+    Storage::fake('proofs');
 }

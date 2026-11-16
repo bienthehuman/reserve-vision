@@ -385,3 +385,64 @@ $rv-swatches: (
 .pre-line {
     white-space: pre-line;
 }
+
+// Property photos on the landlord page (slice 4.2): cards in a grid, one column on a phone.
+// Every photo sits in a 4:3 frame, whatever its shape; processing and failed photos fill the same frame.
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 1rem;
+}
+
+.photo-card {
+    overflow: hidden;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius-lg);
+    background: var(--bs-white);
+}
+
+.photo-card__frame {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    background: var(--bs-secondary-bg-subtle);
+
+    img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}
+
+.photo-card__state {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 1rem;
+    color: var(--bs-secondary-text-emphasis);
+    text-align: center;
+}
+
+.photo-card__state--failed {
+    color: var(--bs-danger-text-emphasis);
+    background: var(--bs-danger-bg-subtle);
+}
+
+.photo-card__cover {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+}
+
+.photo-card__body {
+    padding: 0.75rem;
+}
+
+// The file input behind "Upload photo N again" is visually hidden; its label shows the focus ring.
+.photo-card__retry:focus-visible + label {
+    outline: $rv-focus-outline-width solid var(--bs-primary);
+    outline-offset: $rv-focus-outline-offset;
+}

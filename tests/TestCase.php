@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\ParallelTesting;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /**
@@ -58,6 +59,12 @@ abstract class TestCase extends BaseTestCase
             $this->migrateOnceAsMigrator();
             self::$migrated = true;
         }
+
+        // No test writes to storage/app: the two media disks are fakes from the start
+        // (slice 4.2; DemoSeeder alone writes 400 photo files). Tests that look at
+        // files call fakeMediaDisks() again, which also empties them.
+        Storage::fake('photos', ['url' => config('filesystems.disks.photos.url'), 'visibility' => 'public']);
+        Storage::fake('proofs');
     }
 
     private function migrateOnceAsMigrator(): void
