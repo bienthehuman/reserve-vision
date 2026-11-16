@@ -4,6 +4,8 @@ import { Receipt } from 'react-bootstrap-icons';
 import PageHeader from '@/Components/PageHeader';
 import PriceTag from '@/Components/PriceTag';
 import ProofViewer from '@/Components/ProofViewer';
+import RefundCard from '@/Components/RefundCard';
+import ReservationDecisions, { type Decisions } from '@/Components/ReservationDecisions';
 import StatusBadge from '@/Components/StatusBadge';
 import EmptyState from '@/Components/EmptyState';
 import LandlordLayout from '@/Layouts/LandlordLayout';
@@ -22,7 +24,15 @@ interface ShowProps {
         move_in: string;
         move_out: string;
         created_at: string;
+        proof_rejections: number;
+        decided_by: string | null;
+        decided_at: string | null;
+        decision_reason: string | null;
+        cancelled_at: string | null;
+        cancelled_by_renter: boolean;
+        cancelled_by: string | null;
     };
+    decisions: Decisions;
     place: { property_id: number; property_name: string; room_name: string; space_label: string };
     renter: { name: string; email: string | null; phone: string | null };
     proofs: {
@@ -43,8 +53,33 @@ const proofStatus: Record<ProofStatus, { label: string; color: 'info' | 'success
     rejected: { label: 'Rejected', color: 'danger' },
 };
 
-/** One reservation, with the renter's contact details (the only landlord page that shows them, slice 3.2) and their proofs of payment (opened through a signed URL, slice 5.3). */
-export default function Show({ reservation, place, renter, proofs }: ShowProps) {
+/** The decision that ended up on the reservation, in a sentence ("Confirmed by Ana Cruz"), or null. */
+function decisionLabel(reservation: ShowProps['reservation']): string | null {
+    const by = reservation.decided_by ? ` by ${reservation.decided_by}` : '';
+
+    switch (reservation.status) {
+        case 'confirmed':
+        case 'active':
+        case 'ended':
+            return `Confirmed${by}`;
+        case 'declined':
+            return `Declined${by}`;
+        case 'cancelled':
+            return reservation.cancelled_by_renter ? 'Cancelled by the renter' : `Withdrawn${reservation.cancelled_by ? ` by ${reservation.cancelled_by}` : ''}`;
+        default:
+            return null;
+    }
+}
+
+/**
+ * One reservation, with the renter's contact details (the only landlord page that shows them, slice 3.2), their proofs of
+ * payment (opened through a signed URL, slice 5.3), and (6.1) the decision panel, the decision made and the refund record.
+ */
+export default function Show({ reservation, decisions, place, renter, proofs }: ShowProps) {
+    const decision = decisionLabel(reservation);
+    // "Hold ends/ended" only while the hold is what the reservation is: held (live or run out) or expired. Once a proof is in,
+    // the hold time no longer matters (backlog fix in 6.1).
+    const showHold = reservation.hold_expires_at !== null && (reservation.status === 'held' || reservation.status === 'expired');
     return (
         <LandlordLayout>
             <Head title={`Reservation ${reservation.id}`} />
@@ -54,6 +89,15 @@ export default function Show({ reservation, place, renter, proofs }: ShowProps) 
                         <StatusBadge status={reservation.status} />
                     </p>
                 </PageHeader>
+
+                <ReservationDecisions
+                    reservationId={reservation.id}
+                    status={reservation.status}
+                    moveIn={reservation.move_in}
+                    moveOut={reservation.move_out}
+                    renterName={renter.name}
+                    decisions={decisions}
+                />
 
                 <Row className="g-4">
                     <Col xs={12} lg={6}>
@@ -79,10 +123,35 @@ export default function Show({ reservation, place, renter, proofs }: ShowProps) 
                                     <dd className="col-sm-7">
                                         <PriceTag centavos={reservation.reservation_fee} />
                                     </dd>
-                                    {reservation.hold_expires_at && (
+                                    {showHold && reservation.hold_expires_at && (
                                         <>
                                             <dt className="col-sm-5">{reservation.is_live_hold ? 'Hold ends' : 'Hold ended'}</dt>
                                             <dd className="col-sm-7">{formatDateTime(reservation.hold_expires_at)} (Philippine time)</dd>
+                                        </>
+                                    )}
+                                    {reservation.proof_rejections > 0 && (
+                                        <>
+                                            <dt className="col-sm-5">New proofs asked for</dt>
+                                            <dd className="col-sm-7">{reservation.proof_rejections} of 2</dd>
+                                        </>
+                                    )}
+                                    {decision && (
+                                        <>
+                                            <dt className="col-sm-5">Decision</dt>
+                                            <dd className="col-sm-7" data-testid="decision">
+                                                {decision}
+                                                {(reservation.cancelled_at ?? reservation.decided_at) && (
+                                                    <span className="d-block small text-body-secondary">
+                                                        {formatDateTime((reservation.cancelled_at ?? reservation.decided_at) as string)} (Philippine time)
+                                                    </span>
+                                                )}
+                                            </dd>
+                                        </>
+                                    )}
+                                    {reservation.decision_reason && (reservation.status === 'declined' || reservation.status === 'cancelled') && (
+                                        <>
+                                            <dt className="col-sm-5">Reason given</dt>
+                                            <dd className="col-sm-7 pre-line">{reservation.decision_reason}</dd>
                                         </>
                                     )}
                                     <dt className="col-sm-5">Reserved on</dt>
@@ -123,6 +192,12 @@ export default function Show({ reservation, place, renter, proofs }: ShowProps) 
                         </Card>
                     </Col>
                 </Row>
+
+                {decisions.refund && (
+                    <div className="mt-4">
+                        <RefundCard reservationId={reservation.id} refund={decisions.refund} />
+                    </div>
+                )}
 
                 <h2 className="h3 mt-5 mb-3">Proof of payment</h2>
                 {proofs.length === 0 ? (

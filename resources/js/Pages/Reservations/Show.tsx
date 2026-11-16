@@ -13,7 +13,7 @@ import PriceTag from '@/Components/PriceTag';
 import ProofViewer from '@/Components/ProofViewer';
 import StatusBadge from '@/Components/StatusBadge';
 import PublicLayout from '@/Layouts/PublicLayout';
-import { formatDate, formatDateTime } from '@/lib/dates';
+import { formatDate, formatDateTime, formatHoldEnd } from '@/lib/dates';
 import { formatPeso, pesosText } from '@/lib/money';
 import type { ReservationStatus } from '@/types';
 
@@ -41,6 +41,12 @@ interface ReservationPageProps {
         move_out: string;
         space_label: string;
         cancelled_at: string | null;
+        withdrawn: boolean;
+        decision_reason: string | null;
+        decided_at: string | null;
+        proof_rejections: number;
+        fee_refunded: boolean | null;
+        refund_note: string | null;
         can_upload: boolean;
         can_cancel: boolean;
     };
@@ -94,6 +100,8 @@ export default function Show({ reservation, room, property, landlord, proofs, cs
                                 <StatusBadge status={reservation.status} />
                             </p>
                         </PageHeader>
+
+                        <Outcome reservation={reservation} proofs={proofs} landlord={landlord} />
 
                         {reservation.can_upload && reservation.hold_expires_at && (
                             <Card className="mb-4">
@@ -245,6 +253,89 @@ export default function Show({ reservation, room, property, landlord, proofs, cs
             </Container>
         </PublicLayout>
     );
+}
+
+/**
+ * What the landlord decided, at the top of the page (slice 6.1): a proof sent back (with the reason and the new deadline),
+ * a confirmation, a decline or a withdrawal (with the reason), and the refund record once the landlord has saved one.
+ */
+function Outcome({ reservation, proofs, landlord }: Pick<ReservationPageProps, 'reservation' | 'proofs' | 'landlord'>) {
+    const rejected = proofs.find((proof) => proof.status === 'rejected');
+    const refund = reservation.fee_refunded !== null && (
+        <div data-testid="refund-record">
+            <h3 className="h5 mt-3">Reservation fee</h3>
+            <p className={reservation.refund_note ? 'mb-1' : 'mb-0'}>
+                {reservation.fee_refunded ? `${landlord.name} says the fee was refunded.` : `${landlord.name} says the fee was not refunded.`}
+            </p>
+            {reservation.refund_note && <p className="pre-line mb-0">{reservation.refund_note}</p>}
+        </div>
+    );
+
+    if (reservation.can_upload && reservation.proof_rejections > 0 && rejected) {
+        return (
+            <Card className="mb-4 outcome-card outcome-card--warning" data-testid="outcome">
+                <Card.Body>
+                    <h2 className="h3">Send a new proof of payment</h2>
+                    <p>{landlord.name} couldn't accept the proof you sent. They wrote:</p>
+                    <blockquote className="pre-line border-start border-3 ps-3" data-testid="rejection-reason">
+                        {rejected.rejection_reason}
+                    </blockquote>
+                    <p className="mb-0">
+                        Your place is held for you again until {reservation.hold_expires_at ? formatHoldEnd(reservation.hold_expires_at) : 'the time below'}{' '}
+                        (Philippine time). Send a new proof below before then.
+                    </p>
+                </Card.Body>
+            </Card>
+        );
+    }
+
+    if (reservation.status === 'confirmed') {
+        return (
+            <Card className="mb-4 outcome-card outcome-card--success" data-testid="outcome">
+                <Card.Body>
+                    <h2 className="h3">Your reservation is confirmed</h2>
+                    <p className="mb-0">
+                        {landlord.name} accepted your payment. You can move in on {formatDate(reservation.move_in)}.
+                    </p>
+                </Card.Body>
+            </Card>
+        );
+    }
+
+    if (reservation.status === 'declined' || reservation.withdrawn) {
+        const declined = reservation.status === 'declined';
+
+        return (
+            <Card className="mb-4 outcome-card outcome-card--danger" data-testid="outcome">
+                <Card.Body>
+                    <h2 className="h3">{declined ? `${landlord.name} declined your reservation` : `${landlord.name} withdrew your reservation`}</h2>
+                    {reservation.decision_reason && (
+                        <>
+                            <p>Their reason:</p>
+                            <blockquote className="pre-line border-start border-3 ps-3 mb-0" data-testid="decision-reason">
+                                {reservation.decision_reason}
+                            </blockquote>
+                        </>
+                    )}
+                    {refund || (
+                        <p className="mt-3 mb-0">
+                            If you paid the reservation fee, ask {landlord.name} about a refund. They record here whether it was refunded.
+                        </p>
+                    )}
+                </Card.Body>
+            </Card>
+        );
+    }
+
+    if (refund) {
+        return (
+            <Card className="mb-4" data-testid="outcome">
+                <Card.Body className="pt-0">{refund}</Card.Body>
+            </Card>
+        );
+    }
+
+    return null;
 }
 
 function Landlord({ landlord }: { landlord: ReservationPageProps['landlord'] }) {

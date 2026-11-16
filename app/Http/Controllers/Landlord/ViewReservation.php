@@ -6,6 +6,9 @@ namespace App\Http\Controllers\Landlord;
 
 use App\Models\PaymentProof;
 use App\Models\Reservation;
+use App\Models\User;
+use App\Support\Reservations\DecisionPanel;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,14 +21,19 @@ use Inertia\Response;
  * signed URL for this user); the file's path on the disk is never sent.
  * Another account's reservation never gets here: the scope makes the route
  * binding a 404.
+ *
+ * Slice 6.1: the decision panel (DecisionPanel: the moves this status, role and date allow), who
+ * decided and why, a withdrawal or the renter's cancel, and the refund record.
  */
 final class ViewReservation
 {
-    public function __invoke(Reservation $reservation): Response
+    public function __invoke(Request $request, Reservation $reservation): Response
     {
         Gate::authorize('view', $reservation);
 
-        $reservation->load(['space.room.property', 'renter', 'paymentProofs']);
+        /** @var User $user (auth + landlord middleware) */
+        $user = $request->user();
+        $reservation->load(['space.room.property', 'renter', 'paymentProofs', 'decider', 'canceller']);
         $space = $reservation->space;
         $room = $space->room;
         $property = $room->property;
@@ -41,7 +49,15 @@ final class ViewReservation
                 'move_in' => $reservation->move_in->toDateString(),
                 'move_out' => $reservation->move_out->toDateString(),
                 'created_at' => $reservation->created_at->toIso8601String(),
+                'proof_rejections' => $reservation->proof_rejections,
+                'decided_by' => $reservation->decider?->full_name,
+                'decided_at' => $reservation->decided_at?->toIso8601String(),
+                'decision_reason' => $reservation->decision_reason,
+                'cancelled_at' => $reservation->cancelled_at?->toIso8601String(),
+                'cancelled_by_renter' => $reservation->cancelled_by !== null && $reservation->cancelled_by === $reservation->renter_id,
+                'cancelled_by' => $reservation->canceller?->full_name,
             ],
+            'decisions' => DecisionPanel::for($reservation, $user),
             'place' => [
                 'property_id' => $property->id,
                 'property_name' => $property->name,

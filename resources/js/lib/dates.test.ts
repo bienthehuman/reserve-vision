@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDateTime, formatHoldEnd, formatTimeLeft } from './dates';
+import { addDays, formatDate, formatDateTime, formatDay, formatHoldEnd, formatTimeLeft, formatUntil } from './dates';
 
 describe('formatDate', () => {
     it('shows a calendar date without shifting it by the local timezone', () => {
@@ -36,5 +36,29 @@ describe('formatTimeLeft', () => {
         expect(formatTimeLeft(1)).toBe('1 minute');
         expect(formatTimeLeft(0)).toBeNull();
         expect(formatTimeLeft(-5)).toBeNull();
+    });
+});
+
+describe('formatDay', () => {
+    it('shows a business date as weekday, day and month', () => {
+        expect(formatDay('2027-06-01')).toBe('Tue 1 Jun');
+    });
+});
+
+describe('addDays', () => {
+    it('crosses month ends', () => {
+        expect(addDays('2027-02-28', 1)).toBe('2027-03-01');
+        expect(addDays('2027-03-15', -1)).toBe('2027-03-14');
+    });
+});
+
+describe('formatUntil', () => {
+    it('says today or tomorrow against the business date, in Manila time', () => {
+        // 07:40 UTC on Mar 15 is 3:40 PM on Mar 15 in Manila.
+        expect(formatUntil('2027-03-15T07:40:00+00:00', '2027-03-15')).toMatch(/^3:40\sPM today$/);
+        expect(formatUntil('2027-03-15T07:40:00+00:00', '2027-03-14')).toMatch(/^3:40\sPM tomorrow$/);
+        // 17:00 UTC on Mar 15 is already 1:00 AM on Mar 16 in Manila.
+        expect(formatUntil('2027-03-15T17:00:00+00:00', '2027-03-16')).toMatch(/^1:00\sAM today$/);
+        expect(formatUntil('2027-03-15T07:40:00+00:00', '2027-03-10')).toMatch(/^3:40\sPM, Mon 15 Mar$/);
     });
 });

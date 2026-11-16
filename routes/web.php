@@ -8,18 +8,24 @@ use App\Http\Controllers\Invitations\ShowInvitation;
 use App\Http\Controllers\Landlord\ArchivePropertyController;
 use App\Http\Controllers\Landlord\ArchiveRoomController;
 use App\Http\Controllers\Landlord\ArchiveSpaceController;
+use App\Http\Controllers\Landlord\ConfirmReservationController;
 use App\Http\Controllers\Landlord\DashboardController;
+use App\Http\Controllers\Landlord\DeclineReservationController;
 use App\Http\Controllers\Landlord\DeletePropertyPhotoController;
 use App\Http\Controllers\Landlord\DescribePropertyPhotoController;
 use App\Http\Controllers\Landlord\EditProperty;
 use App\Http\Controllers\Landlord\EditRoom;
+use App\Http\Controllers\Landlord\EndStayController;
 use App\Http\Controllers\Landlord\ListMembers;
 use App\Http\Controllers\Landlord\ListProperties;
 use App\Http\Controllers\Landlord\ListReservations;
+use App\Http\Controllers\Landlord\MarkMovedInController;
 use App\Http\Controllers\Landlord\MovePropertyPhotoController;
 use App\Http\Controllers\Landlord\NewProperty;
 use App\Http\Controllers\Landlord\NewRoom;
 use App\Http\Controllers\Landlord\PublishPropertyController;
+use App\Http\Controllers\Landlord\RecordRefundController;
+use App\Http\Controllers\Landlord\RejectProofController;
 use App\Http\Controllers\Landlord\RemoveMemberController;
 use App\Http\Controllers\Landlord\RenameSpaceController;
 use App\Http\Controllers\Landlord\ResendInvitationController;
@@ -35,9 +41,11 @@ use App\Http\Controllers\Landlord\StoreSpace;
 use App\Http\Controllers\Landlord\UnarchivePropertyController;
 use App\Http\Controllers\Landlord\UnarchiveRoomController;
 use App\Http\Controllers\Landlord\UnarchiveSpaceController;
+use App\Http\Controllers\Landlord\UndoConfirmationController;
 use App\Http\Controllers\Landlord\UnpublishPropertyController;
 use App\Http\Controllers\Landlord\ViewProperty;
 use App\Http\Controllers\Landlord\ViewReservation;
+use App\Http\Controllers\Landlord\WithdrawReservationController;
 use App\Http\Controllers\Listings\CountListings;
 use App\Http\Controllers\Listings\ListListings;
 use App\Http\Controllers\Listings\ShowListing;
@@ -92,7 +100,8 @@ Route::middleware(['auth', 'verified', 'renter'])->group(function (): void {
     Route::get('/reservations', ListOwnReservations::class)->name('reservations.index');
     Route::get('/reservations/{reservation}', ShowReservation::class)->whereNumber('reservation')->name('reservations.show');
     Route::post('/reservations/{reservation}/proofs', StorePaymentProof::class)->whereNumber('reservation')->name('reservations.proofs.store');
-    Route::post('/reservations/{reservation}/cancel', CancelReservationController::class)->whereNumber('reservation')->name('reservations.cancel');
+    // ExposeRequestTiming is a no-op unless CONCURRENCY_PROBE (never in production): the confirm-versus-cancel race (6.1).
+    Route::post('/reservations/{reservation}/cancel', CancelReservationController::class)->whereNumber('reservation')->middleware(ExposeRequestTiming::class)->name('reservations.cancel');
 });
 
 // Payment proofs (slice 5.3, docs/ACCESS.md "Private files"). The renter whose proof it is and the members of
@@ -161,4 +170,18 @@ Route::middleware(['auth', 'verified', 'landlord'])->prefix('landlord')->name('l
     Route::delete('/invitations/{invitation}', RevokeInvitationController::class)->whereNumber('invitation')->name('invitations.destroy');
     // `landlord_members` has no isolation scope: LandlordMemberPolicy::remove makes another account's member a 404.
     Route::delete('/members/{member}', RemoveMemberController::class)->whereNumber('member')->middleware(ExposeRequestTiming::class)->name('members.destroy');
+
+    // Slice 6.1: the landlord's moves in the reservation lifecycle (RESERVATIONS.md "Transition table"). Owner and
+    // caretaker, except withdraw (owners). Registered last of the group, in this order, on purpose: T6 calls them in
+    // order on its own proof_uploaded reservation (confirm, undo, decline, then the refund on the declined one; the
+    // rest are the transition table's 422), after the archive routes, which need that reservation to still block.
+    // ExposeRequestTiming is a no-op unless CONCURRENCY_PROBE (never in production): the 6.1 races prove overlap with it.
+    Route::post('/reservations/{reservation}/confirm', ConfirmReservationController::class)->whereNumber('reservation')->middleware(ExposeRequestTiming::class)->name('reservations.confirm');
+    Route::post('/reservations/{reservation}/undo', UndoConfirmationController::class)->whereNumber('reservation')->name('reservations.undo');
+    Route::post('/reservations/{reservation}/decline', DeclineReservationController::class)->whereNumber('reservation')->middleware(ExposeRequestTiming::class)->name('reservations.decline');
+    Route::put('/reservations/{reservation}/refund', RecordRefundController::class)->whereNumber('reservation')->name('reservations.refund');
+    Route::post('/reservations/{reservation}/reject', RejectProofController::class)->whereNumber('reservation')->name('reservations.reject');
+    Route::post('/reservations/{reservation}/withdraw', WithdrawReservationController::class)->whereNumber('reservation')->name('reservations.withdraw');
+    Route::post('/reservations/{reservation}/moved-in', MarkMovedInController::class)->whereNumber('reservation')->name('reservations.moved-in');
+    Route::post('/reservations/{reservation}/end', EndStayController::class)->whereNumber('reservation')->name('reservations.end');
 });

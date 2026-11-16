@@ -58,7 +58,8 @@ Each broken rule is a domain exception in `app/Exceptions/Domain/` with a user-f
 | `HoldLimitReached` | Already 2 open reservations, or already 1 open in this property (two messages) |
 | `NoSpaceAvailable` | Every non-archived space has a blocking reservation overlapping the dates |
 | `HoldExpired` | A renter acts on a `held` reservation past `hold_expires_at` (proof upload): "Your hold has expired. Reserve again to get a new one." |
-| `InvalidTransition` | A status move the [transition table](#transition-table) doesn't have, expiring a hold that is still live, or cancelling a confirmed stay on or after its move-in date |
+| `InvalidTransition` | A status move the [transition table](#transition-table) doesn't have, expiring a hold that is still live, cancelling a confirmed stay on or after its move-in date, and (6.1) a third rejection, an undo after 24 hours or from the move-in date, or moving in before it |
+| `CannotRecordRefund` | A refund record on a reservation that isn't declined or cancelled, or never had a proof (6.1) |
 
 ## Concurrency
 
@@ -122,7 +123,26 @@ Every arrow is one action class. The transition table (`ReservationStatus::canTr
 | active | ended | `EndStay` | owner, caretaker | sets `move_out = max(today, move_in + 1 day)` if earlier than planned | frees the space from that date |
 | active | ended | `EndStays` | system | `move_out <= today` | — |
 
-Every landlord-side transition writes an `audit_logs` row; the renter's own (`UploadPaymentProof`, `CancelReservation`) write none. The emails in the side-effects column come with slice 6.3. Cancelling leaves the proofs as they are: a `pending` proof of a cancelled reservation is shown to the renter as "Not reviewed", and the refund is the landlord's to record (6.1).
+Every landlord-side transition writes an `audit_logs` row; the renter's own (`UploadPaymentProof`, `CancelReservation`) write none.
+
+### The landlord's moves (slice 6.1)
+
+Each is one action in `app/Actions`, one transaction: lock the reservation row `FOR UPDATE` (through the isolation scope), re-read it, `assertCanMoveTo()`, read the proofs with locking reads, write, and **one audit row** with the changed fields before and after (the proof's status included).
+
+| Action | Audit | Writes |
+| --- | --- | --- |
+| `ConfirmReservation` | `reservation.confirmed` | `decided_by`, `decided_at` (the undo window starts); the pending proof `accepted` with `reviewed_by`/`reviewed_at` |
+| `RejectProof` | `reservation.proof_rejected` | `proof_rejections + 1`, `hold_expires_at = now + 24h`, `decided_by`/`decided_at`; the pending proof `rejected` with the reason |
+| `DeclineReservation` | `reservation.declined` | `decided_by`, `decided_at`, `decision_reason`; the pending proof `rejected` **with the decline reason**, so no proof is left "waiting" on a final reservation |
+| `UndoConfirmation` | `reservation.confirmation_undone` | `decided_by`/`decided_at` cleared (the reservation is as it was before the confirm; the audit log keeps who confirmed); the accepted proof `pending` again, `reviewed_*` cleared |
+| `MarkMovedIn` | `reservation.moved_in` | status only |
+| `WithdrawReservation` | `reservation.withdrawn` | `cancelled_by` = the owner (that is how a withdrawal differs from the renter's cancel, `Reservation::wasWithdrawn()`), `cancelled_at`, `decided_by`/`decided_at`, `decision_reason`. The proofs stay as they are |
+| `EndStay` | `reservation.stay_ended` | `move_out = max(today, move_in + 1 day)` when that is earlier than planned; a stay already past its `move_out` keeps it |
+| `RecordRefund` | `reservation.refund_recorded` | `fee_refunded`, `refund_note` ([Refunds](#refunds)) |
+
+The guards that depend on the row or the clock are all in `Reservation::assertCanMoveTo()`, so the decision panel asks the same question as the action: `proof_rejections < 2` for `proof_uploaded` → `held`; for `confirmed` → `proof_uploaded`, `today < move_in` and `now < decided_at + 24h` (exactly 24 hours later is too late); `today >= move_in` for `confirmed` → `active`. A `proof_uploaded` reservation can be confirmed, rejected or declined whatever its old `hold_expires_at` says: the hold ended when the proof came in, and the proof keeps blocking. A `held` reservation can't be confirmed or rejected at all (the table has no such arrow).
+
+**Blocking stays correct at every moment.** Confirm, reject and undo go from one blocking state to another in one `UPDATE` (reject's new hold is live from the same statement), so no other request can ever see the space free between them; decline, withdraw and end stay only free it. That's why none of them needs the room lock: no landlord move makes a space blocked that wasn't. Tested against `ReserveSpace` and the 5.2 search (`tests/Feature/Landlord/DecisionsTest.php`), and over real parallel HTTP by the concurrency suite: the owner confirming while a caretaker declines, and the landlord confirming while the renter cancels on the move-in date (`tests/Concurrency/DecisionRaceTest.php`; exactly one wins, one audit row). The emails in the side-effects column come with slice 6.3. Cancelling leaves the proofs as they are: a `pending` proof of a cancelled reservation is shown to the renter as "Not reviewed", and the refund is the landlord's to record (6.1).
 
 ### Correction paths
 
@@ -138,7 +158,7 @@ Every landlord-side transition writes an `audit_logs` row; the renter's own (`Up
 
 ### Refunds
 
-The system never moves money. When a reservation is declined, cancelled or withdrawn after proof was uploaded, the landlord records `fee_refunded` (yes/no) and an optional note. The listing shows the property's refund rule as free text from `properties.house_rules`.
+The system never moves money. When a reservation is declined, cancelled or withdrawn after proof was uploaded, the landlord records `fee_refunded` (yes/no) and an optional note (`RecordRefund`, slice 6.1, owner or caretaker). It is refused on any other status, and on a reservation that never had a proof ("there is no fee to refund"). It can be changed again, the correction path: each change is one `reservation.refund_recorded` audit row, and saving the same values writes none. Until one is recorded the renter's page says to ask the landlord; afterwards it says what the landlord recorded, with the note. The listing shows the property's refund rule as free text from `properties.house_rules`.
 
 ### Unanswered proofs
 

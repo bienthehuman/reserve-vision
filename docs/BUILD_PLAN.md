@@ -102,6 +102,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | 2026-11-14 | Deployable, not hosted; CI proves the production stack instead | [ADR 0007](adr/0007-deployable-not-hosted.md) |
 | 2026-11-14 | Landlord verification by artisan command; no admin web role | [ACCESS.md](ACCESS.md#actors) |
 | 2026-11-14 | Design system: ube primary (also prices), mango highlight, Plus Jakarta Sans headings; hue chosen to differ from Hilom/PesoTrack teal and the portfolio's orange, light mode only in v1 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
+| 2026-11-17 | Slice 6.1: landlord decisions take only the reservation row lock (no landlord move makes a free space blocked, so the room lock isn't needed); a decline rejects the pending proof with the decline reason; an undo clears `decided_by`/`decided_at`; every time guard lives in `Reservation::assertCanMoveTo()` | [RESERVATIONS.md](RESERVATIONS.md#transition-table) |
 | 2026-11-17 | Slice 5.3: payment proofs are streamed through PHP after three checks (signature and expiry, the logged-in user named in the URL, the policy again), never served by S3 pre-signed URLs; the bucket stays unreachable from outside. Proofs are kept byte for byte (no re-encoding) and judged by content; the download carries `Content-Security-Policy: sandbox` | [ACCESS.md](ACCESS.md#private-files) |
 | 2026-11-17 | No map in v1: the listing shows the address and an "Open in Maps" link that searches the address text. No map script, tiles or coordinates | [ARCHITECTURE.md](ARCHITECTURE.md#stack) |
 | 2026-11-16 | Slice 4.4 built: the PSGC 3Q 2026 publication as three CSVs in the repo, imported by `places:import`; properties link to a city and barangay and keep their text columns as copies. Metro Manila and BARMM's Special Geographic Area are province rows; independent cities go under the province whose PSGC row excludes them | [DATA_MODEL.md](DATA_MODEL.md#places-slice-44) |
@@ -122,6 +123,10 @@ Ideas that came up and are deliberately not in any slice.
 | --- | --- |
 | Admin web UI for landlord verification | Kickoff |
 | Undo "moved in" | RESERVATIONS correction paths |
+| Undo a decline within a short window, if the space is still free (today a mistaken decline is final; the renter reserves again) | Slice 6.1 |
+| Common reasons to pick from when rejecting a proof ("The amount is wrong", "I can't read it"), next to the free text | Slice 6.1 |
+| A reservation's history on its page (who confirmed, rejected, undid, and when), from the audit log; today the page shows only the latest decision | Slice 6.1 |
+| Show the renter which member decided (today the renter sees the landlord account's name only) | Slice 6.1 |
 | Undo a decline | RESERVATIONS correction paths |
 | Dark mode | DESIGN_SYSTEM |
 | Filipino translation of the UI | DESIGN_SYSTEM |
@@ -180,6 +185,5 @@ Ideas that came up and are deliberately not in any slice.
 | Upload progress on the proof form, and a client-side check of the 5 MB limit before sending | Slice 5.3 |
 | Check how desktop browsers open a PDF proof served with `Content-Security-Policy: sandbox`: Chromium is expected to refuse its built-in PDF viewer in a sandboxed document (plugins are disabled there) and offer a download instead (not verified by hand; headless Chromium always downloads PDFs). If landlords want PDFs inline, render a first-page preview server-side | Slice 5.3 |
 | Delete proof files when a reservation's data is purged (a retention policy for personal data: proofs are kept forever today) | Slice 5.3 |
-| The landlord reservation page says "Hold ended" for every reservation whose hold time has passed, also once the proof is in; show it only for `held`/`expired` | Slice 5.3 |
 | E2E on a 6-worker local run against the dev stack times out (7 GB machine, Vite dev server): run `npx playwright test --workers=2` locally, as CI's 4-vCPU runner does | Slice 5.3 |
 | A first-time sign-up through Reserve comes back to the room only after confirming the email (the link is a full page load); a "Continue to your room" link on the "confirm your email" page would help someone who confirms on another device | Slice 5.3 |

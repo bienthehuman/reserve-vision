@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Landlord;
 
+use App\Enums\PaymentProofStatus;
 use App\Enums\ReservationStatus;
+use App\Models\PaymentProof;
 use App\Models\Reservation;
 use App\Models\Space;
 use App\Support\CurrentLandlordAccount;
@@ -18,7 +20,8 @@ use Inertia\Response;
  * same scopes). Every query goes through the isolation scope, so the figures are the
  * current account's, and the account's own `unverified` banner stays.
  *
- * - Proofs awaiting review: `proof_uploaded`, of which `overdue` waited more than 24 hours.
+ * - Proofs awaiting review: `proof_uploaded`, of which `overdue` waited more than 24 hours, and (6.1)
+ *   `oldest_id`, the one whose pending proof has waited longest: the card opens it directly.
  * - Holds expiring: live holds that run out within 6 hours.
  * - Move-ins: `confirmed` stays starting from today to 7 days ahead (business dates).
  * - Occupancy: spaces with a stay under way today (`confirmed` or `active`, `move_in <= today < move_out`)
@@ -59,6 +62,7 @@ final class DashboardController
                     'count' => Reservation::query()->where('reservations.status', ReservationStatus::ProofUploaded)->count(),
                     'overdue' => Reservation::query()->proofWaitingOver(ListReservations::PROOF_REMINDER_HOURS)->count(),
                     'overdue_hours' => ListReservations::PROOF_REMINDER_HOURS,
+                    'oldest_id' => $this->oldestWaiting(),
                 ],
                 'holds' => [
                     'count' => Reservation::query()->holdExpiringWithin(ListReservations::HOLD_SOON_HOURS)->count(),
@@ -71,5 +75,18 @@ final class DashboardController
                 'occupancy' => ['occupied' => $occupied, 'total' => $total],
             ],
         ]);
+    }
+
+    /** The `proof_uploaded` reservation whose pending proof was uploaded first, or null. */
+    private function oldestWaiting(): ?int
+    {
+        $id = PaymentProof::query()
+            ->where('payment_proofs.status', PaymentProofStatus::Pending)
+            ->whereHas('reservation', fn (Builder $reservation) => $reservation->where('reservations.status', ReservationStatus::ProofUploaded))
+            ->orderBy('payment_proofs.uploaded_at')
+            ->orderBy('payment_proofs.id')
+            ->value('payment_proofs.reservation_id');
+
+        return is_numeric($id) ? (int) $id : null;
     }
 }

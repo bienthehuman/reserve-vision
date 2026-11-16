@@ -460,3 +460,28 @@ function proofForm(array $overrides = []): array
 {
     return [...['proof' => proofUpload(), 'amount' => '1500', 'reference_no' => '1009 482 771'], ...$overrides];
 }
+
+/*
+| Landlord decisions (slice 6.1, tests/Feature/Landlord/Decision*Test.php).
+*/
+
+/**
+ * A reservation of `$state` (a factory state) in a listed room of a fresh account, with an owner and a caretaker of
+ * that account. Built before any actingAs() (factories are isolated too).
+ *
+ * @param  array<string, mixed>  $attributes
+ * @return array{reservation: Reservation, owner: User, caretaker: User, room: Room}
+ */
+function toDecide(string $state, array $attributes = [], string $moveIn = '2027-04-01'): array
+{
+    $room = Room::factory()->for(Property::factory()->published())->create(['reservation_fee' => 150000]);
+    $reservation = Reservation::factory()->{$state}()->for($room->spaces()->sole(), 'space')->for(User::factory()->renter()->create(), 'renter')
+        ->create(['move_in' => $moveIn, 'move_out' => CarbonImmutable::parse($moveIn)->addMonths(6)->toDateString(), ...$attributes]);
+
+    return [
+        'reservation' => $reservation,
+        'owner' => landlordUserOf($room->landlord_account_id),
+        'caretaker' => landlordUserOf($room->landlord_account_id, LandlordRole::Caretaker),
+        'room' => $room,
+    ];
+}

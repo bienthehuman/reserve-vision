@@ -57,7 +57,9 @@ it('counts proofs to review and the ones that waited more than 24 hours', functi
         ->component('Landlord/Dashboard')
         ->where('figures.proofs.count', 2)
         ->where('figures.proofs.overdue', 1)
-        ->where('figures.proofs.overdue_hours', 24));
+        ->where('figures.proofs.overdue_hours', 24)
+        // Slice 6.1: the card opens the reservation whose proof has waited longest.
+        ->where('figures.proofs.oldest_id', $old->id));
 
     $names = fn (string $query) => collect($this->actingAs($owner)->get("/landlord/reservations?{$query}")->viewData('page')['props']['reservations'])->pluck('renter_name')->sort()->values()->all();
     expect($names('status=proof_uploaded'))->toBe(['Ana Fresh', 'Ana Overdue'])
