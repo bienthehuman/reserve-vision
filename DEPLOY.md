@@ -61,7 +61,7 @@ Then deploy a release tag:
 ./deploy.sh v0.1.0
 ```
 
-[deploy.sh](deploy.sh) checks the env file, checks out the tag, builds the image, starts MySQL and MinIO (the first start creates the database users and buckets), migrates as `migrator`, starts everything, runs `php artisan optimize` in each PHP container, runs `php artisan app:doctor` and finally requests `https://<DOMAIN>/up`. If any step fails it stops, says which step, and prints the rollback command.
+[deploy.sh](deploy.sh) checks the env file, checks out the tag, builds the image, starts MySQL and MinIO (the first start creates the database users and buckets), migrates as `migrator`, imports the places (`php artisan places:import`, as `app`: every province, city and barangay of the PSA's PSGC list, from `database/data/psgc/` in the image; about 2 seconds, and a no-op when nothing changed), starts everything, runs `php artisan optimize` in each PHP container, runs `php artisan app:doctor` and finally requests `https://<DOMAIN>/up`. If any step fails it stops, says which step, and prints the rollback command.
 
 Nothing is seeded in production: `db:seed` there loads only the amenity catalogue, and `DemoSeeder` refuses to run unless `APP_DEMO=true` is set. Leave it `false` on a real site. For a trial server you may set it and run `docker compose -f compose.prod.yaml --env-file .env.production exec app php artisan db:seed --force`, which creates the [demo logins](README.md#demo-logins) (password `password`, so never on a public site with real users). With `APP_DEMO=true` the login page also lists those accounts.
 
@@ -120,6 +120,10 @@ Releases are git tags. To deploy a newer one:
 ```
 
 The script refuses to run if tracked files have local changes, so the code that runs is always exactly the tag. Back up the database before an update that includes migrations (see [Backups](#backups)). Old images stay on the host (`reservevision:<tag>`); clean them up now and then with `docker image prune`.
+
+### A newer PSGC publication
+
+The places ship with the code, so a newer PSA publication arrives as a release like any other: a developer converts it ([database/data/psgc/README.md](database/data/psgc/README.md), "Updating to a newer publication"), the PR shows the changed rows, and the next `./deploy.sh <tag>` imports it. The import adds new places and renames changed ones; it never changes a city's slug (listing URLs keep working) and never deletes a place (a property may point at it). It prints the places that left the list, and how many properties still have no linked city or barangay; their owners see the checklist item "A complete address" until they choose one. To run it by hand: `docker compose -f compose.prod.yaml --env-file .env.production exec app php artisan places:import`.
 
 ## Rollback
 

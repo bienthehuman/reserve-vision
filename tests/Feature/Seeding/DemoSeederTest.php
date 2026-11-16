@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Storage;
 beforeEach(function (): void {
     $this->travelTo(CarbonImmutable::parse('2026-11-15 10:00:00', 'Asia/Manila'));
     Storage::fake('photos'); // the demo photos are real files (slice 4.2)
+    importDemoPlaces(); // the demo cities and their real barangays (slice 4.4)
     $this->seed(DemoSeeder::class);
 });
 
@@ -57,6 +58,18 @@ it('creates the promised amounts, places and mix', function (): void {
         ->and(DB::table('properties')->where('city', 'Cebu City')->where('province', '!=', 'Cebu')->count())->toBe(0)
         ->and(DB::table('properties')->where('city_slug', 'manila')->value('province'))->toBe('Metro Manila')
         ->and(DB::table('property_amenity')->count())->toBeBetween(180, 480);
+
+    // Real places (slice 4.4): every property is linked, and its text columns are copies of the linked rows.
+    $copies = DB::table('properties')
+        ->join('cities', 'cities.id', '=', 'properties.city_id')
+        ->join('provinces', 'provinces.id', '=', 'cities.province_id')
+        ->join('barangays', 'barangays.id', '=', 'properties.barangay_id')
+        ->whereColumn('barangays.city_id', 'cities.id')
+        ->whereColumn('properties.city', 'cities.name')->whereColumn('properties.city_slug', 'cities.slug')
+        ->whereColumn('properties.province', 'provinces.name')
+        ->whereRaw("properties.barangay = IF(barangays.district IS NULL, barangays.name, CONCAT(barangays.name, ', ', barangays.district))")
+        ->count();
+    expect($copies)->toBe(60);
 
     // Apartments: one whole-room space per unit. Boarding houses: shared rooms of 2-8 beds.
     $apartmentSpaces = DB::table('spaces')->join('rooms', 'rooms.id', '=', 'spaces.room_id')->join('properties', 'properties.id', '=', 'rooms.property_id')
@@ -185,6 +198,7 @@ it('creates the demo logins and the last-bed room', function (): void {
         ->and($room->room_type)->toBe('shared')
         ->and((bool) $property->is_published)->toBeTrue()
         ->and($property->name)->toBe(DemoSeeder::LAST_BED_PROPERTY)
+        ->and("{$property->barangay}, {$property->city}")->toBe('Barangay 395, Sampaloc, Manila')
         ->and($spaces)->toHaveCount(4);
 
     $reservations = DB::table('reservations')->whereIn('space_id', $spaces->pluck('id'))->get();
@@ -266,7 +280,9 @@ it('produces the same business data every time', function (): void {
      * and say why in the PR. An unexpected change means something stopped being
      * deterministic: look for an unseeded random call or an unordered query.
      */
-    $expected = 'de6feda7783d3261ee4036867b7944d1ed3a8f5aacbd39e39c0d57328c8134ba';
+    // Changed in 4.4: real barangays from the PSGC (the `barangay` column), and each property's city and barangay codes.
+    // Every other column is what it was: the Faker stream is unchanged (one draw picks the barangay, as before).
+    $expected = 'f273877b70bb16930778af09903124e80f7cd780f06e92768970c351961655cd';
 
     // Amenities are reference data with auto-increment ids, whose counter survives a
     // rolled-back test, so they are hashed by slug, not by id.
@@ -275,7 +291,10 @@ it('produces the same business data every time', function (): void {
         'landlord_accounts' => DB::table('landlord_accounts')->orderBy('id'),
         'landlord_members' => DB::table('landlord_members')->orderBy('id'),
         'amenities' => DB::table('amenities')->select('slug', 'name')->orderBy('slug'),
-        'properties' => DB::table('properties')->orderBy('id'),
+        // The places tables' ids are auto-increment too (slice 4.4): a property's city and barangay by PSGC code.
+        'properties' => DB::table('properties')
+            ->join('cities', 'cities.id', '=', 'properties.city_id')->join('barangays', 'barangays.id', '=', 'properties.barangay_id')
+            ->select('properties.*', 'cities.psgc_code as city_code', 'barangays.psgc_code as barangay_code')->orderBy('properties.id'),
         'property_amenity' => DB::table('property_amenity')->join('amenities', 'amenities.id', '=', 'amenity_id')
             ->select('property_id', 'slug')->orderBy('property_id')->orderBy('slug'),
         'rooms' => DB::table('rooms')->orderBy('id'),
@@ -284,7 +303,7 @@ it('produces the same business data every time', function (): void {
         'payment_proofs' => DB::table('payment_proofs')->orderBy('id'),
         'property_photos' => DB::table('property_photos')->orderBy('id'),
     ];
-    $skip = ['password', 'remember_token', 'created_at', 'updated_at'];
+    $skip = ['password', 'remember_token', 'created_at', 'updated_at', 'city_id', 'barangay_id'];
 
     $context = hash_init('sha256');
     foreach ($queries as $table => $query) {

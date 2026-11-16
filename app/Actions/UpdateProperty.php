@@ -8,10 +8,9 @@ use App\Data\PropertyDetails;
 use App\Exceptions\Domain\CannotEditProperty;
 use App\Models\Property;
 use App\Support\AuditLogger;
-use App\Support\Places;
+use App\Support\Places\AddressCopies;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
-use InvalidArgumentException;
 
 /**
  * Edits a property (owner only: PropertyPolicy::update, checked by the request).
@@ -19,7 +18,7 @@ use InvalidArgumentException;
  *
  * The slug and the city make the public URL (/listings/{city}/{slug}), so once the
  * property has been published (`first_published_at`) they are locked: a different
- * value is refused, the same one is fine. Before that the slug can be edited (null keeps it).
+ * value is refused, the same one is fine; the barangay can still change within the city. Before that the slug can be edited (null keeps it).
  * One audit row, `property.updated`, with the changed fields only; none if nothing changed.
  * Fields not on the form (publishing, archiving, photos) are other actions' business.
  */
@@ -27,7 +26,7 @@ final class UpdateProperty
 {
     /** The columns whose changes are audited. */
     public const array AUDITED = [
-        'kind', 'name', 'slug', 'address', 'barangay', 'city', 'city_slug', 'province',
+        'kind', 'name', 'slug', 'address', 'barangay', 'city', 'city_slug', 'province', 'city_id', 'barangay_id',
         'gender_policy', 'house_rules', 'payment_instructions',
     ];
 
@@ -36,15 +35,16 @@ final class UpdateProperty
     /** @throws CannotEditProperty */
     public function handle(Property $property, PropertyDetails $details): Property
     {
-        $place = Places::find($details->citySlug) ?? throw new InvalidArgumentException("Unknown city [{$details->citySlug}].");
+        $copies = AddressCopies::of($details->barangay);
 
-        return DB::transaction(function () use ($property, $details, $place): Property {
+        return DB::transaction(function () use ($property, $details, $copies): Property {
             $property = Property::query()->whereKey($property->getKey())->lockForUpdate()->firstOrFail();
 
             $slug = $details->slug === null || $details->slug === '' ? $property->slug : $details->slug;
 
             if ($property->hasBeenPublished()) {
-                if ($details->citySlug !== $property->city_slug) {
+                // By slug: a property from before slice 4.4 may not be linked yet, and choosing its own city links it.
+                if ($copies['city_slug'] !== $property->city_slug) {
                     throw CannotEditProperty::cityLocked();
                 }
 
@@ -60,10 +60,7 @@ final class UpdateProperty
                 'name' => $details->name,
                 'slug' => $slug,
                 'address' => $details->address,
-                'barangay' => $details->barangay,
-                'city' => $place['city'],
-                'city_slug' => $place['slug'],
-                'province' => $place['province'],
+                ...$copies,
                 'gender_policy' => $details->genderPolicy,
                 'house_rules' => $details->houseRules,
                 'payment_instructions' => $details->paymentInstructions,

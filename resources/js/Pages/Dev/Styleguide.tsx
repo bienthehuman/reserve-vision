@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Alert, Button, Card, Col, Container, Form, Row, Table } from 'react-bootstrap';
 import { ArrowLeft, ExclamationCircle } from 'react-bootstrap-icons';
 import Pager from '@/Components/Pager';
+import SelectField from '@/Components/Form/SelectField';
 import PriceTag from '@/Components/PriceTag';
 import StatusBadge from '@/Components/StatusBadge';
 import PublicLayout from '@/Layouts/PublicLayout';
@@ -188,6 +189,49 @@ export default function Styleguide() {
                             </Form.Control.Feedback>
                         </Form.Group>
                         <Form.Check type="checkbox" id="sg-rules" label="I have read the house rules" />
+                    </Form>
+                </Section>
+
+                <Section id="dependent-dropdowns" title="Dependent dropdowns">
+                    <p className="small text-body-secondary">
+                        The property address (slice 4.4): a dropdown that needs another one says so while it waits; a list grouped by district; a list
+                        that didn&apos;t load, with a retry.
+                    </p>
+                    <Form noValidate className="col-md-6">
+                        <SelectField
+                            name="sg-barangay-waiting"
+                            label="Barangay"
+                            value=""
+                            onChange={() => undefined}
+                            options={[]}
+                            placeholder="Choose a city first."
+                            disabled
+                        />
+                        <SelectField
+                            name="sg-barangay-grouped"
+                            label="Barangay in Manila"
+                            value="2"
+                            onChange={() => undefined}
+                            options={[
+                                { value: '1', label: 'Barangay 659', group: 'Ermita' },
+                                { value: '2', label: 'Barangay 395', group: 'Sampaloc' },
+                                { value: '3', label: 'Barangay 396', group: 'Sampaloc' },
+                            ]}
+                        />
+                        <SelectField
+                            name="sg-city-failed"
+                            label="City or municipality"
+                            value=""
+                            onChange={() => undefined}
+                            options={[]}
+                            placeholder="Couldn't load the cities and municipalities"
+                            className="mb-2"
+                            disabled
+                        />
+                        <div className="place-error mb-3" role="status">
+                            <span>We couldn&apos;t load the cities and municipalities. Check your connection, then try again.</span>
+                            <Button variant="outline-primary">Try again</Button>
+                        </div>
                     </Form>
                 </Section>
 

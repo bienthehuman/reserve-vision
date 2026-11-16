@@ -3,14 +3,19 @@
 declare(strict_types=1);
 
 use App\Actions\ReserveSpace;
+use App\Enums\CityKind;
 use App\Enums\LandlordRole;
+use App\Models\Barangay;
+use App\Models\City;
 use App\Models\LandlordAccount;
 use App\Models\LandlordMember;
 use App\Models\Property;
+use App\Models\Province;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\Space;
 use App\Models\User;
+use App\Support\Places\PlacesImporter;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -160,6 +165,92 @@ pest()->extend(ConcurrencyTestCase::class)->in('Concurrency');
 | Landlord editing (tests/Feature/Landlord, slice 4.1).
 */
 
+/*
+| Places (slice 4.4). Tests don't import the country: they build the rows they need.
+*/
+
+/** The demo cities' real names and provinces, and a real barangay of each (Manila's with its district). */
+const TEST_PLACES = [
+    'manila' => ['Manila', 'Metro Manila', 'Barangay 395', 'Sampaloc'],
+    'quezon-city' => ['Quezon City', 'Metro Manila', 'Loyola Heights', null],
+    'makati' => ['Makati', 'Metro Manila', 'Poblacion', null],
+    'cebu-city' => ['Cebu City', 'Cebu', 'Lahug', null],
+    'davao-city' => ['Davao City', 'Davao del Sur', 'Matina Crossing', null],
+    'baguio' => ['Baguio', 'Benguet', 'Irisan', null],
+    'iloilo-city' => ['Iloilo City', 'Iloilo', 'Tabuc Suba (Jaro)', null],
+];
+
+/**
+ * A barangay in one of TEST_PLACES' cities, creating the province and city on first use in the test.
+ * `$barangay` names another barangay of that city (created if it isn't there yet).
+ */
+function placeIn(string $citySlug = 'manila', ?string $barangay = null): Barangay
+{
+    [$cityName, $provinceName, $defaultBarangay, $district] = TEST_PLACES[$citySlug] ?? throw new InvalidArgumentException("No test place [{$citySlug}].");
+    $province = Province::query()->where('slug', Str::slug($provinceName))->first()
+        ?? Province::factory()->create(['name' => $provinceName, 'slug' => Str::slug($provinceName)]);
+    $city = City::query()->where('slug', $citySlug)->first()
+        ?? City::factory()->for($province)->create(['name' => $cityName, 'slug' => $citySlug, 'kind' => CityKind::City]);
+    $name = $barangay ?? $defaultBarangay;
+
+    return Barangay::query()->where('city_id', $city->id)->where('name', $name)->first()
+        ?? Barangay::factory()->for($city)->create(['name' => $name, 'district' => $barangay === null ? $district : null]);
+}
+
+/**
+ * The demo cities' rows of the real PSGC files, imported: DemoSeeder needs their real barangays,
+ * and the whole country takes seconds. The files are filtered once per process into a temp directory.
+ */
+function importDemoPlaces(): void
+{
+    static $directory = null;
+
+    if ($directory === null) {
+        $target = sys_get_temp_dir().'/rv-demo-places-'.getmypid();
+        is_dir($target) || mkdir($target);
+        /** @var list<array{slug: string, rate: float}> $demo */
+        $demo = require database_path('data/places.php');
+        $codes = array_flip(array_map(fn (array $city): string => (string) array_search($city['slug'], PlacesImporter::PINNED, true)
+            ?: throw new RuntimeException("Demo city [{$city['slug']}] isn't pinned."), $demo));
+        $provinces = [];
+        $filter = function (string $file, callable $keep) use ($target): void {
+            $lines = file(database_path("data/psgc/{$file}")) ?: [];
+            $kept = [$lines[0]];
+            foreach (array_slice($lines, 1) as $line) {
+                if ($keep(str_getcsv($line, escape: ''))) {
+                    $kept[] = $line;
+                }
+            }
+            file_put_contents("{$target}/{$file}", implode('', $kept));
+        };
+        $filter('cities.csv', function (array $row) use ($codes, &$provinces): bool {
+            if (! isset($codes[$row[0]])) {
+                return false;
+            }
+            $provinces[$row[1]] = true;
+
+            return true;
+        });
+        $filter('provinces.csv', fn (array $row): bool => isset($provinces[$row[0]]));
+        $filter('barangays.csv', fn (array $row): bool => isset($codes[$row[1]]));
+        $directory = $target;
+    }
+
+    app(PlacesImporter::class)->import($directory);
+}
+
+/**
+ * The address fields of the property form for a barangay (default: placeIn()).
+ *
+ * @return array{city_id: int, barangay_id: int}
+ */
+function placeFields(?Barangay $barangay = null): array
+{
+    $barangay ??= placeIn();
+
+    return ['city_id' => $barangay->city_id, 'barangay_id' => $barangay->id];
+}
+
 /**
  * An owner of a verified account with a published property and a room in it.
  * Create fixtures before actingAs() (CLAUDE.md, quirks in 3.1).
@@ -169,8 +260,8 @@ pest()->extend(ConcurrencyTestCase::class)->in('Concurrency');
 function ownerWithRoom(int $beds = 0, string $name = 'Alpha Home'): array
 {
     $owner = landlordUser();
-    $property = Property::factory()->published()->create([
-        'landlord_account_id' => accountIdOf($owner), 'name' => $name, 'city' => 'Manila', 'city_slug' => 'manila', 'province' => 'Metro Manila', 'slug' => Str::slug($name),
+    $property = Property::factory()->published()->at(placeIn('manila'))->create([
+        'landlord_account_id' => accountIdOf($owner), 'name' => $name, 'slug' => Str::slug($name),
     ]);
     $room = ($beds > 0 ? Room::factory()->shared(beds: $beds) : Room::factory())->for($property)->create(['name' => 'Room 1', 'monthly_rate' => 650000, 'reservation_fee' => 150000]);
 
@@ -178,7 +269,7 @@ function ownerWithRoom(int $beds = 0, string $name = 'Alpha Home'): array
 }
 
 /**
- * A valid property form body; override any field.
+ * A valid property form body, in Loyola Heights, Quezon City; override any field (`...placeFields(placeIn('makati'))` for another place).
  *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
@@ -186,7 +277,7 @@ function ownerWithRoom(int $beds = 0, string $name = 'Alpha Home'): array
 function propertyForm(array $overrides = []): array
 {
     return [
-        'kind' => 'boarding_house', 'name' => 'Santos Bedspace House', 'city' => 'quezon-city', 'barangay' => 'Loyola Heights',
+        'kind' => 'boarding_house', 'name' => 'Santos Bedspace House', ...placeFields(placeIn('quezon-city')),
         'address' => '12 Mabini Street', 'gender_policy' => 'any', 'amenities' => [], 'house_rules' => 'Quiet hours 10 PM.',
         'payment_instructions' => 'GCash 0917 123 4567 (J. Santos).',
         ...$overrides,

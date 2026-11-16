@@ -8,6 +8,7 @@ use App\Models\Property;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\Space;
+use App\Support\Places\PlacesImporter;
 
 // docs/ACCESS.md "Isolation": leaving the isolation scope is explicit and
 // greppable. withoutGlobalScope(…) / withoutGlobalScopes() may appear only in
@@ -39,6 +40,7 @@ const SYSTEM_CLASSES_WITHOUT_SCOPE = [];
 /** System code that reads or writes a landlord-owned table with the query builder. */
 const SYSTEM_CLASSES_WITH_RAW_TABLES = [
     DoctorCommand::class, // the audit_logs trigger probe, rolled back
+    PlacesImporter::class, // places:import links every account's properties to their city and barangay (slice 4.4)
 ];
 
 const LANDLORD_OWNED_TABLES = [

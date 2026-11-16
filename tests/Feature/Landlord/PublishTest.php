@@ -54,7 +54,7 @@ it('publishes a complete draft: published, first_published_at set, one audit row
     auth()->logout();
     $this->get("/rooms/{$room->id}")->assertNotFound();
 
-    expect(checklistOf($this, $owner, $property))->toBe(['verified' => true, 'room' => true, 'photo' => true, 'payment' => true]);
+    expect(checklistOf($this, $owner, $property))->toBe(['verified' => true, 'room' => true, 'photo' => true, 'payment' => true, 'address' => true]);
 
     $this->actingAs($owner)->post("/landlord/properties/{$property->id}/publish")
         ->assertRedirect("/landlord/properties/{$property->id}")
@@ -101,23 +101,27 @@ it('refuses to publish while anything is missing, names it, and the page\'s chec
     'the only photo failed' => ['photo', fn (Property $p) => $p->photos()->update(['status' => 'failed']), 'At least one photo'],
     'no payment instructions' => ['payment', fn (Property $p) => $p->forceFill(['payment_instructions' => null])->save(), 'How renters pay the reservation fee'],
     'blank payment instructions' => ['payment', fn (Property $p) => $p->forceFill(['payment_instructions' => '  '])->save(), 'How renters pay'],
+    // Slice 4.4: a property from before the places list, with only the old text.
+    'no linked barangay (from before 4.4)' => ['address', fn (Property $p) => $p->forceFill(['barangay_id' => null])->save(), 'A complete address'],
+    'no linked city or barangay (from before 4.4)' => ['address', fn (Property $p) => $p->forceFill(['city_id' => null, 'barangay_id' => null])->save(), 'A complete address'],
     'the property is archived' => ['archived', fn (Property $p) => $p->forceFill(['archived_at' => now()])->save(), 'The property is not archived'],
 ]);
 
 it('lists everything that is missing at once, with a link to fix each thing the owner can fix', function (): void {
     $owner = landlordUser(verifiedAccount: false);
-    $property = Property::factory()->create(['landlord_account_id' => accountIdOf($owner), 'name' => 'Bare Lot', 'payment_instructions' => null]);
+    $property = Property::factory()->unlinked()->create(['landlord_account_id' => accountIdOf($owner), 'name' => 'Bare Lot', 'payment_instructions' => null]);
 
     $this->actingAs($owner)->get("/landlord/properties/{$property->id}")->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
-        ->has('checklist', 4)
+        ->has('checklist', 5)
         ->where('checklist.0.key', 'verified')->where('checklist.0.done', false)->where('checklist.0.fix', null)
         ->where('checklist.0.hint', fn (string $hint): bool => str_contains($hint, 'still checking your account'))
         ->where('checklist.1.fix.href', "/landlord/properties/{$property->id}/rooms/create")
         ->where('checklist.2.fix.href', '#photos')
-        ->where('checklist.3.fix.href', "/landlord/properties/{$property->id}/edit"));
+        ->where('checklist.3.fix.href', "/landlord/properties/{$property->id}/edit")
+        ->where('checklist.4.key', 'address')->where('checklist.4.done', false)->where('checklist.4.fix.href', "/landlord/properties/{$property->id}/edit"));
 
     $message = $this->actingAs($owner)->postJson("/landlord/properties/{$property->id}/publish")->assertStatus(422)->json('message');
-    expect($message)->toContain('We have checked your account')->toContain('A room with')->toContain('At least one photo')->toContain('How renters pay');
+    expect($message)->toContain('We have checked your account')->toContain('A room with')->toContain('At least one photo')->toContain('How renters pay')->toContain('A complete address');
 });
 
 it('keeps the checklist from a caretaker, who can\'t publish or unpublish', function (): void {

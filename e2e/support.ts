@@ -48,3 +48,23 @@ export async function logIn(page: Page, email: string, password: string): Promis
     await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Log in', exact: true }).click();
 }
+
+/**
+ * Chooses an address on the property form (slice 4.4): province, then city, then barangay, each dropdown
+ * waiting until the one before it has loaded its list. Labels are the names shown, as a person picks them.
+ */
+export async function chooseAddress(page: Page, place: { province: string; city: string; barangay: string }): Promise<void> {
+    const city = page.getByLabel('City or municipality', { exact: true });
+    // Again until the city opens up: a choice made before hydration under load can be lost (CLAUDE.md, quirks in 4.4).
+    await expect(async () => {
+        await page.getByLabel('Province', { exact: true }).selectOption({ label: place.province });
+        await expect(city).toBeEnabled({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+    await city.selectOption({ label: place.city });
+    const barangay = page.getByLabel('Barangay', { exact: true });
+    await expect(barangay).toBeEnabled();
+    await barangay.selectOption({ label: place.barangay });
+}
+
+/** Loyola Heights, Quezon City: the address the e2e properties use. */
+export const LOYOLA_HEIGHTS = { province: 'Metro Manila', city: 'Quezon City', barangay: 'Loyola Heights' };

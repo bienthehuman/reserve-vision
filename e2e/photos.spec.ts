@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import path from 'node:path';
-import { collectConsoleErrors, expectNoAxeViolations, logIn } from './support';
+import { chooseAddress, collectConsoleErrors, expectNoAxeViolations, logIn, LOYOLA_HEIGHTS } from './support';
 
 /**
  * Slice 4.2: the owner adds two photos to a new property at once, waits for the worker to resize
@@ -57,8 +57,7 @@ test('4.2: the owner uploads photos, waits for them to be ready, reorders, descr
     await page.goto('/landlord/properties/create');
     await page.waitForLoadState('networkidle');
     await page.getByLabel('Property name', { exact: true }).fill(name);
-    await page.getByLabel('Barangay', { exact: true }).fill('Loyola Heights');
-    await page.getByLabel('City', { exact: true }).selectOption('quezon-city');
+    await chooseAddress(page, LOYOLA_HEIGHTS);
     await page.getByRole('button', { name: 'Save as a draft' }).click();
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
     await page.waitForLoadState('networkidle');

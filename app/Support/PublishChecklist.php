@@ -15,7 +15,9 @@ use App\Models\Space;
  * What a property needs before it can be published (ACCESS.md, flow A), as the list the property
  * page shows and PublishProperty checks again: the account is verified, the property isn't
  * archived, a room that isn't archived has a space that isn't either, one photo is ready, and
- * the payment instructions are written. The address is always complete (the form requires it).
+ * the payment instructions are written, and the address is complete: its city and barangay are
+ * chosen from the places list (slice 4.4; the form requires them, but a property from before that
+ * may have only the old text).
  *
  * `of($property)` reads plainly, for the page. `of($property, locking: true)` is for
  * PublishProperty, which has already locked the property's rooms and the property row: every
@@ -73,6 +75,13 @@ final readonly class PublishChecklist
                 'done' => trim((string) $property->payment_instructions) !== '',
                 'hint' => null,
                 'fix' => ['href' => route('landlord.properties.edit', $id, absolute: false), 'label' => self::text('Add how to pay')],
+            ],
+            [
+                'key' => 'address',
+                'label' => self::text('A complete address'),
+                'done' => $property->hasCompleteAddress(),
+                'hint' => $property->hasCompleteAddress() ? null : self::text('Choose the barangay and city from the lists.'),
+                'fix' => ['href' => route('landlord.properties.edit', $id, absolute: false), 'label' => self::text('Choose from the lists')],
             ],
         ];
 

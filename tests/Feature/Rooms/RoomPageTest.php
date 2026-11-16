@@ -20,7 +20,7 @@ beforeEach(function (): void {
 
 it('server-renders the room name, property, rate and free spaces', function (): void {
     $room = Room::factory()->shared(beds: 4)
-        ->for(Property::factory()->published()->state(['name' => 'Casa Verde', 'city' => 'Manila', 'barangay' => 'Sampaloc']))
+        ->for(Property::factory()->published()->at(placeIn('manila'))->state(['name' => 'Casa Verde']))
         ->create(['name' => 'Blue Room', 'monthly_rate' => 450000]);
     Reservation::factory()->confirmed()->for($room->spaces()->orderBy('id')->firstOrFail())
         ->create(['move_in' => '2027-04-01', 'move_out' => '2027-10-01']);

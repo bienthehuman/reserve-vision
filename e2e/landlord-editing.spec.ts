@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { collectConsoleErrors, expectNoAxeViolations, logIn } from './support';
+import { chooseAddress, collectConsoleErrors, expectNoAxeViolations, LOYOLA_HEIGHTS, logIn } from './support';
 
 /**
  * Slice 4.1: the owner creates a property with a shared room of 3 beds, edits the rate and archives a bed,
- * on the phone viewport. Zero axe violations on every new page. It adds a property to the demo owner's
+ * on the phone viewport. Slice 4.4: the address's three dropdowns on the way (disabled, Manila's districts, clearing). Zero axe violations on every new page. It adds a property to the demo owner's
  * account on each run (a unique name), so it runs in one project only and leaves the rest of the demo data alone.
  * Set SCREENSHOT_DIR to save the 360 px screenshots for the PR.
  */
@@ -49,9 +49,35 @@ test('4.1: the owner adds a property with a 3-bed room, changes the rate and arc
     await page.waitForLoadState('networkidle');
     await page.getByLabel('Property name', { exact: true }).fill(name);
     await page.getByLabel('Street address').fill('12 Mabini Street');
-    await page.getByLabel('Barangay', { exact: true }).fill('Loyola Heights');
-    await page.getByLabel('City', { exact: true }).selectOption('quezon-city');
-    await expect(page.getByLabel('Province')).toHaveValue('Metro Manila'); // follows from the city
+
+    // The address (4.4): each dropdown needs the one after it, and says so while it waits.
+    const province = page.getByLabel('Province', { exact: true });
+    const city = page.getByLabel('City or municipality', { exact: true });
+    const barangay = page.getByLabel('Barangay', { exact: true });
+    await expect(barangay).toBeDisabled();
+    await expect(barangay.locator('option:checked')).toHaveText('Choose a city first.');
+    await expect(city).toBeDisabled();
+    await expect(city.locator('option:checked')).toHaveText('Choose a province first.');
+    await shot('address-empty');
+    await clean(); // two disabled dropdowns
+
+    // Manila's barangays are grouped by district.
+    await province.selectOption({ label: 'Metro Manila' });
+    await expect(city).toBeEnabled();
+    await expect(barangay).toBeDisabled();
+    await shot('address-province');
+    await city.selectOption({ label: 'Manila' });
+    await expect(barangay).toBeEnabled();
+    await expect(barangay.locator('optgroup[label="Sampaloc"] option', { hasText: /^Barangay 395$/ })).toHaveCount(1);
+    await barangay.click(); // the list open (Chromium's styled select): axe sees it too
+    await clean();
+    await page.keyboard.press('Escape');
+
+    // Changing the city clears the barangay; changing the province clears both.
+    await barangay.selectOption({ label: 'Barangay 395' });
+    await city.selectOption({ label: 'Quezon City' });
+    await expect(barangay).toHaveValue('');
+    await chooseAddress(page, LOYOLA_HEIGHTS);
     await page.getByLabel('How to pay the reservation fee').fill('GCash 0917 123 4567 (E. Test)');
     await shot('property-form');
     await clean();

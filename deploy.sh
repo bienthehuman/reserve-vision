@@ -4,8 +4,8 @@
 #   ./deploy.sh v0.2.0     fetch tags, check out v0.2.0, then deploy it
 #   ./deploy.sh --current  deploy the code that is checked out now (CI uses this)
 #
-# Steps: check out, build, start db + storage, migrate as `migrator`, start the
-# stack, `php artisan optimize`, `php artisan app:doctor`, GET /up. Any failing
+# Steps: check out, build, start db + storage, migrate as `migrator`, import the
+# PSGC places (as `app`), start the stack, `php artisan optimize`, `php artisan app:doctor`, GET /up. Any failing
 # step stops the deploy and prints the rollback command.
 #
 # Environment:
@@ -118,6 +118,10 @@ main() {
 
     step "Migrating as migrator"
     compose run --rm --no-deps app php artisan migrate --database=mysql_migrator --force --no-interaction
+
+    # Idempotent: adds or renames places from a newer PSGC publication, never changes a slug (DEPLOY.md).
+    step "Importing places (provinces, cities, barangays)"
+    compose run --rm --no-deps app php artisan places:import --no-interaction
 
     step "Starting the stack"
     compose up -d --wait --remove-orphans

@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Models\Barangay;
+use App\Models\City;
 use App\Models\LandlordMember;
 use App\Models\PaymentProof;
 use App\Models\Property;
 use App\Models\PropertyPhoto;
+use App\Models\Province;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\Space;
@@ -178,5 +181,25 @@ describe('uniqueness', function (): void {
         $user = User::factory()->create();
 
         expect(dbErrorCode(fn () => User::factory()->create(['email' => $user->email])))->toBe(DUPLICATE_KEY);
+    });
+});
+
+describe('places (slice 4.4)', function (): void {
+    it('keeps PSGC codes to 10 digits and unique, and city slugs unique nationwide', function (): void {
+        $barangay = placeIn('manila');
+
+        expect(dbErrorCode(fn () => Barangay::factory()->create(['psgc_code' => '12345'])))->toBeIn(CHECK_VIOLATION)
+            ->and(dbErrorCode(fn () => Province::factory()->create(['psgc_code' => 'abcdefghij'])))->toBeIn(CHECK_VIOLATION)
+            ->and(dbErrorCode(fn () => Barangay::factory()->create(['psgc_code' => $barangay->psgc_code])))->toBe(DUPLICATE_KEY)
+            ->and(dbErrorCode(fn () => City::factory()->create(['slug' => 'manila'])))->toBe(DUPLICATE_KEY)
+            ->and(dbErrorCode(fn () => DB::table('cities')->where('id', $barangay->city_id)->update(['kind' => 'village'])))->toBeIn(CHECK_VIOLATION);
+    });
+
+    it('links a property only to a city and a barangay that exist, and allows neither for rows from before 4.4', function (): void {
+        $property = Property::factory()->create();
+
+        expect(dbErrorCode(fn () => DB::table('properties')->where('id', $property->id)->update(['city_id' => 999999999])))->toBe(FOREIGN_KEY_VIOLATION)
+            ->and(dbErrorCode(fn () => DB::table('properties')->where('id', $property->id)->update(['barangay_id' => 999999999])))->toBe(FOREIGN_KEY_VIOLATION)
+            ->and(DB::table('properties')->where('id', $property->id)->update(['city_id' => null, 'barangay_id' => null]))->toBe(1);
     });
 });

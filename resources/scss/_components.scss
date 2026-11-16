@@ -417,6 +417,16 @@ a {
   gap: 0.5rem;
 }
 
+// A dependent dropdown whose list didn't load (property form, slice 4.4): the reason, then the retry.
+.place-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  color: var(--bs-form-invalid-color);
+  font-size: $form-feedback-font-size;
+}
+
 .form-actions {
   padding: 1rem 1.25rem;
   border-top: 1px solid $rv-border;

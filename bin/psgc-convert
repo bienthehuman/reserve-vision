@@ -1,0 +1,265 @@
+#!/usr/bin/env php
+<?php
+
+/*
+| Converts the PSA's PSGC publication datafile (.xlsx) into the three files the app
+| imports (slice 4.4): database/data/psgc/{provinces,cities,barangays}.csv.
+|
+|   docker compose exec app bin/psgc-convert database/data/psgc/source/PSGC-3Q-2026-Publication-Datafile.xlsx
+|
+| A development tool: plain PHP (zip, xmlreader), no spreadsheet library. Names go
+| through App\Support\Places\PlaceNames, so the files hold what the app shows. It
+| stops with a message rather than guess when the workbook has something new: an
+| unknown level, a city without a province, a barangay without a city.
+| See database/data/psgc/README.md.
+*/
+
+declare(strict_types=1);
+
+use App\Support\Places\PlaceNames;
+
+require __DIR__.'/../vendor/autoload.php';
+
+/** Metro Manila is a region, not a province; its row takes the region's PSGC code. */
+const METRO_MANILA = ['1300000000', 'Metro Manila'];
+
+/**
+ * Rows without a geographic level. The Special Geographic Area (BARMM's eight
+ * municipalities carved out of Cotabato province) belongs to no province, so it is
+ * one, like Metro Manila. The Isabela row is a heading for the city below it.
+ */
+const UNLEVELLED = [
+    '1999900000' => 'Special Geographic Area',
+    '0990100000' => null, // "City of Isabela (Not a Province)"
+];
+
+/**
+ * Cities outside every province (highly urbanized cities, and Isabela City, which
+ * the PSA codes under Region IX) => the province they sit in, which is the province
+ * an address names. Each one is the province whose row in the publication says
+ * "(excluding CITY OF …)" for it; the converter checks that it still does.
+ */
+const INDEPENDENT_CITIES = [
+    '1430300000' => '1401100000', // Baguio => Benguet
+    '0330100000' => '0305400000', // Angeles => Pampanga
+    '0331400000' => '0307100000', // Olongapo => Zambales
+    '0431200000' => '0405600000', // Lucena => Quezon
+    '1731500000' => '1705300000', // Puerto Princesa => Palawan
+    '0631000000' => '0603000000', // Iloilo City => Iloilo
+    '1830200000' => '1804500000', // Bacolod => Negros Occidental
+    '0730600000' => '0702200000', // Cebu City => Cebu
+    '0731100000' => '0702200000', // Lapu-Lapu => Cebu
+    '0731300000' => '0702200000', // Mandaue => Cebu
+    '0831600000' => '0803700000', // Tacloban => Leyte
+    '0931700000' => '0907300000', // Zamboanga City => Zamboanga del Sur
+    '1030500000' => '1004300000', // Cagayan de Oro => Misamis Oriental
+    '1030900000' => '1003500000', // Iligan => Lanao del Norte
+    '1130700000' => '1102400000', // Davao City => Davao del Sur
+    '1230800000' => '1206300000', // General Santos => South Cotabato
+    '1630400000' => '1600200000', // Butuan => Agusan del Norte
+    '0990101000' => '1900700000', // Isabela City => Basilan
+];
+
+function fail(string $message): never
+{
+    fwrite(STDERR, "psgc-convert: {$message}\n");
+    exit(1);
+}
+
+/**
+ * The rows of the sheet called $sheetName, as column letter => text.
+ *
+ * @return Generator<int, array<string, string>>
+ */
+function sheetRows(string $xlsx, string $sheetName): Generator
+{
+    $zip = new ZipArchive;
+    if ($zip->open($xlsx, ZipArchive::RDONLY) !== true) {
+        fail("can't open {$xlsx} as an .xlsx file.");
+    }
+
+    $workbook = simplexml_load_string((string) $zip->getFromName('xl/workbook.xml'));
+    $rels = simplexml_load_string((string) $zip->getFromName('xl/_rels/workbook.xml.rels'));
+    if ($workbook === false || $rels === false) {
+        fail('not a workbook (no xl/workbook.xml).');
+    }
+
+    $relId = null;
+    foreach ($workbook->sheets->sheet as $sheet) {
+        if ((string) $sheet['name'] === $sheetName) {
+            $relId = (string) $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];
+        }
+    }
+    $target = null;
+    foreach ($rels->Relationship as $rel) {
+        if ((string) $rel['Id'] === $relId) {
+            $target = ltrim(str_replace('/xl/', '', (string) $rel['Target']), '/');
+        }
+    }
+    if ($target === null) {
+        fail("no sheet called \"{$sheetName}\".");
+    }
+
+    $strings = [];
+    $reader = new XMLReader;
+    $reader->XML((string) $zip->getFromName('xl/sharedStrings.xml'));
+    while ($reader->read() && $reader->name !== 'si');
+    while ($reader->name === 'si') {
+        $si = new SimpleXMLElement($reader->readOuterXml());
+        $text = '';
+        foreach ($si->xpath('.//*[local-name()="t"]') ?: [] as $t) {
+            $text .= (string) $t;
+        }
+        $strings[] = $text;
+        $reader->next('si');
+    }
+
+    $reader = new XMLReader;
+    $reader->XML((string) $zip->getFromName("xl/{$target}"));
+    while ($reader->read() && $reader->name !== 'row');
+    while ($reader->name === 'row') {
+        $row = new SimpleXMLElement($reader->readOuterXml());
+        $cells = [];
+        foreach ($row->c as $cell) {
+            $column = (string) preg_replace('/\d+$/', '', (string) $cell['r']);
+            $value = isset($cell->v) ? (string) $cell->v : (isset($cell->is) ? (string) $cell->is->t : '');
+            $cells[$column] = (string) $cell['t'] === 's' ? ($strings[(int) $value] ?? '') : $value;
+        }
+        yield (int) $row['r'] => $cells;
+        $reader->next('row');
+    }
+}
+
+/**
+ * @param  list<list<string|null>>  $rows
+ */
+function writeCsv(string $path, array $header, array $rows): void
+{
+    usort($rows, fn (array $a, array $b): int => strcmp((string) $a[0], (string) $b[0]));
+    $file = fopen($path, 'w') ?: fail("can't write {$path}.");
+    fputcsv($file, $header, ',', '"', '', "\n");
+    foreach ($rows as $row) {
+        fputcsv($file, $row, ',', '"', '', "\n");
+    }
+    fclose($file);
+}
+
+$xlsx = $argv[1] ?? fail('usage: bin/psgc-convert <PSGC publication datafile .xlsx> [output directory]');
+$out = rtrim($argv[2] ?? __DIR__.'/../database/data/psgc', '/');
+
+// ---------------------------------------------------------------- read
+
+$columns = null;
+$places = []; // code => [name, level, note]
+foreach (sheetRows($xlsx, 'PSGC') as $number => $cells) {
+    if ($columns === null) {
+        $find = fn (string $header): string => array_search($header, array_map('trim', $cells), true) ?: fail("no \"{$header}\" column in the PSGC sheet's first row.");
+        $columns = ['code' => $find('10-digit PSGC'), 'name' => $find('Name'), 'level' => $find('Geographic Level')];
+
+        continue;
+    }
+
+    $code = trim($cells[$columns['code']] ?? '');
+    $level = trim($cells[$columns['level']] ?? '');
+    if ($code === '' || ($level === '' && preg_match('/^\d+$/', $code) !== 1)) {
+        continue; // blank lines and the notes under the table
+    }
+    if (preg_match('/^\d{9,10}$/', $code) !== 1) {
+        fail("row {$number}: \"{$code}\" isn't a PSGC code.");
+    }
+    $code = str_pad($code, 10, '0', STR_PAD_LEFT);
+    if ($level === '') {
+        array_key_exists($code, UNLEVELLED) || fail("row {$number}: {$code} has no geographic level: add it to UNLEVELLED.");
+        $level = UNLEVELLED[$code] === null ? 'Skip' : 'Prov';
+    }
+    if (! in_array($level, ['Reg', 'Prov', 'Dist', 'City', 'Mun', 'SubMun', 'Bgy', 'Skip'], true)) {
+        fail("row {$number}: unknown geographic level \"{$level}\".");
+    }
+    // The column after "Status" holds notes such as "(excluding CITY OF BAGUIO)" on province rows.
+    $notes = implode(' ', array_diff_key($cells, array_flip(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'L'])));
+    $places[$code] = ['name' => UNLEVELLED[$code] ?? $cells[$columns['name']] ?? '', 'level' => $level, 'note' => strtoupper($notes)];
+}
+
+// ---------------------------------------------------------------- provinces
+
+$provinces = [METRO_MANILA[0] => METRO_MANILA[1]];
+foreach ($places as $code => $place) {
+    if ($place['level'] === 'Prov') {
+        $provinces[(string) $code] = PlaceNames::clean($place['name']);
+    }
+}
+
+// ---------------------------------------------------------------- cities and municipalities
+
+$cityRows = array_filter($places, fn (array $p): bool => $p['level'] === 'City' || $p['level'] === 'Mun');
+$bareNames = PlaceNames::bareNames(array_values(array_map(fn (array $p): string => $p['name'], $cityRows)));
+$provinceNames = array_values(array_filter($provinces, fn (string $name): bool => $name !== METRO_MANILA[1]));
+
+$cities = [];
+foreach ($cityRows as $code => $place) {
+    $code = (string) $code; // array keys that look like numbers come back as ints
+    $province = substr($code, 0, 5).'00000';
+    $name = PlaceNames::city($place['name'], $provinceNames, $bareNames);
+
+    if (! isset($provinces[$province])) {
+        if (str_starts_with($code, '13')) {
+            $province = METRO_MANILA[0];
+        } elseif (isset(INDEPENDENT_CITIES[$code])) {
+            $province = INDEPENDENT_CITIES[$code];
+            $note = $places[$province]['note'] ?? '';
+            $word = strtoupper(preg_replace('/^(?:.* )?City of /', '', PlaceNames::clean($place['name'])) ?? '');
+            if (! str_contains($note, $word)) {
+                fail("{$name} ({$code}) is mapped to {$provinces[$province]}, but that province's note doesn't mention it: \"{$note}\".");
+            }
+        } else {
+            fail("{$name} ({$code}) is in no province: add it to INDEPENDENT_CITIES.");
+        }
+    }
+
+    $cities[$code] = ['province' => $province, 'name' => $name, 'kind' => $place['level'] === 'City' ? 'city' : 'municipality'];
+}
+
+foreach (array_keys(INDEPENDENT_CITIES) as $code) {
+    if (! isset($cities[$code])) {
+        fail("INDEPENDENT_CITIES lists {$code}, which isn't a city in this publication.");
+    }
+}
+
+// ---------------------------------------------------------------- barangays
+
+$barangays = [];
+foreach ($places as $code => $place) {
+    if ($place['level'] !== 'Bgy') {
+        continue;
+    }
+    $code = (string) $code;
+
+    $parent = substr($code, 0, 7).'000';
+    $district = null;
+    if (($places[$parent]['level'] ?? null) === 'SubMun') {
+        // Manila: the barangay is under a district, the district under the city.
+        $district = PlaceNames::district($places[$parent]['name']);
+        $parent = substr($code, 0, 5).'00000';
+    }
+    if (! isset($cities[$parent])) {
+        fail("barangay {$place['name']} ({$code}) has no city or municipality ({$parent}).");
+    }
+
+    $barangays[] = [$code, $parent, PlaceNames::clean($place['name']), $district];
+}
+
+// ---------------------------------------------------------------- write
+
+if (! is_dir($out)) {
+    fail("no directory {$out}.");
+}
+
+writeCsv("{$out}/provinces.csv", ['psgc_code', 'name'], array_map(
+    fn (int|string $code, string $name): array => [(string) $code, $name], array_keys($provinces), $provinces,
+));
+writeCsv("{$out}/cities.csv", ['psgc_code', 'province_code', 'name', 'kind'], array_map(
+    fn (int|string $code, array $city): array => [(string) $code, $city['province'], $city['name'], $city['kind']], array_keys($cities), $cities,
+));
+writeCsv("{$out}/barangays.csv", ['psgc_code', 'city_code', 'name', 'district'], $barangays);
+
+printf("%d provinces, %d cities and municipalities, %d barangays written to %s\n", count($provinces), count($cities), count($barangays), $out);
