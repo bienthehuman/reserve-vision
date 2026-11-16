@@ -929,17 +929,29 @@ a {
 }
 
 @include media-breakpoint-up(lg) {
+  // Inline sidebar: Bootstrap makes the offcanvas body a flex row here, and the sheet's own height must not apply.
   .filter-sheet.offcanvas-lg {
     position: sticky;
     top: 1rem;
+    height: auto;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
     border: 1px solid $rv-border;
     border-radius: $rv-radius-lg;
     background-color: $rv-surface;
   }
+
+  .filter-sheet .offcanvas-body.filter-panel {
+    display: block;
+    padding: 1rem;
+    overflow-y: visible;
+  }
 }
 
-.filter-sheet.offcanvas-bottom {
-  height: 85vh;
+@include media-breakpoint-down(lg) {
+  .filter-sheet.offcanvas-bottom {
+    height: 85vh;
+  }
 }
 
 .filter-toggle {
