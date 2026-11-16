@@ -923,6 +923,43 @@ a {
   box-shadow: $rv-shadow;
 }
 
+// Search filters (5.2): a card sidebar from lg, a bottom sheet below. The same form in both.
+.filter-panel {
+  border-radius: $rv-radius-lg;
+}
+
+@include media-breakpoint-up(lg) {
+  .filter-sheet.offcanvas-lg {
+    position: sticky;
+    top: 1rem;
+    border: 1px solid $rv-border;
+    border-radius: $rv-radius-lg;
+    background-color: $rv-surface;
+  }
+}
+
+.filter-sheet.offcanvas-bottom {
+  height: 85vh;
+}
+
+.filter-toggle {
+  margin-bottom: 1rem;
+}
+
+.filter-form__pair {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.filter-form__actions {
+  position: sticky;
+  bottom: 0;
+  padding: 0.75rem 0;
+  background-color: $rv-surface;
+}
+
 // Styleguide swatches (dev-only page). Classes, not inline styles, so the
 // strict CSP (no 'unsafe-inline' styles) holds on this page too.
 $rv-swatches: (

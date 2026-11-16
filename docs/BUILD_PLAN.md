@@ -76,7 +76,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | # | Slice | Definition of done |
 | --- | --- | --- |
 | 5.1 | Listing pages | `/listings/{city}/{slug}` SSR, OG tags, `schema.org` structured data, `sitemap.xml`, `robots.txt`, lazy images, address with an "Open in Maps" link (no map in v1), featured listings on the home page and a plain `/listings` list; replaces the 2.5 room page; T11 |
-| 5.2 | Search | Filters + availability query (sharing the `blocking()` predicate); `EXPLAIN` + index committed to `docs/perf/`; T10 |
+| 5.2 | Search | Filters + availability query (sharing the `blocking()` predicate); `EXPLAIN` + index committed to `docs/perf/` (no index was needed); T10 |
 | 5.3 | Reserve + proof + my reservations | Reserve flow with login intent kept, proof upload, signed URLs, renter cancel; T9 |
 
 ### Phase 6: Workflow (batch 6). Tag `v1.0.0-rc`
@@ -170,3 +170,7 @@ Ideas that came up and are deliberately not in any slice.
 | Show on the members page who was removed and when (the audit log has it; there is no page for it yet) | Slice 4.3 |
 | A preview of the listing before publishing | Slice 4.3 |
 | Tell the owner why a photo failed (unreadable file or storage) instead of one message | Slice 4.2 |
+| Full-text search (property names, house rules) and saved searches | Slice 5.2 |
+| Search results on a map | Slice 5.2 |
+| Barangay in the search link by PSGC code instead of id, so a link survives a reimport into an empty database | Slice 5.2 |
+| Home-page "Where" lists only cities with listings; a province-aware combobox would reach every place | Slice 5.2 |

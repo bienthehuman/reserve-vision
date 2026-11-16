@@ -38,6 +38,7 @@ use App\Http\Controllers\Landlord\UnarchiveSpaceController;
 use App\Http\Controllers\Landlord\UnpublishPropertyController;
 use App\Http\Controllers\Landlord\ViewProperty;
 use App\Http\Controllers\Landlord\ViewReservation;
+use App\Http\Controllers\Listings\CountListings;
 use App\Http\Controllers\Listings\ListListings;
 use App\Http\Controllers\Listings\ShowListing;
 use App\Http\Controllers\Listings\ShowRobots;
@@ -64,6 +65,7 @@ if (config('filesystems.disks.photos.driver') === 'local') {
 
 // Public listing pages (slice 5.1). Only published properties of verified accounts: anything else is 404.
 Route::get('/listings', ListListings::class)->name('listings.index');
+Route::get('/listings/count', CountListings::class)->name('listings.count');
 Route::get('/listings/{city}/{slug}', ShowListing::class)->name('listings.show');
 Route::get('/sitemap.xml', ShowSitemap::class)->name('sitemap');
 Route::get('/robots.txt', ShowRobots::class)->name('robots');

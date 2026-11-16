@@ -102,10 +102,7 @@ final class Room extends Model
         return Space::query()
             ->listed()
             ->where('spaces.room_id', $this->id)
-            ->whereDoesntHave('reservations', fn (Builder $reservations) => $reservations
-                ->onListedSpaces()
-                ->blocking()
-                ->overlapping($moveIn, $moveOut))
+            ->freeDuring($moveIn, $moveOut)
             ->count();
     }
 }

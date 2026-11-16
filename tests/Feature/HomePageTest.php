@@ -18,7 +18,7 @@ it('server-renders the home page, so it is complete HTML without JavaScript', fu
     expect($html)->toContain('Reserve apartments and boarding-house beds online, with no double bookings.');
     // … inside markup that only SSR produces (without SSR the body is an empty <div id="app">).
     expect($html)->toMatch('/<h1[^>]*id="hero-title"[^>]*>ReserveVision<\/h1>/')
-        ->toMatch('/<form role="search"[^>]*action="\/"[^>]*method="get"/')
+        ->toMatch('/<form role="search"[^>]*action="\/listings"[^>]*method="get"/')
         ->toMatch('/<title[^>]*>Find a room or a bed · ReserveVision<\/title>/');
 });
 

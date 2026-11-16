@@ -315,6 +315,31 @@ Tests: `tests/Feature/Places/` (`PlaceNamesTest`, `ImportTest` on the fixture in
 
 Tests: `tests/Feature/Listings/` (`ListingPageTest`, `ListingSeoTest`, `SitemapAndRobotsTest`, `ListingsIndexTest`, **T11** `T11ListingWithoutJsTest`), `tests/Feature/Rooms/RoomRedirectTest.php`. Helpers in `tests/Pest.php`: `listedProperty()` (Casa Verde: a private room at ₱6,500, a 4-bed room at ₱3,500, two ready photos). E2E: [e2e/listings.spec.ts](e2e/listings.spec.ts) (read-only; the JavaScript-off test runs axe through `expectNoAxeViolationsWithoutScripts()` in [e2e/support.ts](e2e/support.ts) and posts a plain form as renter2 with a far-off move-in, which creates nothing), [e2e/reserve.spec.ts](e2e/reserve.spec.ts) (the race, through the listing page). `bin/smoke-production` checks the last-bed listing, the sitemap, `robots.txt` and the `/rooms/1` redirect. The concurrency suite still only posts; its `assertServerSees()` probe now GETs the room's listing page (the old `/rooms/{id}` is a redirect).
 
+### Search (slice 5.2)
+
+[docs/ACCESS.md](docs/ACCESS.md#public-pages-slice-51) has the parameters and the gender rule; [docs/perf/availability-query.md](docs/perf/availability-query.md) the SQL, plan and timing (no index was needed).
+
+| Piece | Where |
+| --- | --- |
+| Definition of "free" | `Reservation::scopeBlockingDuring($in, $out)` = `blocking()` + `overlapping()` with the isolation scope removed; `Space::scopeFreeDuring()` = not archived + `whereDoesntHave('reservations', blockingDuring)`. Both are named escapes (`NAMED_ESCAPES`). `Room::freeSpaceCount()` uses `freeDuring()` too. There is no second copy of the rules, so `blocking()` can't drift between booking and search |
+| Filters | `App\Support\Search\SearchFilters::fromRequest()`: every value validated, bad ones dropped (never an error); `toQuery()` is the clean form the pager and form reuse. Price in pesos (converted to centavos), `gender=female\|male` includes `any`, `months` defaults to 1, `move_in` outside the booking window is ignored, `barangay` is an id that must belong to the `city` slug, `province` is only for the form |
+| Query | `App\Support\Search\ListingSearch`: `properties()` (ordered, for the page), `rooms()` (for T10), `summaries()` (rooms matching, cheapest rate, free beds for one page, one query). Everything filters in SQL |
+| Controllers | `Listings\ListListings` (props: `listings`, `filters`, `options`, `window`…), `Listings\CountListings` (`/listings/count`, JSON), `HomeController` (`cities` with listings, `window`) |
+| Page | `Pages/Listings/Index.tsx`, `Components/FilterSheet.tsx` (responsive `Offcanvas`; native selects until hydration, comboboxes after; `router.get` on submit), `ListingCard` (`rooms_matching`, `beds_free`). The Home form is a plain GET to `/listings` |
+
+**T10** ([tests/Feature/Search/T10AvailabilityTest.php](tests/Feature/Search/T10AvailabilityTest.php)): the demo seed plus edge reservations (back to back on a boundary, live / expired / just-expired hold, proof uploaded, cancelled, declined, expired, archived space and room, a draft and an unverified account), 410 combinations of date x months x price x place, rooms **and** properties compared with a brute-force PHP check that does not call the scopes. A second test pins the edge answers so the two can't agree on a wrong rule. The count is printed. Negative control (local): dropping the live-hold condition from `blocking()` gave 336 mismatches.
+
+Tests also in `tests/Feature/Search/SearchTest.php`. E2E: [e2e/search.spec.ts](e2e/search.spec.ts) (both viewports, no JavaScript, axe). `bin/smoke-production` checks `/listings?city=manila`.
+
+### Quirks hit in 5.2
+
+- **T10 takes about 60 s on MySQL but 9 s on MariaDB**: inside the test transaction the freshly filled tables have no InnoDB statistics, so the same queries take 40 ms instead of 2 ms (dev data). Don't judge the plan from a test.
+- **A scope on `Space` isn't visible to Larastan in a `whereHas` closure**: type the closure's builder (`@param Builder<Space>`) in a helper, as `ListingSearch::free()` does.
+- **`whereHas('spaces')` is scoped by the landlord scope** when a landlord is logged in, so search goes through `freeDuring()` (an escape) and `Room::listed()`; `SearchTest` has the logged-in landlord case.
+- **The filter form renders twice-shaped**: pre-hydration native selects, then comboboxes (an `enhanced` flag set in an effect, so SSR and first client render match). e2e waits for the Province combobox before typing.
+- **`Offcanvas responsive="lg"`** is inline from `lg` and a dialog below; the in-page "Filters" heading is `d-none d-lg-block` and the sheet's is the dialog title.
+- **The place cascade without JavaScript** needs a round trip per level (choose a province, press the button, the cities are in the next page).
+
 ### Quirks hit in 5.1
 
 - **`test.use({ javaScriptEnabled: false })` also applies to `browser.newContext()`** in the same test: pass `javaScriptEnabled: true` for a context that has to run JavaScript (the login, axe). axe itself can't run in a page with JavaScript off (`evaluate` hangs), so the server's HTML minus its `<script>` tags is judged in a normal page with a `<base>`.

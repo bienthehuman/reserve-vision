@@ -35,7 +35,7 @@ final readonly class Stay
         return $this->moveIn->addMonthsNoOverflow($this->months);
     }
 
-    private static function moveIn(mixed $value): ?CarbonImmutable
+    public static function moveIn(mixed $value): ?CarbonImmutable
     {
         if (! is_string($value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
             return null;
@@ -47,12 +47,12 @@ final readonly class Stay
         return $date instanceof CarbonImmutable && $date->format('Y-m-d') === $value ? $date : null;
     }
 
-    private static function months(mixed $value): int
+    public static function months(mixed $value, int $default = self::DEFAULT_MONTHS): int
     {
         $months = filter_var($value, FILTER_VALIDATE_INT);
 
         return is_int($months) && $months >= ReserveSpace::MIN_MONTHS && $months <= ReserveSpace::MAX_MONTHS
             ? $months
-            : self::DEFAULT_MONTHS;
+            : $default;
     }
 }

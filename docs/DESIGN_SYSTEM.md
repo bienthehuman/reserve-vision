@@ -138,7 +138,7 @@ Use React-Bootstrap first; build a custom component only when the table says so.
 | **ErrorSummary** | custom on `Alert` | "Please fix these N things:" with one link per error to its field; takes focus after a failed submit (`useFocusOnError`) |
 | **SubmitButton** | custom on `Button` | Full width on auth forms; while the request runs it is disabled and shows a spinner and a pending label ("Logging in…") |
 | **HoldCountdown** | custom | Remaining hold time; server sends `hold_expires_at`, so it's correct without JS (static "until 3:40 PM") |
-| **FilterSheet** | custom on `Offcanvas placement="bottom"` | Search filters on phones; a sidebar from `lg` |
+| **FilterSheet** | custom on `Offcanvas placement="bottom" responsive="lg"` | Search filters: a bottom sheet on phones, a sidebar from `lg`, one form for both. Without JavaScript (and until hydration) a plain card with a GET form and native selects; hydrated, the place fields are comboboxes and the button says "Show N places" (count from `/listings/count`) |
 | **StickyReserveBar** | custom | On a listing page on phones (`d-md-none`): "From ₱X / month" and a **Choose a room** link to `#rooms`, fixed at the bottom with a spacer under the footer. The button is a plain anchor, so it works without JavaScript. Reserving itself is each room's own button, because the rate, fees and free beds differ per room |
 | **EmptyState** | custom | On a card: an icon in a `primary-subtle` circle, one sentence, at most one action |
 | **ProofViewer** | custom | Shows an image or PDF from a signed URL; zoom on tap |
