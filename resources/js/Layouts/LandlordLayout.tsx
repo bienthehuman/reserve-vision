@@ -12,6 +12,7 @@ interface NavItem {
 const items: NavItem[] = [
     { href: '/landlord', label: 'Dashboard' },
     { href: '/landlord/reservations', label: 'Reservations' },
+    { href: '/landlord/viewings', label: 'Viewings' },
     { href: '/landlord/properties', label: 'Properties' },
     { href: '/landlord/members', label: 'Members', ownerOnly: true },
 ];

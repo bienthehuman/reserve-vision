@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, formatDate, formatDateTime, formatDay, formatHoldEnd, formatTimeLeft, formatUntil } from './dates';
+import { addDays, formatDate, formatDateTime, formatDay, formatHoldEnd, formatSlot, formatTimeLeft, formatUntil, formatViewingDay } from './dates';
 
 describe('formatDate', () => {
     it('shows a calendar date without shifting it by the local timezone', () => {
@@ -60,5 +60,28 @@ describe('formatUntil', () => {
         // 17:00 UTC on Mar 15 is already 1:00 AM on Mar 16 in Manila.
         expect(formatUntil('2027-03-15T17:00:00+00:00', '2027-03-16')).toMatch(/^1:00\sAM today$/);
         expect(formatUntil('2027-03-15T07:40:00+00:00', '2027-03-10')).toMatch(/^3:40\sPM, Mon 15 Mar$/);
+    });
+});
+
+describe('formatSlot', () => {
+    it('writes a viewing slot the way a person says it', () => {
+        expect(formatSlot('08:00')).toBe('8:00 AM');
+        expect(formatSlot('12:00')).toBe('12:00 PM');
+        expect(formatSlot('12:30')).toBe('12:30 PM');
+        expect(formatSlot('15:30')).toBe('3:30 PM');
+        expect(formatSlot('18:00')).toBe('6:00 PM');
+        expect(formatSlot('00:30')).toBe('12:30 AM');
+    });
+});
+
+describe('formatViewingDay', () => {
+    it('says Today and Tomorrow against the server\'s business date', () => {
+        expect(formatViewingDay('2027-03-15', '2027-03-15')).toBe('Today, Mon 15 Mar');
+        expect(formatViewingDay('2027-03-16', '2027-03-15')).toBe('Tomorrow, Tue 16 Mar');
+        expect(formatViewingDay('2027-03-17', '2027-03-15')).toBe('Wed 17 Mar');
+    });
+
+    it('crosses a month end', () => {
+        expect(formatViewingDay('2027-04-01', '2027-03-31')).toBe('Tomorrow, Thu 1 Apr');
     });
 });

@@ -150,6 +150,12 @@ const T6_BODIES = [
     // Slice 5.3. The proof is a real PNG, so the 404 on B's reservation isn't a validation error.
     'reservations.proofs.store' => 'proofBody',
     'reservations.cancel' => [],
+    // Slice 6.2, in the order routes/web.php registers them: the world's own requested viewing is accepted, then
+    // declined (a changed answer), then marked done, which is refused (T6_OWN_REFUSED: the time hasn't come, and it is declined).
+    'landlord.viewings.accept' => ['note' => 'See you at the gate.'],
+    'landlord.viewings.decline' => ['note' => 'Sorry, the room is taken.'],
+    'landlord.viewings.done' => [],
+    'viewings.cancel' => [],
 ];
 
 /**
@@ -171,6 +177,8 @@ const T6_OWN_REFUSED = [
     'landlord.reservations.withdraw' => 422,
     'landlord.reservations.moved-in' => 422,
     'landlord.reservations.end' => 422,
+    // Slice 6.2: by then the world's own viewing is declined, and its time is days away.
+    'landlord.viewings.done' => 422,
 ];
 
 /** @return array<string, mixed> */
@@ -511,11 +519,15 @@ it('T6: covers every record route there is today (the list moves only on purpose
         'landlord.reservations.withdraw',
         'landlord.rooms.archive', 'landlord.rooms.edit', 'landlord.rooms.spaces.store', 'landlord.rooms.unarchive', 'landlord.rooms.update',
         'landlord.spaces.archive', 'landlord.spaces.unarchive', 'landlord.spaces.update',
+        // Slice 6.2: viewing requests.
+        'landlord.viewings.accept', 'landlord.viewings.decline', 'landlord.viewings.done', 'landlord.viewings.show',
         // Slice 5.3: open to both landlords and renters, walked in both contexts.
         'proofs.file', 'proofs.show',
     ])
         ->and($names('renter'))->toBe([
             'proofs.file', 'proofs.show',
             'reservations.cancel', 'reservations.proofs.store', 'reservations.show', 'rooms.reservations.store',
+            // Slice 6.2.
+            'viewings.cancel',
         ]);
 });

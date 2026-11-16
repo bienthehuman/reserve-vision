@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { Alert, Card, Col, Container, Row } from 'react-bootstrap';
-import { BoxArrowInRight, ExclamationTriangle, FileEarmarkCheck, Hourglass, HourglassSplit, HouseDoor } from 'react-bootstrap-icons';
+import { BoxArrowInRight, CalendarEvent, ExclamationTriangle, FileEarmarkCheck, Hourglass, HourglassSplit, HouseDoor } from 'react-bootstrap-icons';
 import PageHeader from '@/Components/PageHeader';
 import LandlordLayout from '@/Layouts/LandlordLayout';
 
@@ -13,6 +13,7 @@ interface DashboardProps {
         holds: { count: number; hours: number };
         move_ins: { count: number; days: number };
         occupancy: { occupied: number; total: number };
+        viewings: { count: number };
     };
 }
 
@@ -50,9 +51,9 @@ function plural(count: number, one: string, many: string): string {
     return count === 1 ? one : many;
 }
 
-/** The landlord dashboard (slice 4.1): four figures that link to the reservations behind them. */
+/** The landlord dashboard (slice 4.1): five figures that link to the reservations behind them. */
 export default function Dashboard({ account, role, figures }: DashboardProps) {
-    const { proofs, holds, move_ins: moveIns, occupancy } = figures;
+    const { proofs, holds, move_ins: moveIns, occupancy, viewings } = figures;
     const percent = occupancy.total === 0 ? 0 : Math.round((occupancy.occupied / occupancy.total) * 100);
 
     return (
@@ -118,6 +119,14 @@ export default function Dashboard({ account, role, figures }: DashboardProps) {
                         <FigureCard title="Move-ins this week" href="/landlord/reservations?show=moving_in" figure={moveIns.count} Icon={BoxArrowInRight}>
                             <p className="figure-card__note">
                                 Confirmed renters moving in within the next {moveIns.days} days.
+                            </p>
+                        </FigureCard>
+                    </Col>
+                    <Col xs={12} md={6}>
+                        {/* Slice 6.2: requests nobody has answered, whose time hasn't come. */}
+                        <FigureCard title="Viewing requests waiting" href="/landlord/viewings?show=waiting" figure={viewings.count} Icon={CalendarEvent}>
+                            <p className="figure-card__note">
+                                {viewings.count === 0 ? 'No renter is waiting for an answer.' : 'Renters waiting to hear if they can come and see a place.'}
                             </p>
                         </FigureCard>
                     </Col>

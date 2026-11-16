@@ -14,10 +14,12 @@ use App\Enums\PropertyKind;
 use App\Enums\ReservationStatus;
 use App\Enums\RoomType;
 use App\Enums\UserType;
+use App\Enums\ViewingRequestStatus;
 use App\Models\Barangay;
 use App\Models\PaymentProof;
 use App\Models\PropertyPhoto;
 use App\Support\Photos\PhotoProcessor;
+use App\Support\Viewings\ViewingSlots;
 use Carbon\CarbonImmutable;
 use Database\Seeders\Demo\DemoPhotoPainter;
 use Database\Seeders\Demo\DemoReceiptPainter;
@@ -48,6 +50,9 @@ use RuntimeException;
  *   come from the seeded Faker too, so a reseed overwrites the same files.
  * - Places are real (slice 4.4): the cities of `database/data/places.php` and their
  *   barangays from the places tables, so `php artisan places:import` runs first.
+ * - Viewing requests (slice 6.2) come last, from the same Faker stream, so nothing above shifts: a scripted set
+ *   for the demo owner's properties and renter1 and renter2 (open ones in every state, and past ones; renter1 keeps a
+ *   free place under the limit of 3, which the Phase 6 demo uses), then about 150 more across the pool.
  * - Refuses to run in production unless APP_DEMO=true.
  *
  * Tables are filled with chunked inserts. Money is integer centavos.
@@ -137,6 +142,7 @@ final class DemoSeeder extends Seeder
             $this->buildListings();
             $this->buildReservations();
             $this->buildPhotos();
+            $this->buildViewings();
             $this->flush();
             $this->writePhotoFiles();
             $this->writeProofFiles();
@@ -156,7 +162,7 @@ final class DemoSeeder extends Seeder
         $names = require database_path('data/names.php');
         $this->names = $names;
 
-        foreach (['users', 'landlord_accounts', 'landlord_members', 'properties', 'rooms', 'spaces', 'reservations', 'payment_proofs', 'property_photos'] as $table) {
+        foreach (['users', 'landlord_accounts', 'landlord_members', 'properties', 'rooms', 'spaces', 'reservations', 'payment_proofs', 'property_photos', 'viewing_requests'] as $table) {
             $max = DB::table($table)->max('id');
             $this->lastId[$table] = is_numeric($max) ? (int) $max : 0;
             $this->rows[$table] = [];
@@ -802,6 +808,127 @@ final class DemoSeeder extends Seeder
         }
     }
 
+    // ---------------------------------------------------------------- viewings
+
+    private const VIEWING_MESSAGES = [
+        'Hi! Is the room still available? I can come after work.',
+        'I would like to see the room and the shared bathroom.',
+        'Can my sister come along? We might share a room.',
+        'Is parking available for a motorbike?',
+        'I am a nursing student and would like to see the study area.',
+        'Hello, I am moving to the city next month for a new job.',
+        'Is it near a jeepney route? Thank you!',
+        'Looking forward to seeing the place.',
+    ];
+
+    private const VIEWING_NOTES = [
+        'Ring the bell at the green gate and ask for the caretaker.',
+        'Please bring a valid ID. See you there!',
+        'The room is on the second floor. Parking is on the street.',
+        'Sorry, we have a family event that day. Please pick another time.',
+        'This room was just taken. Please check our other rooms.',
+        'See you then. Call this number when you arrive.',
+    ];
+
+    /** @var array<int, list<int>> renter id => property ids of their open viewing requests */
+    private array $viewingOpen = [];
+
+    /**
+     * Viewing requests: the scripted set the demo accounts show, then random ones across the pool. `$this->today`
+     * is Manila midnight, so every time is a real slot (8 AM to 6 PM, on the half hour). Open requests (requested
+     * or accepted, in the future) respect the limits of 3 per renter and 1 per property.
+     */
+    private function buildViewings(): void
+    {
+        $byEmail = [];
+        foreach ($this->rows['users'] as $user) {
+            $byEmail[self::toString($user['email'])] = self::toInt($user['id']);
+        }
+
+        $ownerAccount = $this->accounts[0]['id'];
+        $published = array_values(array_filter($this->listings, fn (array $listing): bool => $listing['published']));
+        $ownersProperties = array_values(array_map(fn (array $listing): int => $listing['id'], array_filter($published, fn (array $listing): bool => $listing['account'] === $ownerAccount)));
+
+        if (count($ownersProperties) >= 5) {
+            [$renter1, $renter2] = [$byEmail[self::RENTER1_EMAIL], $byEmail[self::RENTER2_EMAIL]];
+            [$p0, $p1, $p2, $p3, $p4] = $ownersProperties;
+            // The earliest open slot today, or 8 AM tomorrow once none is left: shows up first, marked "Today", on the landlord's list.
+            $same = ViewingSlots::earliest();
+
+            $scripted = [
+                // renter1: two open (one left for the demo), and a past one in each of the other states.
+                [$renter1, $p0, ViewingRequestStatus::Accepted, $this->today->addDay()->setTime(10, 0), self::VIEWING_MESSAGES[0], self::VIEWING_NOTES[0]],
+                [$renter1, $p1, ViewingRequestStatus::Requested, $this->today->addDays(3)->setTime(14, 30), self::VIEWING_MESSAGES[2], null],
+                [$renter1, $p2, ViewingRequestStatus::Done, $this->today->subDays(5)->setTime(15, 0), null, self::VIEWING_NOTES[1]],
+                [$renter1, $p3, ViewingRequestStatus::Declined, $this->today->addDays(2)->setTime(9, 0), self::VIEWING_MESSAGES[1], self::VIEWING_NOTES[3]],
+                [$renter1, $p4, ViewingRequestStatus::Cancelled, $this->today->addDays(6)->setTime(16, 0), null, null],
+                // renter2: one same-day request waiting, one accepted, and two past.
+                [$renter2, $p0, ViewingRequestStatus::Requested, $same, self::VIEWING_MESSAGES[4], null],
+                [$renter2, $p1, ViewingRequestStatus::Accepted, $this->today->addDays(4)->setTime(11, 0), null, self::VIEWING_NOTES[2]],
+                [$renter2, $p2, ViewingRequestStatus::Declined, $this->today->subDays(2)->setTime(9, 30), self::VIEWING_MESSAGES[5], self::VIEWING_NOTES[4]],
+                [$renter2, $p3, ViewingRequestStatus::Done, $this->today->subDays(12)->setTime(13, 0), self::VIEWING_MESSAGES[6], null],
+            ];
+
+            foreach ($scripted as [$renter, $property, $status, $at, $message, $note]) {
+                $this->addViewing($renter, $property, $status, $at, $message, $note);
+            }
+        }
+
+        // The pool. A renter never goes over the limits for an open request: the draw is skipped instead.
+        foreach (range(1, 150) as $unused) {
+            $listing = $this->pick($published);
+            $renter = $this->pick($this->renterIds);
+            $future = $this->chance(60);
+            $slots = ViewingSlots::times();
+            [$hour, $minute] = array_map(intval(...), explode(':', $this->pick($slots)));
+            $at = $future
+                ? $this->today->addDays($this->int(1, 28))->setTime($hour, $minute)
+                : $this->today->subDays($this->int(1, 40))->setTime($hour, $minute);
+            $status = $future
+                ? $this->weighted([ViewingRequestStatus::Requested->value => 45, ViewingRequestStatus::Accepted->value => 35, ViewingRequestStatus::Declined->value => 10, ViewingRequestStatus::Cancelled->value => 10], ViewingRequestStatus::class)
+                : $this->weighted([ViewingRequestStatus::Done->value => 45, ViewingRequestStatus::Declined->value => 15, ViewingRequestStatus::Cancelled->value => 15, ViewingRequestStatus::Accepted->value => 10, ViewingRequestStatus::Requested->value => 15], ViewingRequestStatus::class);
+            $message = $this->chance(60) ? $this->pick(self::VIEWING_MESSAGES) : null;
+            $note = in_array($status, [ViewingRequestStatus::Accepted, ViewingRequestStatus::Declined], true) && $this->chance(50) ? $this->pick(self::VIEWING_NOTES) : null;
+
+            if ($this->viewingIsOpen($status, $at)) {
+                $open = $this->viewingOpen[$renter] ?? [];
+
+                if (count($open) >= 3 || in_array($listing['id'], $open, true)) {
+                    continue;
+                }
+            }
+
+            $this->addViewing($renter, $listing['id'], $status, $at, $message, $note);
+        }
+    }
+
+    private function viewingIsOpen(ViewingRequestStatus $status, CarbonImmutable $at): bool
+    {
+        return in_array($status, [ViewingRequestStatus::Requested, ViewingRequestStatus::Accepted], true) && $at->greaterThan($this->now);
+    }
+
+    private function addViewing(int $renter, int $propertyId, ViewingRequestStatus $status, CarbonImmutable $at, ?string $message, ?string $note): void
+    {
+        $matching = array_values(array_filter($this->listings, fn (array $candidate): bool => $candidate['id'] === $propertyId));
+        $listing = $matching[0] ?? throw new RuntimeException("Unknown property {$propertyId}.");
+
+        if ($this->viewingIsOpen($status, $at)) {
+            $this->viewingOpen[$renter][] = $propertyId;
+        }
+
+        $answered = in_array($status, [ViewingRequestStatus::Accepted, ViewingRequestStatus::Declined, ViewingRequestStatus::Done], true);
+        $decider = $answered ? ($this->accountCaretaker($listing['account']) ?? $this->accountOwner($listing['account'])) : null;
+        $created = $at->subDays($this->int(1, 6))->setTime($this->int(8, 20), 0);
+        $created = $created->greaterThan($this->now) ? $this->now->subHour() : $created;
+
+        $this->rows['viewing_requests'][] = [
+            'id' => $this->nextId('viewing_requests'), 'property_id' => $propertyId, 'landlord_account_id' => $listing['account'],
+            'renter_id' => $renter, 'preferred_at' => $this->ts($at), 'message' => $message, 'status' => $status->value,
+            'landlord_note' => $answered ? $note : null, 'decided_by' => $decider,
+            'created_at' => $this->ts($created), 'updated_at' => $this->ts($answered ? $created->addHours(3) : $created),
+        ];
+    }
+
     /** Each scene and colourway is painted and resized once, then written under every photo's own path. */
     private function writePhotoFiles(): void
     {
@@ -835,7 +962,7 @@ final class DemoSeeder extends Seeder
 
     private function flush(): void
     {
-        foreach (['users', 'landlord_accounts', 'landlord_members', 'properties', 'property_amenity', 'rooms', 'spaces', 'reservations', 'payment_proofs', 'property_photos'] as $table) {
+        foreach (['users', 'landlord_accounts', 'landlord_members', 'properties', 'property_amenity', 'rooms', 'spaces', 'reservations', 'payment_proofs', 'property_photos', 'viewing_requests'] as $table) {
             foreach (array_chunk($this->rows[$table], self::CHUNK) as $chunk) {
                 DB::table($table)->insert($chunk);
             }

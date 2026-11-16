@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\ReservationStatus;
+use App\Support\Viewings\ViewingSlots;
 use Carbon\CarbonImmutable;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\Demo\DemoPhotoPainter;
@@ -271,6 +272,52 @@ it('paints the same demo photo every time', function (): void {
         ->and($painter->paint('bunks', 'ube'))->not->toBe($painter->paint('bunks', 'mango'));
 });
 
+it('seeds viewing requests across every status, within the limits, in real slots (slice 6.2)', function (): void {
+    $viewings = DB::table('viewing_requests')->get();
+    $now = CarbonImmutable::parse('2026-11-15 10:00:00', 'Asia/Manila');
+
+    expect($viewings->count())->toBeGreaterThanOrEqual(100)
+        ->and($viewings->pluck('status')->unique()->sort()->values()->all())->toBe(['accepted', 'cancelled', 'declined', 'done', 'requested']);
+
+    // Every time is a real slot in Manila: 8:00 AM to 6:00 PM, on the hour or half hour.
+    foreach ($viewings as $viewing) {
+        $manila = CarbonImmutable::parse($viewing->preferred_at, 'UTC')->setTimezone('Asia/Manila');
+        expect(ViewingSlots::isSlot($manila))->toBeTrue("viewing {$viewing->id} at {$manila}")
+            ->and($viewing->landlord_account_id)->toBe(DB::table('properties')->where('id', $viewing->property_id)->value('landlord_account_id'));
+    }
+
+    // The limits of RequestViewing, written out again: at most 3 open per renter, 1 per property.
+    $open = $viewings->filter(fn (object $v): bool => in_array($v->status, ['requested', 'accepted'], true) && CarbonImmutable::parse($v->preferred_at, 'UTC')->greaterThan($now));
+    foreach ($open->groupBy('renter_id') as $renterId => $rows) {
+        expect($rows->count())->toBeLessThanOrEqual(3, "renter {$renterId}")->and($rows->pluck('property_id')->unique()->count())->toBe($rows->count(), "renter {$renterId}: two open in one property");
+    }
+
+    // Answered ones were answered by a member of the property's account; unanswered ones by nobody.
+    foreach ($viewings as $viewing) {
+        if (in_array($viewing->status, ['accepted', 'declined', 'done'], true)) {
+            expect(DB::table('landlord_members')->where('user_id', $viewing->decided_by)->where('landlord_account_id', $viewing->landlord_account_id)->exists())->toBeTrue();
+        } else {
+            expect($viewing->decided_by)->toBeNull();
+        }
+    }
+});
+
+it('seeds the demo renters and the owner\'s properties with viewings the reviewers see', function (): void {
+    $id = fn (string $email) => DB::table('users')->where('email', $email)->value('id');
+    $owner = DB::table('landlord_members')->where('user_id', $id(DemoSeeder::OWNER_EMAIL))->value('landlord_account_id');
+    $openFor = fn (string $email) => DB::table('viewing_requests')->where('renter_id', $id($email))->whereIn('status', ['requested', 'accepted'])->where('preferred_at', '>', now())->count();
+
+    // renter1 has one place left under the limit of 3 (the Phase 6 demo asks for a viewing as renter1).
+    expect($openFor(DemoSeeder::RENTER1_EMAIL))->toBe(2)->and($openFor(DemoSeeder::RENTER2_EMAIL))->toBe(2)
+        ->and(DB::table('viewing_requests')->where('renter_id', $id(DemoSeeder::RENTER1_EMAIL))->pluck('status')->unique()->sort()->values()->all())->toBe(['accepted', 'cancelled', 'declined', 'done', 'requested'])
+        ->and(DB::table('viewing_requests')->where('landlord_account_id', $owner)->count())->toBeGreaterThanOrEqual(9);
+
+    // A request for today, still to come, waits on the owner's list (the one marked "Today").
+    $today = DB::table('viewing_requests')->where('landlord_account_id', $owner)->where('status', 'requested')
+        ->whereBetween('preferred_at', [now()->utc()->format('Y-m-d H:i:s'), now('Asia/Manila')->endOfDay()->utc()->format('Y-m-d H:i:s')])->count();
+    expect($today)->toBeGreaterThanOrEqual(1);
+});
+
 it('produces the same business data every time', function (): void {
     /*
      * A hash of every business column (ids included, passwords, tokens and
@@ -283,7 +330,8 @@ it('produces the same business data every time', function (): void {
     // Changed in 4.4: real barangays from the PSGC (the `barangay` column), and each property's city and barangay codes.
     // Every other column is what it was: the Faker stream is unchanged (one draw picks the barangay, as before).
     // Slice 5.3: payment_proofs gained mime_type ('image/jpeg' on every demo proof); nothing else changed.
-    $expected = '63411793d88e1208e8549e9caace0f350528bb7c6d466a4422093fb3e371a071';
+    // Slice 6.2: viewing_requests joined the hash (about 150 random rows and the scripted set); the other tables hash as before.
+    $expected = '41ceb98e00e55f9c7bab7cffb575c9e11e77bf2bc8c1f305376ed976618c0122';
 
     // Amenities are reference data with auto-increment ids, whose counter survives a
     // rolled-back test, so they are hashed by slug, not by id.
@@ -303,6 +351,8 @@ it('produces the same business data every time', function (): void {
         'reservations' => DB::table('reservations')->orderBy('id'),
         'payment_proofs' => DB::table('payment_proofs')->orderBy('id'),
         'property_photos' => DB::table('property_photos')->orderBy('id'),
+        // Slice 6.2.
+        'viewing_requests' => DB::table('viewing_requests')->orderBy('id'),
     ];
     $skip = ['password', 'remember_token', 'created_at', 'updated_at', 'city_id', 'barangay_id'];
 

@@ -97,3 +97,20 @@ export function formatUntil(instant: string, today: string): string {
 
     return `${time}, ${formatDay(day)}`;
 }
+
+/** "15:30" → "3:30 PM" (a viewing slot, Manila time). */
+export function formatSlot(time: string): string {
+    const [hours = '0', minutes = '00'] = time.split(':');
+    const hour = Number(hours);
+
+    return `${hour % 12 === 0 ? 12 : hour % 12}:${minutes} ${hour < 12 ? 'AM' : 'PM'}`;
+}
+
+/** "2027-06-01" against `today` → "Today, Tue 1 Jun", "Tomorrow, Wed 2 Jun" or "Thu 3 Jun" (the viewing form's days). */
+export function formatViewingDay(date: string, today: string): string {
+    if (date === today) {
+        return `Today, ${formatDay(date)}`;
+    }
+
+    return date === addDays(today, 1) ? `Tomorrow, ${formatDay(date)}` : formatDay(date);
+}

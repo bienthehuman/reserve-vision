@@ -138,7 +138,6 @@ Ideas that came up and are deliberately not in any slice.
 | Make the Vite dev server (HMR) work in Codespaces; today the dev container uses built assets | Slice 1.3 |
 | CSP `img-src` for a photos origin other than the app (external S3 or CDN: `AWS_PHOTOS_URL`). Photos are same-origin (`/media/photos`) with MinIO, so 4.2 didn't need it | Slice 1.3, 4.2 |
 | Trim the entry chunk (`app.js`, 112 KB gzipped, mostly React DOM + Inertia) and add a JS budget next to the CSS budget | Slice 1.1 build output |
-| Seed viewing requests | Slice 2.2 |
 | Narrow the "status is written only in `App\Actions`" arch test to reservations if it gets noisy for `PropertyPhoto`/`PaymentProof` status writes | Slice 2.1 |
 | Two-factor authentication and passkeys (Fortify supports both; the routes are off) | Slice 2.4 |
 | Profile and settings pages: change name, phone, email (re-verify) and password | Slice 2.4 |
