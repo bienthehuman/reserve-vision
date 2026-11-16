@@ -1,11 +1,14 @@
 import { Link, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
-import { Alert, Container } from 'react-bootstrap';
+import { Container } from 'react-bootstrap';
 import { HouseDoorFill } from 'react-bootstrap-icons';
+import { FlashError, FlashToast } from '@/Components/FlashMessages';
 import UserMenu from '@/Components/UserMenu';
 
 interface PublicLayoutProps {
     children: ReactNode;
+    /** A menu under the header (the landlord menu). Messages that stay on the page come after it. */
+    subnav?: ReactNode;
 }
 
 /** Log in / Sign up, or the account menu (the user's name, which opens Log out). */
@@ -31,8 +34,8 @@ function SiteNav() {
     );
 }
 
-export default function PublicLayout({ children }: PublicLayoutProps) {
-    const { appName, flash } = usePage().props;
+export default function PublicLayout({ children, subnav }: PublicLayoutProps) {
+    const { appName } = usePage().props;
 
     return (
         <>
@@ -50,21 +53,10 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
                     <SiteNav />
                 </Container>
             </header>
+            <FlashToast />
             <main id="main" tabIndex={-1}>
-                {flash.error && (
-                    <Container className="pt-3">
-                        <Alert variant="danger" className="mb-0" role="alert">
-                            {flash.error}
-                        </Alert>
-                    </Container>
-                )}
-                {flash.status && (
-                    <Container className="pt-3">
-                        <Alert variant="success" className="mb-0" role="status">
-                            {flash.status}
-                        </Alert>
-                    </Container>
-                )}
+                {subnav}
+                <FlashError />
                 {children}
             </main>
             <footer className="site-footer mt-5">

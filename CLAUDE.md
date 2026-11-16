@@ -266,6 +266,8 @@ To see a failed photo by hand: `docker compose stop worker`, upload, replace the
 | Controls | One height: `--rv-control-height` (40 px, 44 px under `pointer: coarse`) as `min-height` on `.btn`, `.form-control`, `.form-select`; `--rv-control-height-sm` for `.btn-sm`. One radius (`$rv-radius`) for both button sizes and fields. `.btn` is `inline-flex` with a gap, so an icon goes in as a sibling of the text. Never put a `btn-sm` next to a full-size control (`ActionButton` takes `size="md"` for page headers) |
 | Buttons | `primary` (one per view), `outline-primary` (everything else), `outline-danger` (opens a confirmation), `danger` (confirms it). No `outline-secondary`, no `btn-link` |
 | Links | Underlined in a sentence; standing alone: `.link-plain` (ink), `.link-action` (ube), `.back-link` (via `PageHeader`) |
+| Messages | `Components/FlashMessages`: `FlashToast` (the `flash.status` confirmation: a toast under the header that closes itself after 6 s, `TOAST_MS`) and `FlashError` (`flash.error`: stays, below the menu, scrolls into view and takes focus). Both rendered by `PublicLayout`, which takes the landlord menu as its `subnav` prop so the error comes after it. "Closed" is remembered per `flash` object, so the same sentence shows again after the next action |
+| Lists that grow | The action comes first: on the members page the invite form (`form.inline-form`: one field and its button on a line) is above the waiting invitations and the members, each heading with its count |
 | Components | `Components/PageHeader` (back link, eyebrow, title, subtitle children, actions), `UserMenu` (the header's account menu: a disclosure button, not a Bootstrap dropdown, so no Popper and no inline styles for the CSP), `Pager`, `EmptyState` |
 | Dropdown list | `@supports (appearance: base-select)` in `_components.scss` styles the open list of every `.form-select` in Chromium (which is what Playwright and axe run); other browsers keep their native list |
 | Address | `properties`: `address` (street, nullable), `barangay`, `city` + `city_slug`, `province` (from `database/data/places.php`, never from the request). `$property->full_address`. No `lat`/`lng`. The form has no slug field (`PropertyRequest` still accepts `slug`) |
@@ -313,6 +315,8 @@ To read an invitation by hand in dev: invite from http://localhost:8180/landlord
 - **`__()` returns `array|string`** for Larastan: a value object that needs `string` narrows it (`PublishChecklist::text()`).
 - **A `PUT` of the property form without `payment_instructions` clears them**, and the property can then not be published: T7's update body carries them.
 - **`getByRole('cell', { name })` matches two cells in a `.stack-table` row** when the buttons' accessible names contain the same text (an email). Use `td[data-label="Email"]` with `hasText`.
+- **A confirmation is gone after 6 seconds**: an e2e assertion on a toast's text must come right after the action, not after an axe run or a screenshot of another page. And the toast is `position: fixed`, so a full-page screenshot shows it over the top of the page.
+- **jsdom has no `scrollIntoView`**: `FlashError` calls it as `scrollIntoView?.()`.
 - **A read-only field's long value is cut off on a phone** (the invited email on the acceptance page); the full address is in the email the person just opened.
 
 ### Quirks hit in 4.2

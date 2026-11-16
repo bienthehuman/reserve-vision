@@ -1140,3 +1140,68 @@ $rv-swatches: (
     font-size: $rv-font-size-small;
   }
 }
+
+// Confirmations (DESIGN_SYSTEM "Feedback"): a toast fixed under the header, out of the page flow, so it never
+// pushes the page down. Full width on a phone, top right from `md`. No fade: it is there, then it is gone.
+.toast-region {
+  position: fixed;
+  top: 4.25rem;
+  right: 0;
+  left: 0;
+  z-index: $zindex-toast;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 1rem;
+  pointer-events: none; // only the toast itself takes taps; what is beside it stays usable
+
+  @include media-breakpoint-up(md) {
+    padding: 0 1.5rem;
+  }
+}
+
+.flash-toast,
+.flash-error {
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+
+  .btn-close {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+}
+
+.flash-toast {
+  width: 100%;
+  max-width: 26rem;
+  margin: 0;
+  box-shadow: $rv-shadow;
+  pointer-events: auto;
+}
+
+.flash-toast__icon {
+  flex: 0 0 auto;
+  margin-top: 0.25rem;
+}
+
+.flash-toast__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+// One field and its button on a line (the invite form): stacked on a phone, side by side from `sm`.
+// The button lines up with the input, not the label above it.
+.inline-form {
+  display: grid;
+  gap: 0.75rem;
+
+  @include media-breakpoint-up(sm) {
+    grid-template-columns: minmax(0, 28rem) max-content;
+    justify-content: start;
+    align-items: start;
+
+    &__action {
+      margin-top: 1.875rem; // the label's line and its gap, so the button sits level with the input
+    }
+  }
+}
