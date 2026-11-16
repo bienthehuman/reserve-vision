@@ -1,6 +1,5 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { groupOptions } from './SelectField';
 import { usePlaceList } from './usePlaceList';
 
 const cities = [{ id: 1, name: 'Manila', slug: 'manila' }];
@@ -60,21 +59,5 @@ describe('usePlaceList (slice 4.4)', () => {
         await waitFor(() => expect(result.current.status).toBe('ready'));
         expect(result.current.items).toEqual(cities);
         expect(fetchMock).toHaveBeenCalledTimes(2);
-    });
-});
-
-describe('groupOptions', () => {
-    it('puts consecutive options of a group under one heading, and leaves options without one alone', () => {
-        expect(
-            groupOptions([
-                { value: '1', label: 'Barangay 659', group: 'Ermita' },
-                { value: '2', label: 'Barangay 395', group: 'Sampaloc' },
-                { value: '3', label: 'Barangay 396', group: 'Sampaloc' },
-            ]).map(({ group, options }) => [group, options.map((option) => option.label)]),
-        ).toEqual([
-            ['Ermita', ['Barangay 659']],
-            ['Sampaloc', ['Barangay 395', 'Barangay 396']],
-        ]);
-        expect(groupOptions([{ value: '1', label: 'Lahug' }])[0]?.group).toBeNull();
     });
 });

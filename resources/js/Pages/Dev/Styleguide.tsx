@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Alert, Button, Card, Col, Container, Form, Row, Table } from 'react-bootstrap';
 import { ArrowLeft, ExclamationCircle } from 'react-bootstrap-icons';
 import Pager from '@/Components/Pager';
-import SelectField from '@/Components/Form/SelectField';
+import ComboboxField from '@/Components/Form/ComboboxField';
 import PriceTag from '@/Components/PriceTag';
 import StatusBadge from '@/Components/StatusBadge';
 import PublicLayout from '@/Layouts/PublicLayout';
@@ -192,22 +192,13 @@ export default function Styleguide() {
                     </Form>
                 </Section>
 
-                <Section id="dependent-dropdowns" title="Dependent dropdowns">
+                <Section id="dependent-dropdowns" title="Dropdowns you can type into">
                     <p className="small text-body-secondary">
-                        The property address (slice 4.4): a dropdown that needs another one says so while it waits; a list grouped by district; a list
-                        that didn&apos;t load, with a retry.
+                        For lists too long to scroll (slice 4.4, the address): type to narrow the list, accents and word order don&apos;t
+                        matter. One that needs another choice says so while it waits; a list that didn&apos;t load offers a retry.
                     </p>
                     <Form noValidate className="col-md-6">
-                        <SelectField
-                            name="sg-barangay-waiting"
-                            label="Barangay"
-                            value=""
-                            onChange={() => undefined}
-                            options={[]}
-                            placeholder="Choose a city first."
-                            disabled
-                        />
-                        <SelectField
+                        <ComboboxField
                             name="sg-barangay-grouped"
                             label="Barangay in Manila"
                             value="2"
@@ -217,8 +208,18 @@ export default function Styleguide() {
                                 { value: '2', label: 'Barangay 395', group: 'Sampaloc' },
                                 { value: '3', label: 'Barangay 396', group: 'Sampaloc' },
                             ]}
+                            help="Type part of the name, or a district (Sampaloc)."
                         />
-                        <SelectField
+                        <ComboboxField
+                            name="sg-barangay-waiting"
+                            label="Barangay"
+                            value=""
+                            onChange={() => undefined}
+                            options={[]}
+                            placeholder="Choose a city first."
+                            disabled
+                        />
+                        <ComboboxField
                             name="sg-city-failed"
                             label="City or municipality"
                             value=""

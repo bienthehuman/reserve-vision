@@ -158,7 +158,6 @@ Ideas that came up and are deliberately not in any slice.
 | Retry a failed photo without choosing the file again, when the failure was storage and not the file (today the upload is deleted on failure) | Slice 4.2 |
 | Upload progress per file, and drag-and-drop to reorder next to the Up and Down buttons | Slice 4.2 |
 | Photos per room ("Bed area of Room 2"), not only per property | Slice 4.2 |
-| Type to filter a long barangay list (Manila has 897; Quezon City 142). The native select is kept for phones and screen readers; a combobox would sit beside it, not replace it | Slice 4.4 |
 | Tell an owner when an import leaves their property without a linked barangay (today they see it only as a publish checklist item, or on the form) | Slice 4.4 |
 | Invite a co-owner (today only caretakers can be invited; the `role` column already allows `owner`) | Slice 4.3 |
 | Change a member's role (caretaker to owner and back) without removing and inviting again | Slice 4.3 |

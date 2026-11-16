@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { chooseAddress, collectConsoleErrors, expectNoAxeViolations, LOYOLA_HEIGHTS, logIn } from './support';
+import { chooseFrom, collectConsoleErrors, expectNoAxeViolations, logIn } from './support';
 
 /**
  * Slice 4.1: the owner creates a property with a shared room of 3 beds, edits the rate and archives a bed,
- * on the phone viewport. Slice 4.4: the address's three dropdowns on the way (disabled, Manila's districts, clearing). Zero axe violations on every new page. It adds a property to the demo owner's
+ * on the phone viewport. Slice 4.4: the address's three dropdowns on the way (disabled, typing to find, Manila's districts, clearing). Zero axe violations on every new page. It adds a property to the demo owner's
  * account on each run (a unique name), so it runs in one project only and leaves the rest of the demo data alone.
  * Set SCREENSHOT_DIR to save the 360 px screenshots for the PR.
  */
@@ -48,36 +48,38 @@ test('4.1: the owner adds a property with a 3-bed room, changes the rate and arc
     await expect(page.getByRole('heading', { level: 1, name: 'Add a property' })).toBeVisible();
     await page.waitForLoadState('networkidle');
     await page.getByLabel('Property name', { exact: true }).fill(name);
-    await page.getByLabel('Street address').fill('12 Mabini Street');
-
-    // The address (4.4): each dropdown needs the one after it, and says so while it waits.
-    const province = page.getByLabel('Province', { exact: true });
-    const city = page.getByLabel('City or municipality', { exact: true });
-    const barangay = page.getByLabel('Barangay', { exact: true });
-    await expect(barangay).toBeDisabled();
-    await expect(barangay.locator('option:checked')).toHaveText('Choose a city first.');
+    // The address (4.4): province, city, barangay, street. Each place needs the one before it, says so while
+    // it waits, and is a dropdown you can type into.
+    const city = page.getByRole('combobox', { name: 'City or municipality', exact: true });
+    const barangay = page.getByRole('combobox', { name: 'Barangay', exact: true });
     await expect(city).toBeDisabled();
-    await expect(city.locator('option:checked')).toHaveText('Choose a province first.');
+    await expect(city).toHaveAttribute('placeholder', 'Choose a province first.');
+    await expect(barangay).toBeDisabled();
+    await expect(barangay).toHaveAttribute('placeholder', 'Choose a city first.');
     await shot('address-empty');
     await clean(); // two disabled dropdowns
 
-    // Manila's barangays are grouped by district.
-    await province.selectOption({ label: 'Metro Manila' });
-    await expect(city).toBeEnabled();
+    // Manila's barangays: typing a district lists its barangays, under its heading.
+    await expect(async () => {
+        await chooseFrom(page, 'Province', 'Metro Manila', 'metro', 3_000);
+        await expect(city).toBeEnabled({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
     await expect(barangay).toBeDisabled();
     await shot('address-province');
-    await city.selectOption({ label: 'Manila' });
+    await chooseFrom(page, 'City or municipality', 'Manila');
     await expect(barangay).toBeEnabled();
-    await expect(barangay.locator('optgroup[label="Sampaloc"] option', { hasText: /^Barangay 395$/ })).toHaveCount(1);
-    await barangay.click(); // the list open (Chromium's styled select): axe sees it too
-    await clean();
-    await page.keyboard.press('Escape');
+    await barangay.fill('sampaloc 395');
+    await expect(page.getByRole('option', { name: 'Barangay 395, Sampaloc', exact: true })).toBeVisible();
+    await expect(page.getByRole('listbox').getByText('Sampaloc', { exact: true })).toBeVisible();
+    await clean(); // with the list open
+    await page.getByRole('option', { name: 'Barangay 395, Sampaloc', exact: true }).click();
+    await expect(barangay).toHaveValue('Barangay 395');
 
-    // Changing the city clears the barangay; changing the province clears both.
-    await barangay.selectOption({ label: 'Barangay 395' });
-    await city.selectOption({ label: 'Quezon City' });
+    // Changing the city clears the barangay.
+    await chooseFrom(page, 'City or municipality', 'Quezon City');
     await expect(barangay).toHaveValue('');
-    await chooseAddress(page, LOYOLA_HEIGHTS);
+    await chooseFrom(page, 'Barangay', 'Loyola Heights', 'loyola');
+    await page.getByLabel('Street address').fill('12 Mabini Street');
     await page.getByLabel('How to pay the reservation fee').fill('GCash 0917 123 4567 (E. Test)');
     await shot('property-form');
     await clean();

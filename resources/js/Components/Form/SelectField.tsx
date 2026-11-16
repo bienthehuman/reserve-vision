@@ -3,36 +3,13 @@ import { ExclamationCircle } from 'react-bootstrap-icons';
 import type { ReactNode } from 'react';
 import { fieldId } from './TextField';
 
-export interface SelectOption {
-    value: string;
-    label: string;
-    group?: string | null;
-}
-
-/** Consecutive options of the same group, for `<optgroup>`s; options without a group stand alone. */
-export function groupOptions(options: readonly SelectOption[]): { group: string | null; options: SelectOption[] }[] {
-    const groups: { group: string | null; options: SelectOption[] }[] = [];
-    for (const option of options) {
-        const group = option.group ?? null;
-        const last = groups[groups.length - 1];
-        if (last !== undefined && last.group === group) {
-            last.options.push(option);
-        } else {
-            groups.push({ group, options: [option] });
-        }
-    }
-
-    return groups;
-}
-
 export interface SelectFieldProps {
     /** The form field name; the select's id is `field-<name>`, which the error summary links to. */
     name: string;
     label: ReactNode;
     value: string;
     onChange: (value: string) => void;
-    /** Options with a `group` are shown under an `<optgroup>` of that label, in the order given. */
-    options: readonly SelectOption[];
+    options: readonly { value: string; label: string }[];
     /** A first, empty option such as "Choose a city". */
     placeholder?: string;
     error?: string;
@@ -74,23 +51,11 @@ export default function SelectField({
                 disabled={disabled}
             >
                 {placeholder !== undefined && <option value="">{placeholder}</option>}
-                {groupOptions(options).map(({ group, options: members }) =>
-                    group === null ? (
-                        members.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))
-                    ) : (
-                        <optgroup key={`group-${group}`} label={group}>
-                            {members.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </optgroup>
-                    ),
-                )}
+                {options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
             </Form.Select>
             {error && (
                 <Form.Control.Feedback type="invalid" id={errorId} className="d-flex">

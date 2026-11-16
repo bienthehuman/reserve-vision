@@ -1,9 +1,10 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Button, Card, Container } from 'react-bootstrap';
 import CheckboxGroup from '@/Components/Form/CheckboxGroup';
 import ErrorSummary from '@/Components/Form/ErrorSummary';
-import SelectField, { type SelectOption } from '@/Components/Form/SelectField';
+import ComboboxField, { type ComboboxOption } from '@/Components/Form/ComboboxField';
+import SelectField from '@/Components/Form/SelectField';
 import SubmitButton from '@/Components/Form/SubmitButton';
 import TextAreaField from '@/Components/Form/TextAreaField';
 import TextField from '@/Components/Form/TextField';
@@ -57,15 +58,16 @@ interface FormProps {
 const kindLabels: Record<string, string> = { apartment: 'Apartment', boarding_house: 'Boarding house' };
 const genderLabels: Record<string, string> = { any: 'Anyone', male_only: 'Men only', female_only: 'Women only' };
 
-const FIELD_ORDER = ['name', 'kind', 'gender_policy', 'address', 'barangay_id', 'city_id', 'amenities', 'house_rules', 'payment_instructions'];
+const FIELD_ORDER = ['name', 'kind', 'gender_policy', 'city_id', 'barangay_id', 'address', 'amenities', 'house_rules', 'payment_instructions'];
 
 const citiesUrl = (province: Place) => `/places/provinces/${province.slug}/cities`;
 const barangaysUrl = (city: Place) => `/places/cities/${city.slug}/barangays`;
 
 /**
  * Create or edit a property (owners; slice 4.1). The address is entered the way it is written in the
- * Philippines: street address (optional), barangay, city, province (slice 4.4: three dropdowns from the
- * PSGC list, each needing the one below it, so each says so while it waits). The form posts `city_id`
+ * Philippines: street address (optional), barangay, city, province, but entered the other way round (slice 4.4):
+ * province, city, barangay, street, because each place is chosen from the list of the one before it (three
+ * dropdowns you can type into, from the PSGC list; each says what it waits for). The form posts `city_id`
  * and `barangay_id`; the province is only there to narrow the cities. The listing link is made from
  * the name; it isn't a field.
  */
@@ -102,16 +104,6 @@ export default function Form({ property, locked, provinces, cities, barangays, a
         form.setData((data) => ({ ...data, city_id: '', barangay_id: '' }));
     };
     const chooseCity = (value: string) => form.setData((data) => ({ ...data, city_id: value, barangay_id: '' }));
-
-    // A province picked on the server-rendered page before the scripts loaded (a slow phone): adopt it,
-    // or the city would stay "Choose a province first." under a province that shows a choice.
-    useEffect(() => {
-        const picked = (document.getElementById('field-province_id') as HTMLSelectElement | null)?.value ?? '';
-        if (picked !== '' && picked !== provinceId) {
-            chooseProvince(picked);
-        }
-        // Once, on mount: afterwards the select's onChange keeps the state.
-    }, []);
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
@@ -193,32 +185,20 @@ export default function Form({ property, locked, provinces, cities, barangays, a
                             </div>
                             <div className="form-section__fields">
 
-                            <TextField
-                                name="address"
-                                label="Street address"
-                                value={form.data.address}
-                                onChange={(value) => form.setData('address', value)}
-                                error={form.errors.address}
-                                autoComplete="address-line1"
-                                placeholder="12 Mabini Street"
-                                help="House or building number and street."
-                                optional
-                            />
-
-                            <PlaceSelect
-                                name="barangay_id"
-                                label="Barangay"
-                                list={barangayList}
-                                value={form.data.barangay_id}
-                                onChange={(value) => form.setData('barangay_id', value)}
-                                options={barangayList.items.map((place) => ({ value: String(place.id), label: place.name, group: place.district }))}
-                                error={form.errors.barangay_id}
-                                waiting="Choose a city first."
-                                noun="barangays"
-                                hint={property?.barangay_text ? `You wrote: ${property.barangay_text}` : undefined}
-                            />
-
                             <div className="row">
+                                <div className="col-sm-6">
+                                    <ComboboxField
+                                        name="province_id"
+                                        label="Province"
+                                        value={provinceId}
+                                        onChange={chooseProvince}
+                                        options={provinces.map((place) => ({ value: String(place.id), label: place.name }))}
+                                        placeholder="Type or choose a province"
+                                        help={cityLocked ? 'Follows the city.' : 'Metro Manila for Manila, Quezon City and the cities around them.'}
+                                        disabled={cityLocked}
+                                        required
+                                    />
+                                </div>
                                 <div className="col-sm-6">
                                     <PlaceSelect
                                         name="city_id"
@@ -240,20 +220,32 @@ export default function Form({ property, locked, provinces, cities, barangays, a
                                         disabled={cityLocked}
                                     />
                                 </div>
-                                <div className="col-sm-6">
-                                    <SelectField
-                                        name="province_id"
-                                        label="Province"
-                                        value={provinceId}
-                                        onChange={chooseProvince}
-                                        options={provinces.map((place) => ({ value: String(place.id), label: place.name }))}
-                                        placeholder="Choose a province"
-                                        help={cityLocked ? 'Follows the city.' : 'Metro Manila for Manila, Quezon City and the other cities around them.'}
-                                        disabled={cityLocked}
-                                        required
-                                    />
-                                </div>
                             </div>
+
+                            <PlaceSelect
+                                name="barangay_id"
+                                label="Barangay"
+                                list={barangayList}
+                                value={form.data.barangay_id}
+                                onChange={(value) => form.setData('barangay_id', value)}
+                                options={barangayList.items.map((place) => ({ value: String(place.id), label: place.name, group: place.district }))}
+                                error={form.errors.barangay_id}
+                                waiting="Choose a city first."
+                                noun="barangays"
+                                hint={property?.barangay_text ? `You wrote: ${property.barangay_text}` : 'Type part of the name, or a district in Manila (Sampaloc).'}
+                            />
+
+                            <TextField
+                                name="address"
+                                label="Street address"
+                                value={form.data.address}
+                                onChange={(value) => form.setData('address', value)}
+                                error={form.errors.address}
+                                autoComplete="address-line1"
+                                placeholder="12 Mabini Street"
+                                help="House or building number and street."
+                                optional
+                            />
                         </div>
                         </section>
 
@@ -320,7 +312,7 @@ interface PlaceSelectProps {
     list: PlaceList<unknown>;
     value: string;
     onChange: (value: string) => void;
-    options: SelectOption[];
+    options: ComboboxOption[];
     error?: string;
     /** Why the dropdown is empty while the one it needs has no choice: "Choose a city first." */
     waiting: string;
@@ -330,18 +322,18 @@ interface PlaceSelectProps {
     disabled?: boolean;
 }
 
-/** A dependent dropdown: disabled and saying why until it can be filled, then loading, a list, or an error with a retry. */
+/** A dependent dropdown you can type into: disabled and saying why until it can be filled, then loading, a list, or an error with a retry. */
 function PlaceSelect({ name, label, list, value, onChange, options, error, waiting, noun, hint, disabled = false }: PlaceSelectProps) {
     const placeholder = {
         idle: waiting,
         loading: `Loading ${noun}…`,
-        ready: `Choose the ${label.toLowerCase()}`,
+        ready: `Type or choose the ${label.toLowerCase()}`,
         error: `Couldn't load the ${noun}`,
     }[list.status];
 
     return (
         <>
-            <SelectField
+            <ComboboxField
                 name={name}
                 label={label}
                 value={value}
