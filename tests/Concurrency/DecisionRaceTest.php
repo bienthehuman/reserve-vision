@@ -101,7 +101,7 @@ it('confirm versus decline: the owner confirms while the caretaker declines, and
 
     expect([$confirm->status, $decline->status])->toContain(200)
         ->and($winner->status)->toBe(200, 'BOTH WON or NEITHER: '.$confirm->describe().' / '.$decline->describe())
-        ->and($loser->status)->toBe(422, 'Unexpected response: '.$loser->describe())
+        ->and($loser->status)->toBe(422, ($loser->status === 200 ? 'BOTH WON: ' : 'Unexpected response: ').$confirm->describe().' / '.$decline->describe())
         ->and($audit)->toHaveCount(1, 'AUDIT: '.count($audit).' rows for one decision: '.implode(', ', $audit));
 
     if ($fresh->status === ReservationStatus::Confirmed) {
