@@ -954,6 +954,8 @@ a {
 
 @include media-breakpoint-down(lg) {
   .filter-sheet.offcanvas-bottom {
+    --bs-offcanvas-bg: #{$rv-surface};
+
     height: 85vh;
   }
 }
