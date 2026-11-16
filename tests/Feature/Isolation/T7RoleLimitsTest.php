@@ -68,10 +68,10 @@ function t7WriteRoutes(array $account): array
     return [
         'landlord.invitations.store' => ['POST', '/landlord/invitations', ['email' => 'new@example.com']],
         'landlord.properties.store' => ['POST', '/landlord/properties', [
-            'kind' => 'apartment', 'name' => 'New Place', 'city' => 'manila', 'address' => '1 Rizal St', 'gender_policy' => 'any', 'amenities' => [],
+            'kind' => 'apartment', 'name' => 'New Place', 'barangay' => 'Malate', 'city' => 'manila', 'address' => '1 Rizal St', 'gender_policy' => 'any', 'amenities' => [],
         ]],
         'landlord.properties.update' => ['PUT', "/landlord/properties/{$property->id}", [
-            'kind' => 'apartment', 'name' => 'Renamed', 'city' => $property->city_slug, 'address' => '2 Rizal St', 'gender_policy' => 'any', 'amenities' => [],
+            'kind' => 'apartment', 'name' => 'Renamed', 'barangay' => 'Malate', 'city' => $property->city_slug, 'address' => '2 Rizal St', 'gender_policy' => 'any', 'amenities' => [],
         ]],
         'landlord.properties.archive' => ['POST', "/landlord/properties/{$property->id}/archive", []],
         'landlord.properties.unarchive' => ['DELETE', "/landlord/properties/{$property->id}/archive", []],

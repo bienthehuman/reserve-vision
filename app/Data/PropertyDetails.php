@@ -15,13 +15,11 @@ final readonly class PropertyDetails
         public string $name,
         /** Null: generate it from the name (create) or keep it (update). */
         public ?string $slug,
-        /** One of `database/data/places.php`. */
+        /** The street address: house or building number and street. The one optional part of an address. */
+        public ?string $address,
+        public string $barangay,
+        /** One of `database/data/places.php`; it decides the province. */
         public string $citySlug,
-        public ?string $barangay,
-        public string $address,
-        /** DECIMAL(9,6) as text; null: the city's centre. */
-        public ?string $lat,
-        public ?string $lng,
         public GenderPolicy $genderPolicy,
         /** @var list<int> */
         public array $amenityIds,

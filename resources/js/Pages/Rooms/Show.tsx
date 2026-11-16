@@ -5,6 +5,7 @@ import { GeoAlt, InfoCircle } from 'react-bootstrap-icons';
 import ErrorSummary from '@/Components/Form/ErrorSummary';
 import SubmitButton from '@/Components/Form/SubmitButton';
 import { useFocusOnError } from '@/Components/Form/useFocusOnError';
+import PageHeader from '@/Components/PageHeader';
 import PriceTag from '@/Components/PriceTag';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { formatDate } from '@/lib/dates';
@@ -18,7 +19,7 @@ interface RoomPageProps {
         reservation_fee: number;
         space_count: number;
     };
-    property: { name: string; barangay: string | null; city: string };
+    property: { name: string; barangay: string; city: string };
     stay: { move_in: string; months: number; move_out: string };
     window: { first: string; last: string; min_months: number; max_months: number };
     freeSpaces: number;
@@ -80,16 +81,16 @@ export default function Show({ room, property, stay, window, freeSpaces, openRes
             <Container className="py-4 py-md-5">
                 <Row className="justify-content-center">
                     <Col xs={12} md={10} lg={8} xl={7}>
-                        <p className="text-body-secondary mb-1">{property.name}</p>
-                        <h1 className="h2 mb-2">{room.name}</h1>
-                        <p className="d-flex align-items-center gap-1 text-body-secondary mb-4">
-                            <GeoAlt aria-hidden="true" focusable="false" className="flex-shrink-0" />
-                            <span>{place}</span>
-                        </p>
+                        <PageHeader title={room.name} eyebrow={property.name}>
+                            <p className="page-header__subtitle d-flex align-items-center gap-1">
+                                <GeoAlt aria-hidden="true" focusable="false" className="flex-shrink-0" />
+                                <span>{place}</span>
+                            </p>
+                        </PageHeader>
 
-                        <Card className="auth-card mb-4">
-                            <Card.Body className="p-3 p-sm-4">
-                                <dl className="row mb-0">
+                        <Card className="mb-4">
+                            <Card.Body>
+                                <dl className="details row">
                                     <dt className="col-sm-5">Monthly rate</dt>
                                     <dd className="col-sm-7">
                                         <PriceTag centavos={room.monthly_rate} per="month" />
@@ -108,8 +109,8 @@ export default function Show({ room, property, stay, window, freeSpaces, openRes
                             </Card.Body>
                         </Card>
 
-                        <Card className="auth-card">
-                            <Card.Body className="p-3 p-sm-4">
+                        <Card>
+                            <Card.Body>
                                 <h2 className="h3 mb-3">Reserve</h2>
 
                                 {openReservation ? (
@@ -125,7 +126,7 @@ export default function Show({ room, property, stay, window, freeSpaces, openRes
                                 ) : user?.type === 'landlord' ? (
                                     <Alert variant="info" className="d-flex gap-2 align-items-start mb-0">
                                         <InfoCircle aria-hidden="true" focusable="false" className="flex-shrink-0 mt-1" />
-                                        <div>Only renter accounts can reserve. You're logged in as a landlord.</div>
+                                        <div>You're logged in as a landlord. To reserve a room, log in with a renter account.</div>
                                     </Alert>
                                 ) : (
                                     <>
@@ -159,7 +160,7 @@ export default function Show({ room, property, stay, window, freeSpaces, openRes
                                                 </Col>
                                                 <Col xs={12} sm={5}>
                                                     <Form.Group controlId="field-months">
-                                                        <Form.Label>Lease length</Form.Label>
+                                                        <Form.Label>How long you'll stay</Form.Label>
                                                         <Form.Select
                                                             name="months"
                                                             value={form.data.months}
@@ -194,8 +195,8 @@ export default function Show({ room, property, stay, window, freeSpaces, openRes
                                             </SubmitButton>
                                             <p className="small text-body-secondary mt-2 mb-0">
                                                 {user
-                                                    ? 'We hold a space for you for 24 hours while you pay the reservation fee.'
-                                                    : "You'll log in first. We then hold a space for you for 24 hours while you pay the reservation fee."}
+                                                    ? 'We hold it for you for 24 hours while you pay the reservation fee.'
+                                                    : "You'll log in first. We then hold it for you for 24 hours while you pay the reservation fee."}
                                             </p>
                                         </Form>
                                     </>

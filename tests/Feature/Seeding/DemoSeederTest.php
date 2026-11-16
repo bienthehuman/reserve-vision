@@ -51,8 +51,11 @@ it('creates the promised amounts, places and mix', function (): void {
         ->and(DB::table('reservations')->count())->toBeGreaterThanOrEqual(2000)
         ->and(DB::table('amenities')->count())->toBeGreaterThanOrEqual(12);
 
-    // Every property sits on the map and has between 3 and 8 amenities.
-    expect(DB::table('properties')->whereNull('lat')->orWhereNull('lng')->count())->toBe(0)
+    // Every property has a full address (street, barangay, city, province: the street is only the street)
+    // and between 3 and 8 amenities.
+    expect(DB::table('properties')->whereNull('address')->orWhere('address', 'like', '%,%')->count())->toBe(0)
+        ->and(DB::table('properties')->where('city', 'Cebu City')->where('province', '!=', 'Cebu')->count())->toBe(0)
+        ->and(DB::table('properties')->where('city_slug', 'manila')->value('province'))->toBe('Metro Manila')
         ->and(DB::table('property_amenity')->count())->toBeBetween(180, 480);
 
     // Apartments: one whole-room space per unit. Boarding houses: shared rooms of 2-8 beds.
@@ -263,7 +266,7 @@ it('produces the same business data every time', function (): void {
      * and say why in the PR. An unexpected change means something stopped being
      * deterministic: look for an unseeded random call or an unordered query.
      */
-    $expected = 'add13395b9c3136db4a20c69155fc6f8367eb4f4e45247031e7196b0ea2565a0';
+    $expected = 'de6feda7783d3261ee4036867b7944d1ed3a8f5aacbd39e39c0d57328c8134ba';
 
     // Amenities are reference data with auto-increment ids, whose counter survives a
     // rolled-back test, so they are hashed by slug, not by id.

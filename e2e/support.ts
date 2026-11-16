@@ -34,6 +34,14 @@ export async function expectNoAxeViolations(page: Page): Promise<void> {
     expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
 }
 
+/** Opens the header's account menu (the user's first name) and returns it; Log out is inside. */
+export async function openAccountMenu(page: Page) {
+    const nav = page.getByRole('navigation', { name: 'Account' });
+    await nav.getByRole('button', { name: /account menu$/ }).click();
+
+    return nav;
+}
+
 /** Fills and submits the login form on the current page (wait for hydration first). */
 export async function logIn(page: Page, email: string, password: string): Promise<void> {
     await page.getByLabel('Email', { exact: true }).fill(email);

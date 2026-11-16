@@ -35,7 +35,7 @@ test('4.1: the owner adds a property with a 3-bed room, changes the rate and arc
     await page.waitForLoadState('networkidle');
 
     // The dashboard: four figures, each a link.
-    await expect(page.getByRole('heading', { level: 2, name: 'Proofs to review' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Payments to review' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Occupancy today' })).toBeVisible();
     await shot('dashboard');
     await clean();
@@ -47,16 +47,18 @@ test('4.1: the owner adds a property with a 3-bed room, changes the rate and arc
     await page.getByRole('link', { name: 'Add a property' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Add a property' })).toBeVisible();
     await page.waitForLoadState('networkidle');
-    await page.getByLabel('Name', { exact: true }).fill(name);
-    await page.getByLabel('City', { exact: true }).selectOption('quezon-city');
-    await expect(page.getByLabel('Latitude')).toHaveValue('14.648800'); // the city's centre
+    await page.getByLabel('Property name', { exact: true }).fill(name);
     await page.getByLabel('Street address').fill('12 Mabini Street');
+    await page.getByLabel('Barangay', { exact: true }).fill('Loyola Heights');
+    await page.getByLabel('City', { exact: true }).selectOption('quezon-city');
+    await expect(page.getByLabel('Province')).toHaveValue('Metro Manila'); // follows from the city
     await page.getByLabel('How to pay the reservation fee').fill('GCash 0917 123 4567 (E. Test)');
     await shot('property-form');
     await clean();
     await page.getByRole('button', { name: 'Save as a draft' }).click();
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
     await expect(page.getByText('is saved as a draft')).toBeVisible();
+    await expect(page.getByText('12 Mabini Street, Loyola Heights, Quezon City, Metro Manila')).toBeVisible();
     await clean();
 
     // A shared room of 3 beds.
@@ -83,7 +85,7 @@ test('4.1: the owner adds a property with a 3-bed room, changes the rate and arc
     await page.waitForLoadState('networkidle');
     await page.getByLabel('Monthly rate (₱)').fill('3500');
     await clean();
-    await page.getByRole('button', { name: 'Save room' }).click();
+    await page.getByRole('button', { name: 'Save changes' }).click();
     await expect(page.getByText('Saved Room 1.')).toBeVisible();
     await expect(page.getByText('₱3,500')).toBeVisible();
 
@@ -91,7 +93,7 @@ test('4.1: the owner adds a property with a 3-bed room, changes the rate and arc
     await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: 'Archive Bed C' }).click();
     await expect(page.getByText('Bed C is archived.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Unarchive Bed C' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Restore Bed C' })).toBeVisible();
     await clean();
 
     await context.close();

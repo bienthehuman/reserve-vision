@@ -1,6 +1,9 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useState, type FormEvent } from 'react';
 import { Badge, Button, Card, Container, ListGroup } from 'react-bootstrap';
+import { DoorOpen, GeoAlt, Pencil, PlusLg } from 'react-bootstrap-icons';
+import EmptyState from '@/Components/EmptyState';
+import PageHeader from '@/Components/PageHeader';
 import ActionButton from '@/Components/ActionButton';
 import ErrorSummary from '@/Components/Form/ErrorSummary';
 import SubmitButton from '@/Components/Form/SubmitButton';
@@ -39,9 +42,8 @@ interface ShowProps {
         id: number;
         name: string;
         kind: 'apartment' | 'boarding_house';
-        address: string;
-        barangay: string | null;
-        city: string;
+        /** Street address (when given), barangay, city, province. */
+        full_address: string;
         gender_policy: 'any' | 'male_only' | 'female_only';
         house_rules: string | null;
         payment_instructions: string | null;
@@ -59,7 +61,7 @@ interface ShowProps {
 
 const genderLabel = { any: 'Anyone', male_only: 'Men only', female_only: 'Women only' } as const;
 
-/** One space: its name, and for an owner "Rename" (an inline form) and "Archive" / "Unarchive". */
+/** One space: its name, and for an owner "Rename" (an inline form) and "Archive" / "Restore". */
 function SpaceRow({ space }: { space: Space }) {
     const [renaming, setRenaming] = useState(false);
     const form = useForm({ label: space.label });
@@ -89,13 +91,13 @@ function SpaceRow({ space }: { space: Space }) {
                         required
                         autoFocus
                     />
-                    <div className="d-flex gap-2">
+                    <div className="button-row">
+                        <Button type="button" variant="outline-primary" onClick={() => { form.reset(); form.clearErrors(); setRenaming(false); }}>
+                            Cancel
+                        </Button>
                         <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">
                             Save name
                         </SubmitButton>
-                        <Button type="button" variant="outline-secondary" onClick={() => { form.reset(); form.clearErrors(); setRenaming(false); }}>
-                            Cancel
-                        </Button>
                     </div>
                 </form>
             </ListGroup.Item>
@@ -120,8 +122,8 @@ function SpaceRow({ space }: { space: Space }) {
                 )}
                 {space.can_archive &&
                     (space.is_archived ? (
-                        <ActionButton href={`/landlord/spaces/${space.id}/archive`} method="delete" accessibleName={`Unarchive ${space.label}`}>
-                            Unarchive
+                        <ActionButton href={`/landlord/spaces/${space.id}/archive`} method="delete" accessibleName={`Restore ${space.label}`}>
+                            Restore
                         </ActionButton>
                     ) : (
                         <ActionButton href={`/landlord/spaces/${space.id}/archive`} method="post" accessibleName={`Archive ${space.label}`}>
@@ -135,20 +137,20 @@ function SpaceRow({ space }: { space: Space }) {
 
 function RoomCard({ room }: { room: Room }) {
     return (
-        <Card className="auth-card mb-3">
-            <Card.Body className="p-3 p-sm-4">
-                <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                    <h3 className="h3 mb-0">
-                        {room.name}{' '}
-                        <span className="small fw-normal text-body-secondary">{room.type === 'shared' ? 'Shared room' : 'Private room'}</span>
-                    </h3>
+        <Card className="mb-3">
+            <Card.Body>
+                <div className="card-title-row">
+                    <div>
+                        <h3 className="h3 mb-0">{room.name}</h3>
+                        <p className="small text-body-secondary mb-0">{room.type === 'shared' ? 'Shared room, rented by the bed' : 'Private room'}</p>
+                    </div>
                     {room.is_archived && (
                         <Badge pill bg="" className="status-badge status-badge--secondary">
                             Archived
                         </Badge>
                     )}
                 </div>
-                <dl className="row mt-3 mb-3">
+                <dl className="details row mb-4">
                     <dt className="col-sm-4">Monthly rate</dt>
                     <dd className="col-sm-8">
                         <PriceTag centavos={room.monthly_rate} per="month" />
@@ -164,7 +166,7 @@ function RoomCard({ room }: { room: Room }) {
                     </dd>
                 </dl>
 
-                <h4 className="h5">{room.type === 'shared' ? 'Beds' : 'Space'}</h4>
+                <h4 className="small fw-semibold text-body-secondary mb-2">{room.type === 'shared' ? 'Beds' : 'Rented as'}</h4>
                 <ListGroup className="mb-3">
                     {room.spaces.map((space) => (
                         <SpaceRow key={space.id} space={space} />
@@ -172,9 +174,10 @@ function RoomCard({ room }: { room: Room }) {
                 </ListGroup>
 
                 {(room.can_edit || room.can_add_space || room.can_archive) && (
-                    <div className="d-flex flex-wrap gap-2">
+                    <div className="button-row">
                         {room.can_edit && (
                             <Link href={`/landlord/rooms/${room.id}/edit`} className="btn btn-outline-primary btn-sm" aria-label={`Edit room ${room.name}`}>
+                                <Pencil aria-hidden="true" focusable="false" />
                                 Edit room
                             </Link>
                         )}
@@ -185,8 +188,8 @@ function RoomCard({ room }: { room: Room }) {
                         )}
                         {room.can_archive &&
                             (room.is_archived ? (
-                                <ActionButton href={`/landlord/rooms/${room.id}/archive`} method="delete" accessibleName={`Unarchive room ${room.name}`}>
-                                    Unarchive room
+                                <ActionButton href={`/landlord/rooms/${room.id}/archive`} method="delete" accessibleName={`Restore room ${room.name}`}>
+                                    Restore room
                                 </ActionButton>
                             ) : (
                                 <ActionButton href={`/landlord/rooms/${room.id}/archive`} method="post" accessibleName={`Archive room ${room.name}`}>
@@ -202,54 +205,58 @@ function RoomCard({ room }: { room: Room }) {
 
 /** One property with its photos, rooms, rates and spaces. Read-only for a caretaker; owners edit, add and archive (slices 4.1, 4.2). */
 export default function Show({ property, photos, rooms }: ShowProps) {
-    const place = [property.address, property.barangay, property.city].filter(Boolean).join(', ');
-
     return (
         <LandlordLayout>
             <Head title={property.name} />
             <Container className="py-4 py-md-5">
-                <p className="mb-2">
-                    <Link href="/landlord/properties">Back to properties</Link>
-                </p>
-                <h1 className="h2 mb-1">{property.name}</h1>
-                <p className="text-body-secondary mb-2">{place}</p>
-                <p className="mb-3">
-                    <PropertyState published={property.is_published} archived={property.is_archived} />
-                </p>
+                <PageHeader
+                    title={property.name}
+                    back={{ href: '/landlord/properties', label: 'Back to properties' }}
+                    actions={
+                        (property.can_edit || property.can_archive) && (
+                            <>
+                                {property.can_edit && (
+                                    <Link href={`/landlord/properties/${property.id}/edit`} className="btn btn-outline-primary">
+                                        <Pencil aria-hidden="true" focusable="false" />
+                                        Edit property
+                                    </Link>
+                                )}
+                                {property.can_archive &&
+                                    (property.is_archived ? (
+                                        <ActionButton href={`/landlord/properties/${property.id}/archive`} method="delete" size="md">
+                                            Restore property
+                                        </ActionButton>
+                                    ) : (
+                                        <ActionButton href={`/landlord/properties/${property.id}/archive`} method="post" size="md">
+                                            Archive property
+                                        </ActionButton>
+                                    ))}
+                            </>
+                        )
+                    }
+                >
+                    <p className="page-header__subtitle d-flex align-items-start gap-1">
+                        <GeoAlt aria-hidden="true" focusable="false" className="flex-shrink-0 mt-1" />
+                        <span>{property.full_address}</span>
+                    </p>
+                    <p className="mt-2 mb-0">
+                        <PropertyState published={property.is_published} archived={property.is_archived} />
+                    </p>
+                </PageHeader>
 
-                {(property.can_edit || property.can_archive) && (
-                    <div className="d-flex flex-wrap gap-2 mb-4">
-                        {property.can_edit && (
-                            <Link href={`/landlord/properties/${property.id}/edit`} className="btn btn-outline-primary">
-                                Edit property
-                            </Link>
-                        )}
-                        {property.can_archive &&
-                            (property.is_archived ? (
-                                <ActionButton href={`/landlord/properties/${property.id}/archive`} method="delete">
-                                    Unarchive property
-                                </ActionButton>
-                            ) : (
-                                <ActionButton href={`/landlord/properties/${property.id}/archive`} method="post">
-                                    Archive property
-                                </ActionButton>
-                            ))}
-                    </div>
-                )}
-
-                <Card className="auth-card mb-4">
-                    <Card.Body className="p-3 p-sm-4">
-                        <h2 className="h3">Details</h2>
-                        <dl className="row mb-0">
-                            <dt className="col-sm-4">Who may stay</dt>
+                <Card className="mb-4">
+                    <Card.Body>
+                        <h2 className="h3 mb-3">Details</h2>
+                        <dl className="details row">
+                            <dt className="col-sm-4">Who can stay</dt>
                             <dd className="col-sm-8">{genderLabel[property.gender_policy]}</dd>
-                            <dt className="col-sm-4">How to pay the fee</dt>
+                            <dt className="col-sm-4">How renters pay the reservation fee</dt>
                             <dd className="col-sm-8 pre-line">
-                                {property.payment_instructions ?? 'Not written yet. You need it to publish.'}
+                                {property.payment_instructions ?? 'Not added yet. You need this before you can publish.'}
                             </dd>
                             <dt className="col-sm-4">House rules</dt>
-                            <dd className="col-sm-8 mb-0 pre-line">
-                                {property.house_rules ?? 'None written.'}
+                            <dd className="col-sm-8 pre-line">
+                                {property.house_rules ?? 'None added.'}
                             </dd>
                         </dl>
                     </Card.Body>
@@ -263,15 +270,20 @@ export default function Show({ property, photos, rooms }: ShowProps) {
                     canManage={property.can_manage_photos}
                 />
 
-                <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div className="card-title-row mt-5">
                     <h2 className="h3 mb-0">Rooms</h2>
                     {property.can_add_room && (
-                        <Link href={`/landlord/properties/${property.id}/rooms/create`} className="btn btn-primary btn-sm">
+                        <Link href={`/landlord/properties/${property.id}/rooms/create`} className="btn btn-primary">
+                            <PlusLg aria-hidden="true" focusable="false" />
                             Add a room
                         </Link>
                     )}
                 </div>
-                {rooms.length === 0 && <p className="text-body-secondary">This property has no rooms yet.</p>}
+                {rooms.length === 0 && (
+                    <Card>
+                        <EmptyState Icon={DoorOpen}>This property has no rooms yet.</EmptyState>
+                    </Card>
+                )}
                 {rooms.map((room) => (
                     <RoomCard key={room.id} room={room} />
                 ))}

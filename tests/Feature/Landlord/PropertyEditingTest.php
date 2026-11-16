@@ -20,7 +20,7 @@ it('creates a draft property for the owner\'s account, with one audit row', func
     $owner = landlordUser();
     $wifi = Amenity::factory()->create(['slug' => 'wifi-t', 'name' => 'Wi-Fi T']);
 
-    $response = $this->actingAs($owner)->post('/landlord/properties', propertyForm(['amenities' => [$wifi->id], 'lat' => '14.65', 'lng' => '121.05']));
+    $response = $this->actingAs($owner)->post('/landlord/properties', propertyForm(['amenities' => [$wifi->id]]));
 
     $property = Property::query()->sole();
     $response->assertRedirect("/landlord/properties/{$property->id}");
@@ -28,7 +28,8 @@ it('creates a draft property for the owner\'s account, with one audit row', func
         ->and($property->name)->toBe('Santos Bedspace House')
         ->and($property->slug)->toBe('santos-bedspace-house')
         ->and($property->city)->toBe('Quezon City')->and($property->city_slug)->toBe('quezon-city')
-        ->and($property->lat)->toBe('14.650000')->and($property->lng)->toBe('121.050000')
+        ->and($property->province)->toBe('Metro Manila')->and($property->barangay)->toBe('Loyola Heights')
+        ->and($property->full_address)->toBe('12 Mabini Street, Loyola Heights, Quezon City, Metro Manila')
         ->and($property->is_published)->toBeFalse()->and($property->hasBeenPublished())->toBeFalse()
         ->and($property->payment_instructions)->toBe('GCash 0917 123 4567 (J. Santos).')
         ->and($property->amenities()->pluck('slug')->all())->toBe(['wifi-t']);
@@ -41,12 +42,13 @@ it('creates a draft property for the owner\'s account, with one audit row', func
         ->and(json_decode($rows->first()->after, true))->toMatchArray(['name' => 'Santos Bedspace House', 'amenities' => ['wifi-t']]);
 });
 
-it('starts the coordinates at the city\'s centre when they are left empty', function (): void {
+it('takes the province from the city, and the street address is the one optional part', function (): void {
     $owner = landlordUser();
 
-    $this->actingAs($owner)->post('/landlord/properties', propertyForm(['city' => 'cebu-city']))->assertRedirect();
+    $this->actingAs($owner)->post('/landlord/properties', propertyForm(['city' => 'cebu-city', 'barangay' => '  Lahug ', 'address' => '', 'province' => 'Atlantis']))->assertRedirect();
 
-    expect(Property::query()->sole())->lat->toBe('10.315700')->lng->toBe('123.885400');
+    expect(Property::query()->sole())->province->toBe('Cebu')->barangay->toBe('Lahug')->address->toBeNull()
+        ->full_address->toBe('Lahug, Cebu City, Cebu');
 });
 
 it('generates a unique slug per city: -2, -3 on a clash, and the same name in another city is fine', function (): void {
@@ -82,23 +84,20 @@ it('validates the form', function (array $overrides, string $field): void {
     'no name' => [['name' => ''], 'name'],
     'bad kind' => [['kind' => 'castle'], 'kind'],
     'a city that is not in the list' => [['city' => 'atlantis'], 'city'],
-    'no address' => [['address' => ''], 'address'],
+    'no barangay' => [['barangay' => ''], 'barangay'],
+    'no city' => [['city' => ''], 'city'],
     'bad gender policy' => [['gender_policy' => 'pets_only'], 'gender_policy'],
-    'latitude out of range' => [['lat' => '91', 'lng' => '121'], 'lat'],
-    'longitude not a number' => [['lat' => '14.5', 'lng' => 'east'], 'lng'],
-    'latitude without longitude' => [['lat' => '14.5', 'lng' => null], 'lng'],
-    'too many decimals' => [['lat' => '14.1234567', 'lng' => '121'], 'lat'],
     'a slug with capitals' => [['slug' => 'My House'], 'slug'],
     'an unknown amenity' => [['amenities' => [999999]], 'amenities.0'],
     'overlong payment instructions' => [['payment_instructions' => str_repeat('x', 1001)], 'payment_instructions'],
 ]);
 
-it('allows empty house rules, barangay and payment instructions on a draft', function (): void {
+it('allows empty house rules, street address and payment instructions on a draft', function (): void {
     $owner = landlordUser();
 
-    $this->actingAs($owner)->post('/landlord/properties', propertyForm(['house_rules' => '', 'barangay' => '', 'payment_instructions' => '']))->assertSessionHasNoErrors();
+    $this->actingAs($owner)->post('/landlord/properties', propertyForm(['house_rules' => '', 'address' => '', 'payment_instructions' => '']))->assertSessionHasNoErrors();
 
-    expect(Property::query()->sole())->house_rules->toBeNull()->barangay->toBeNull()->payment_instructions->toBeNull();
+    expect(Property::query()->sole())->house_rules->toBeNull()->address->toBeNull()->payment_instructions->toBeNull();
 });
 
 it('updates a property, with one audit row of the changed fields only', function (): void {
@@ -127,7 +126,7 @@ it('writes no audit row when nothing changed', function (): void {
     [$owner, $property] = ownerWithRoom();
     $form = propertyForm([
         'kind' => $property->kind->value, 'name' => $property->name, 'city' => $property->city_slug, 'barangay' => $property->barangay, 'address' => $property->address,
-        'lat' => $property->lat, 'lng' => $property->lng, 'gender_policy' => 'any', 'house_rules' => $property->house_rules,
+        'gender_policy' => 'any', 'house_rules' => $property->house_rules,
         'payment_instructions' => $property->payment_instructions,
     ]);
 
@@ -140,7 +139,7 @@ it('syncs the amenities and records them in the audit row', function (): void {
     [$owner, $property] = ownerWithRoom();
     [$a, $b] = [Amenity::factory()->create(['slug' => 'a-one']), Amenity::factory()->create(['slug' => 'b-two'])];
     $property->amenities()->sync([$a->id]);
-    $form = fn (array $ids) => propertyForm(['name' => $property->name, 'city' => 'manila', 'amenities' => $ids, 'lat' => $property->lat, 'lng' => $property->lng]);
+    $form = fn (array $ids) => propertyForm(['name' => $property->name, 'city' => 'manila', 'amenities' => $ids]);
 
     $this->actingAs($owner)->put("/landlord/properties/{$property->id}", $form([$b->id]))->assertRedirect();
 
@@ -152,7 +151,7 @@ it('syncs the amenities and records them in the audit row', function (): void {
 describe('the web address of a property that has been published', function (): void {
     it('can\'t change its slug or its city, and the refusal changes nothing', function (): void {
         [$owner, $property] = ownerWithRoom(); // published, so first_published_at is set
-        $same = ['name' => 'Renamed', 'city' => 'manila', 'lat' => $property->lat, 'lng' => $property->lng];
+        $same = ['name' => 'Renamed', 'city' => 'manila'];
 
         $this->actingAs($owner)->put("/landlord/properties/{$property->id}", propertyForm([...$same, 'slug' => 'something-else']))->assertStatus(422);
         $this->actingAs($owner)->put("/landlord/properties/{$property->id}", propertyForm([...$same, 'city' => 'makati']))->assertStatus(422);
@@ -163,7 +162,7 @@ describe('the web address of a property that has been published', function (): v
 
     it('keeps its slug when it is left empty or sent unchanged, and the name can still change', function (): void {
         [$owner, $property] = ownerWithRoom();
-        $form = propertyForm(['name' => 'Renamed', 'city' => 'manila', 'lat' => $property->lat, 'lng' => $property->lng]);
+        $form = propertyForm(['name' => 'Renamed', 'city' => 'manila']);
 
         $this->actingAs($owner)->put("/landlord/properties/{$property->id}", [...$form, 'slug' => null])->assertRedirect();
         $this->actingAs($owner)->put("/landlord/properties/{$property->id}", [...$form, 'slug' => 'alpha-home', 'name' => 'Renamed Again'])->assertRedirect();
@@ -187,7 +186,7 @@ it('refuses a slug a draft property tries to take from another property in its c
     Property::factory()->create(['city' => 'Makati', 'city_slug' => 'makati', 'slug' => 'taken']);
     $property->forceFill(['first_published_at' => null, 'is_published' => false])->save();
 
-    $this->actingAs($owner)->put("/landlord/properties/{$property->id}", propertyForm(['city' => 'makati', 'slug' => 'taken', 'lat' => $property->lat, 'lng' => $property->lng]))
+    $this->actingAs($owner)->put("/landlord/properties/{$property->id}", propertyForm(['city' => 'makati', 'slug' => 'taken']))
         ->assertSessionHasErrors('slug');
 
     expect($property->fresh()->city_slug)->toBe('manila');
@@ -199,7 +198,7 @@ it('serves the empty and the filled form with the cities and amenities', functio
 
     $this->actingAs($owner)->get('/landlord/properties/create')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
         ->component('Landlord/Properties/Form')->where('property', null)->where('locked', false)
-        ->has('places', 7)->where('places.0', ['slug' => 'manila', 'city' => 'Manila', 'lat' => '14.604200', 'lng' => '120.982200'])
+        ->has('places', 7)->where('places.0', ['slug' => 'manila', 'city' => 'Manila', 'province' => 'Metro Manila'])
         ->where('amenities', fn ($amenities) => collect($amenities)->pluck('name')->contains('Zebra Lounge')));
 
     $this->actingAs($owner)->get("/landlord/properties/{$property->id}/edit")->assertInertia(fn (AssertableInertia $page) => $page

@@ -47,7 +47,7 @@ async function openLastBedRoom(page: Page): Promise<void> {
 /** Picks the stay; the page re-counts the free beds (a partial reload that updates the URL). */
 async function chooseStay(page: Page, moveIn: string): Promise<void> {
     await page.getByLabel('Move-in date').fill(moveIn);
-    await page.getByLabel('Lease length').selectOption('6');
+    await page.getByLabel("How long you'll stay").selectOption('6');
     await expect(page).toHaveURL(new RegExp(`move_in=${moveIn}`));
 }
 
@@ -82,7 +82,7 @@ test('Phase 2 demo: renter1 takes the last bed, renter2 is told it is gone', asy
     await expect(renter1.page.getByRole('heading', { level: 1, name: 'Your hold' })).toBeVisible();
     await expect(renter1.page.getByText('On hold')).toBeVisible();
     await expect(renter1.page.getByTestId('space-label')).toHaveText('Bed D');
-    await expect(renter1.page.getByText('Hold expires', { exact: true })).toBeVisible();
+    await expect(renter1.page.getByText('Hold ends', { exact: true })).toBeVisible();
     expect(renter1.errors).toEqual([]);
     await expectNoAxeViolations(renter1.page);
     await renter1.close();

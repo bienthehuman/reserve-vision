@@ -65,6 +65,7 @@ $dark-border-subtle: $rv-border-strong;
 
 // Body, links, borders
 $body-bg: $rv-bg;
+$body-tertiary-bg: $rv-surface-muted;
 $body-color: $rv-ink;
 $body-secondary-color: $rv-muted;
 $body-tertiary-color: $rv-muted;
@@ -123,49 +124,81 @@ $container-padding-x: $rv-gutter-phone * 2;
 $border-radius-sm: $rv-radius-sm;
 $border-radius: $rv-radius;
 $border-radius-lg: $rv-radius-lg;
-$border-radius-xl: $rv-radius-lg;
-$border-radius-xxl: $rv-radius-lg;
+$border-radius-xl: $rv-radius-xl;
+$border-radius-xxl: $rv-radius-xl;
 $box-shadow-sm: $rv-shadow-sm;
 $box-shadow: $rv-shadow;
 $box-shadow-lg: $rv-shadow-lg;
-$card-border-radius: $rv-radius;
-$card-box-shadow: $rv-shadow-sm;
-$modal-content-border-radius: $rv-radius-lg;
+// Cards are the surface layer: white on the tinted page (the shadow is in _components.scss).
+$card-bg: $rv-surface;
+$card-border-color: $rv-border;
+$card-border-radius: $rv-radius-lg;
+$card-inner-border-radius: calc(#{$rv-radius-lg} - 1px);
+$card-spacer-y: 1.25rem;
+$card-spacer-x: 1.25rem;
+$list-group-bg: $rv-surface;
+$list-group-border-color: $rv-border;
+$list-group-border-radius: $rv-radius;
+$list-group-item-padding-y: 0.625rem;
+$list-group-item-padding-x: 0.875rem;
+$dropdown-border-radius: $rv-radius-lg;
+$modal-content-bg: $rv-surface;
+$modal-content-border-color: $rv-border;
+$modal-content-border-radius: $rv-radius-xl;
 $modal-content-box-shadow-xs: $rv-shadow-lg;
 $modal-content-box-shadow-sm-up: $rv-shadow-lg;
-$alert-border-radius: $rv-radius;
+$alert-border-radius: $rv-radius-lg;
 $badge-border-radius: 50rem;
 $badge-font-weight: 600;
 $badge-font-size: $rv-font-size-small;
 $badge-padding-y: 0.375em;
 $badge-padding-x: 0.75em;
 
-// Buttons: 44 px touch target
-$btn-padding-y: 0.75rem;
-$btn-padding-x: 1.25rem;
+// Tables sit on a card: transparent cells, hairlines, a quiet hover.
+$table-bg: transparent;
+$table-border-color: $rv-border;
+$table-cell-padding-y: 0.75rem;
+$table-cell-padding-x: 1rem;
+$table-hover-bg: $rv-surface-muted;
+$table-th-font-weight: 600;
+
+// Buttons: the control height comes from min-height in _components.scss; the padding
+// only matters when a label wraps. One radius for both sizes.
+$btn-padding-y: 0.375rem;
+$btn-padding-x: 1rem;
+$btn-font-size: $rv-font-size-control;
+$btn-line-height: 1.4;
 $btn-font-weight: 600;
+$btn-padding-y-sm: 0.1875rem;
+$btn-padding-x-sm: 0.75rem;
+$btn-font-size-sm: $rv-font-size-small;
 $btn-border-radius: $rv-radius;
 $btn-border-radius-lg: $rv-radius;
-$btn-border-radius-sm: $rv-radius-sm;
+$btn-border-radius-sm: $rv-radius;
 $btn-transition: color $rv-motion, background-color $rv-motion, border-color $rv-motion;
 
 // Forms: 1rem text (no iOS zoom), strong borders, labels above fields
 $input-font-size: $rv-font-size-body;
-$input-padding-y: 0.625rem;
-$input-padding-x: 0.875rem;
+$input-padding-y: 0.4375rem; // 24 px line + 14 px + 2 px border = the 40 px control height
+$input-padding-x: 0.75rem;
 $input-bg: $rv-surface;
 $input-border-color: $rv-border-strong;
-$input-border-radius: $rv-radius-sm;
+$input-border-radius: $rv-radius;
 $input-focus-border-color: $rv-primary;
-$form-select-border-radius: $rv-radius-sm;
+$input-placeholder-color: $rv-muted;
+$form-select-border-radius: $rv-radius;
+$form-file-button-bg: $rv-surface-muted;
+$form-file-button-hover-bg: $rv-primary-subtle;
 // Dropdowns: an ube chevron, a little more room on the right (feedback on 2.4).
 $form-select-indicator-color: $rv-primary;
 $form-select-indicator: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='none' stroke='#{$rv-primary}' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='m3 6 5 5 5-5'/></svg>");
-$form-select-bg-position: right 0.875rem center;
+$form-select-bg-position: right 0.75rem center;
 $form-select-bg-size: 16px 16px;
-$form-select-indicator-padding: 2.75rem;
+$form-select-indicator-padding: 2.5rem;
 $form-check-input-border: 1px solid $rv-border-strong;
 $form-label-font-weight: 600;
+$form-label-font-size: $rv-font-size-control;
+$form-label-margin-bottom: 0.375rem;
 $form-text-color: $rv-muted;
 $form-feedback-font-size: $rv-font-size-small;
 $form-feedback-invalid-color: $rv-danger;

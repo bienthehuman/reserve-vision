@@ -11,7 +11,7 @@ use App\Models\Property;
 
 /**
  * The props of `Landlord/Properties/Form`, for a new property (null) and an existing one.
- * `places` carries each city's centre, which the form uses as the default for lat and lng.
+ * `places` carries each city's province, which the form shows next to the city.
  */
 final class PropertyFormProps
 {
@@ -28,11 +28,9 @@ final class PropertyFormProps
                 'kind' => $property->kind->value,
                 'name' => $property->name,
                 'slug' => $property->slug,
-                'city' => $property->city_slug,
-                'barangay' => $property->barangay,
                 'address' => $property->address,
-                'lat' => $property->lat,
-                'lng' => $property->lng,
+                'barangay' => $property->barangay,
+                'city' => $property->city_slug,
                 'gender_policy' => $property->gender_policy->value,
                 'amenities' => $property->amenities()->pluck('amenities.id')->map(fn (mixed $id): int => is_numeric($id) ? (int) $id : 0)->all(),
                 'house_rules' => $property->house_rules,
@@ -43,8 +41,7 @@ final class PropertyFormProps
             'places' => array_map(fn (array $place): array => [
                 'slug' => $place['slug'],
                 'city' => $place['city'],
-                'lat' => Places::coordinate($place['lat']),
-                'lng' => Places::coordinate($place['lng']),
+                'province' => $place['province'],
             ], Places::all()),
             'amenities' => Amenity::query()->orderBy('name')->get()->map(fn (Amenity $amenity): array => [
                 'id' => $amenity->id,

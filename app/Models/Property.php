@@ -12,6 +12,7 @@ use Carbon\CarbonImmutable;
 use Database\Factories\PropertyFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,12 +25,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property PropertyKind $kind
  * @property string $name
  * @property string $slug
+ * @property string|null $address the street address: the one optional part
+ * @property string $barangay
  * @property string $city
  * @property string $city_slug
- * @property string|null $barangay
- * @property string $address
- * @property string|null $lat
- * @property string|null $lng
+ * @property string $province
+ * @property-read string $full_address
  * @property GenderPolicy $gender_policy
  * @property string|null $house_rules
  * @property string|null $payment_instructions
@@ -40,8 +41,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable $updated_at
  */
 #[Fillable([
-    'landlord_account_id', 'kind', 'name', 'slug', 'city', 'city_slug', 'barangay', 'address',
-    'lat', 'lng', 'gender_policy', 'house_rules', 'payment_instructions', 'is_published', 'first_published_at', 'archived_at',
+    'landlord_account_id', 'kind', 'name', 'slug', 'address', 'barangay', 'city', 'city_slug', 'province',
+    'gender_policy', 'house_rules', 'payment_instructions', 'is_published', 'first_published_at', 'archived_at',
 ])]
 final class Property extends Model
 {
@@ -49,8 +50,6 @@ final class Property extends Model
     use BelongsToLandlordAccount, HasFactory;
 
     /**
-     * `lat` and `lng` stay strings (DECIMAL(9,6)): no floats anywhere (DATA_MODEL.md).
-     *
      * @return array<string, string>
      */
     protected function casts(): array
@@ -64,6 +63,19 @@ final class Property extends Model
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * The address as it is written in the Philippines: street address (when given), barangay, city, province.
+     *
+     * @return Attribute<string, never>
+     */
+    protected function fullAddress(): Attribute
+    {
+        return Attribute::get(fn (): string => implode(', ', array_filter(
+            [$this->address, $this->barangay, $this->city, $this->province],
+            fn (?string $part): bool => $part !== null && $part !== '',
+        )));
     }
 
     /** The public URL has existed: the slug and the city can no longer change (UpdateProperty). */

@@ -27,7 +27,7 @@ final class UpdateProperty
 {
     /** The columns whose changes are audited. */
     public const array AUDITED = [
-        'kind', 'name', 'slug', 'city', 'city_slug', 'barangay', 'address', 'lat', 'lng',
+        'kind', 'name', 'slug', 'address', 'barangay', 'city', 'city_slug', 'province',
         'gender_policy', 'house_rules', 'payment_instructions',
     ];
 
@@ -59,12 +59,11 @@ final class UpdateProperty
                 'kind' => $details->kind,
                 'name' => $details->name,
                 'slug' => $slug,
+                'address' => $details->address,
+                'barangay' => $details->barangay,
                 'city' => $place['city'],
                 'city_slug' => $place['slug'],
-                'barangay' => $details->barangay,
-                'address' => $details->address,
-                'lat' => $details->lat ?? Places::coordinate($place['lat']),
-                'lng' => $details->lng ?? Places::coordinate($place['lng']),
+                'province' => $place['province'],
                 'gender_policy' => $details->genderPolicy,
                 'house_rules' => $details->houseRules,
                 'payment_instructions' => $details->paymentInstructions,

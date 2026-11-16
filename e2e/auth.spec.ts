@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { collectConsoleErrors, expectNoAxeViolations, isProductionRun, logIn, mailpitUrl } from './support';
+import { collectConsoleErrors, expectNoAxeViolations, isProductionRun, logIn, mailpitUrl, openAccountMenu } from './support';
 
 /** Slice 2.4: every auth page, the renter sign-up flow through Mailpit, and the demo logins. */
 
@@ -66,6 +66,7 @@ test.describe('renter sign-up', () => {
         await expect(page.getByText(email)).toBeVisible();
         expect(errors).toEqual([]);
         await expectNoAxeViolations(page);
+        errors.length = 0; // axe's injected <style> is a CSP error from here on
 
         const link = await verificationLink(request, email);
         await page.goto(link);
@@ -74,10 +75,23 @@ test.describe('renter sign-up', () => {
 
         await expect(page).toHaveURL(/\/$/);
         await expect(page.getByRole('status')).toHaveText('Your email is verified. Welcome to ReserveVision!');
+        // The header shows the first name; it opens a menu with the full name and Log out, and Escape closes it.
         const nav = page.getByRole('navigation', { name: 'Account' });
+        const menuButton = nav.getByRole('button', { name: /account menu$/ });
+        await expect(menuButton).toContainText('Erika');
+        await expect(nav.getByRole('button', { name: 'Log out' })).toBeHidden();
+        await menuButton.click();
+        await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
         await expect(nav).toContainText('Erika Dela Cruz');
         await expect(nav.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
+        expect(errors).toEqual([]);
+        await expectNoAxeViolations(page);
+        errors.length = 0; // axe's injected <style> is a CSP error for the rest of this document
+        await page.keyboard.press('Escape');
+        await expect(nav.getByRole('button', { name: 'Log out' })).toBeHidden();
+        await expect(menuButton).toBeFocused();
 
+        await menuButton.click();
         await nav.getByRole('button', { name: 'Log out' }).click();
         await expect(nav.getByRole('link', { name: 'Log in' })).toBeVisible();
 
@@ -85,7 +99,7 @@ test.describe('renter sign-up', () => {
         await expect(page.getByRole('heading', { level: 1, name: 'Log in' })).toBeVisible();
         await logIn(page, email, password);
         await expect(page).toHaveURL(/\/$/);
-        await expect(nav).toContainText('Erika Dela Cruz');
+        await expect(menuButton).toContainText('Erika');
     });
 });
 
@@ -107,8 +121,11 @@ for (const { email, lands, heading } of demoUsers) {
 
         await expect(page).toHaveURL(new RegExp(`${lands.replace('/', '\\/')}$`));
         await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
-        const dashboardLinks = page.getByRole('navigation', { name: 'Account' }).getByRole('link', { name: 'Dashboard' });
-        await expect(dashboardLinks).toHaveCount(lands === '/landlord' ? 1 : 0);
+        // The header has no Dashboard button: on the landlord pages the menu under it has that link.
+        const nav = await openAccountMenu(page);
+        await expect(nav.getByRole('button', { name: 'Log out' })).toBeVisible();
+        await expect(nav.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
+        await expect(page.getByRole('navigation', { name: 'Landlord' }).getByRole('link', { name: 'Dashboard' })).toHaveCount(lands === '/landlord' ? 1 : 0);
 
         expect(errors).toEqual([]);
         await expectNoAxeViolations(page);

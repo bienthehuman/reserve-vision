@@ -27,7 +27,7 @@ it('server-renders the room name, property, rate and free spaces', function (): 
 
     $this->get("/rooms/{$room->id}?move_in=2027-04-01&months=6")
         ->assertOk()
-        ->assertSee('<h1 class="h2 mb-2">Blue Room</h1>', false)
+        ->assertSee('<h1 class="h2 page-header__title">Blue Room</h1>', false)
         ->assertSee('Casa Verde')
         ->assertSee('₱4,500')
         ->assertSee('3 of 4 beds free')
@@ -93,5 +93,5 @@ it('tells a landlord that only renters can reserve', function (): void {
 
     $this->actingAs(landlordUser())->get('/rooms/'.$room->id)
         ->assertOk()
-        ->assertSee('Only renter accounts can reserve');
+        ->assertSee('To reserve a room, log in with a renter account');
 });
