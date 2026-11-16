@@ -152,6 +152,21 @@ final class Reservation extends Model
     }
 
     /**
+     * Blocks `[$moveIn, $moveOut)` for anyone: `blocking()` and `overlapping()` composed, of every
+     * account (the availability search and the public room count read it for other landlords'
+     * listings). A named escape from the isolation scope; the definition of "blocking" stays in
+     * the two scopes it calls, which `ReserveSpace` uses as well (docs/RESERVATIONS.md).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeBlockingDuring(Builder $query, CarbonImmutable $moveIn, CarbonImmutable $moveOut): void
+    {
+        $query->withoutGlobalScope(LandlordAccountScope::class)
+            ->blocking()
+            ->overlapping($moveIn, $moveOut);
+    }
+
+    /**
      * Counts towards the renter's limits: a live `held` or a `proof_uploaded`.
      * Expired holds, confirmed, active and final reservations don't.
      *

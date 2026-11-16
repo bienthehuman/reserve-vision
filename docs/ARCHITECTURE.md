@@ -27,6 +27,7 @@ flowchart LR
 | Files | `local`/`public` disks in dev; S3-compatible storage in production (MinIO in the production Compose file) | slice 1.3 |
 | Images | PHP's GD extension (JPEG, PNG, WebP) plus `exif` for orientation, with no image library on top. Same in dev, CI and production; `app:doctor` checks it | slice 4.2 |
 | Mail | Mailpit 1.33 in dev; any SMTP transactional provider in production | slice 1.1 |
+| Search | `GET /listings` filters in the database in one query: place, room price, kind, gender policy, amenities and availability (a free space for the whole stay, through `Space::freeDuring()` and so the same `blocking()` / `overlapping()` scopes as `ReserveSpace`); every filter is a query-string parameter. Plan and timing: [perf/availability-query.md](perf/availability-query.md) | slice 5.2 |
 | Maps | None in v1: the listing shows the full address and an "Open in Maps" link that opens a Google Maps search of the address text (`https://www.google.com/maps/search/?api=1&query=…`) in a new tab. No map script, no tiles, no coordinates (the backlog keeps the map idea) | slice 5.1 |
 | Quality | Pest 5.3, Larastan 3.15 (level max, with a baseline only if forced), Pint 1.32, Vitest 5.1, Playwright 1.65 + axe-core 4.14. Installed and runnable locally in 1.1; CI in 1.2 | slice 1.2 |
 

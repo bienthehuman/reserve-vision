@@ -6,10 +6,12 @@ import PublicLayout from '@/Layouts/PublicLayout';
 
 interface HomeProps {
     pitch: string;
+    cities: { value: string; label: string }[];
+    window: { first: string; last: string };
     featured: ListingCardData[];
 }
 
-export default function Home({ pitch, featured }: HomeProps) {
+export default function Home({ pitch, cities, window, featured }: HomeProps) {
     const { appName } = usePage().props;
 
     return (
@@ -22,23 +24,32 @@ export default function Home({ pitch, featured }: HomeProps) {
                     </h1>
                     <p className="lead mb-4">{pitch}</p>
 
-                    {/* Placeholder: search arrives in a later slice. A plain GET form so it works without JS. */}
-                    <Form role="search" action="/" method="get" className="search-card p-3 p-md-4">
+                    {/* A plain GET form to the search page, so it works without JS. */}
+                    <Form role="search" action="/listings" method="get" className="search-card p-3 p-md-4">
                         <Row className="g-3 align-items-end">
-                            <Col xs={12} md={6}>
+                            <Col xs={12} md={4}>
                                 <Form.Group controlId="search-where">
                                     <Form.Label>Where do you want to live?</Form.Label>
-                                    <Form.Control type="search" name="where" placeholder="e.g. Sampaloc, Manila" />
+                                    <Form.Select name="city" defaultValue="">
+                                        <option value="">Anywhere</option>
+                                        {cities.map((city) => (
+                                            <option key={city.value} value={city.value}>
+                                                {city.label}
+                                            </option>
+                                        ))}
+                                    </Form.Select>
                                 </Form.Group>
                             </Col>
-                            <Col xs={12} md={3}>
-                                <Form.Group controlId="search-kind">
-                                    <Form.Label>Looking for</Form.Label>
-                                    <Form.Select name="kind" defaultValue="">
-                                        <option value="">Any place</option>
-                                        <option value="apartment">An apartment</option>
-                                        <option value="bed">A boarding-house bed</option>
-                                    </Form.Select>
+                            <Col xs={6} md={3}>
+                                <Form.Group controlId="search-move-in">
+                                    <Form.Label>Move in</Form.Label>
+                                    <Form.Control type="date" name="move_in" min={window.first} max={window.last} />
+                                </Form.Group>
+                            </Col>
+                            <Col xs={6} md={2}>
+                                <Form.Group controlId="search-max-price">
+                                    <Form.Label>Up to (₱/mo)</Form.Label>
+                                    <Form.Control type="number" name="max_price" min={0} step={100} inputMode="numeric" placeholder="8000" />
                                 </Form.Group>
                             </Col>
                             <Col xs={12} md={3}>

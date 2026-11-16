@@ -148,6 +148,17 @@ expect_body "robots.txt points to the sitemap" "Sitemap: "
 expect_body "robots.txt keeps crawlers out of /landlord" "Disallow: /landlord"
 expect_status /listings/manila/not-a-listing 404
 
+# Search (slice 5.2): a demo city's results are in the raw HTML (server-rendered, no JavaScript needed), and the
+# filter form is a plain GET form.
+echo "Search /listings?city=manila"
+status="$(fetch "/listings?city=manila&max_price=30000")"
+if [[ "$status" == 200 ]]; then pass "GET /listings?city=manila is 200"; else fail "GET /listings?city=manila is $status, expected 200"; fi
+expect_body "the results are server-rendered" 'data-server-rendered="true"'
+expect_body "a result card is in the raw HTML" 'class="listing-card'
+expect_body "a Manila result is in the raw HTML" 'Manila'
+expect_body "the filters are a plain GET form" 'action="/listings"'
+expect_status "/listings?city=not-a-city&min_price=abc&move_in=1999-01-01" 200
+
 if [[ "$failures" -gt 0 ]]; then
     echo "$failures smoke check(s) failed." >&2
     exit 1

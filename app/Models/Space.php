@@ -73,4 +73,19 @@ final class Space extends Model
             ->whereNull($query->qualifyColumn('archived_at'))
             ->whereHas('room', fn (Builder $room) => $room->listed());
     }
+
+    /**
+     * Not archived and with no blocking reservation overlapping `[$moveIn, $moveOut)`, of every
+     * account. The one "is this bed free" definition outside `ReserveSpace`'s locked reads: the
+     * public room count and the availability search both call it, and it asks
+     * `Reservation::blockingDuring()`. A named escape from the isolation scope.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeFreeDuring(Builder $query, CarbonImmutable $moveIn, CarbonImmutable $moveOut): void
+    {
+        $query->withoutGlobalScope(LandlordAccountScope::class)
+            ->whereNull($query->qualifyColumn('archived_at'))
+            ->whereDoesntHave('reservations', fn (Builder $reservations) => $reservations->blockingDuring($moveIn, $moveOut));
+    }
 }

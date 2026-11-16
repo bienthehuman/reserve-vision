@@ -11,7 +11,7 @@ The source of truth for how a reservation behaves. Action classes, the transitio
   - `held` **and** `hold_expires_at > now()` (a **live hold**; at exactly `hold_expires_at` it no longer blocks)
   - `proof_uploaded`, `confirmed`, `active`
 
-  This lives in one place, `Reservation::scopeBlocking()`, and the availability search reuses the same predicate. Correctness never depends on a job running on time. "Now" is bound from Laravel's clock, never SQL `NOW()`, so tests that freeze time see the same thing as the database.
+  This lives in one place, `Reservation::scopeBlocking()`, and the availability search (slice 5.2) composes the same scopes: `Space::freeDuring()` = not archived and no `Reservation::blockingDuring()` (`blocking()` + `overlapping()`, every account's reservations) overlapping the stay. `Room::freeSpaceCount()` uses it too. T10 checks the search against a brute-force reading of this section, and [the query's plan](perf/availability-query.md) is committed. Correctness never depends on a job running on time. "Now" is bound from Laravel's clock, never SQL `NOW()`, so tests that freeze time see the same thing as the database.
 - **Open reservation** (for the per-renter limits): a live `held` or a `proof_uploaded` reservation (`Reservation::scopeOpenForRenter()`). Expired holds (whether or not the job has run), `confirmed`, `active` and final reservations don't count.
 - **Business date**: "today" is the calendar date in `Asia/Manila`, from `BusinessDate::today()` ([ARCHITECTURE](ARCHITECTURE.md#time)).
 

@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import { Badge } from 'react-bootstrap';
 import { GeoAlt, Image } from 'react-bootstrap-icons';
 import PriceTag from '@/Components/PriceTag';
+import { formatDate } from '@/lib/dates';
 import { genderLabel, kindLabel, type GenderPolicy, type PropertyKind } from '@/lib/labels';
 
 export interface ListingCardData {
@@ -14,11 +15,14 @@ export interface ListingCardData {
     city: string;
     from_rate: number | null;
     cover: { src: string; width: number; height: number; alt: string } | null;
+    /** Search results only (slice 5.2): how many rooms match the filters, and with a date how many beds are free. */
+    rooms_matching?: number;
+    beds_free?: number | null;
 }
 
 /** A property in a list: cover thumbnail (4:3, lazy), name, place, from-price and the two chips. The whole card is one link. */
 /** `level` is the heading the name is: 3 under a section heading (the home page), 2 directly under the page's h1 (the list). */
-export default function ListingCard({ listing, level = 3 }: { listing: ListingCardData; level?: 2 | 3 }) {
+export default function ListingCard({ listing, level = 3, from = null }: { listing: ListingCardData; level?: 2 | 3; from?: string | null }) {
     const { cover } = listing;
     const Heading = level === 2 ? 'h2' : 'h3';
 
@@ -53,6 +57,17 @@ export default function ListingCard({ listing, level = 3 }: { listing: ListingCa
                         </>
                     )}
                 </p>
+                {listing.rooms_matching !== undefined && (
+                    <p className="small mb-0">
+                        {listing.rooms_matching === 1 ? '1 room matches' : `${listing.rooms_matching} rooms match`}
+                        {listing.beds_free != null && from !== null && (
+                            <>
+                                <br />
+                                {listing.beds_free === 1 ? '1 bed' : `${listing.beds_free} beds`} free from {formatDate(from)}
+                            </>
+                        )}
+                    </p>
+                )}
                 <p className="d-flex flex-wrap gap-1 mb-0">
                     <Badge bg="light" text="dark" className="listing-chip">
                         {kindLabel[listing.kind]}

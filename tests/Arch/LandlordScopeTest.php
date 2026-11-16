@@ -25,6 +25,8 @@ const NAMED_ESCAPES = [
     Space::class.'::scopeListed',
     Reservation::class.'::scopeOwnedByRenter',
     Reservation::class.'::scopeOnListedSpaces',
+    Reservation::class.'::scopeBlockingDuring', // slice 5.2: availability, for search and the room count
+    Space::class.'::scopeFreeDuring',
     PropertyPhoto::class.'::scopeShown', // slice 5.1: the photos of a listing page
     LandlordInvitation::class.'::scopeForToken', // slice 4.3: the invitation link, opened by someone who isn't a member yet
 ];
