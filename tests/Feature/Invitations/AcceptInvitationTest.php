@@ -112,6 +112,7 @@ it('token guessing: random tokens get the neutral page, and the 11th try in a mi
     }
     $this->postJson('/invitations/'.Str::random(48), joinForm())->assertTooManyRequests();
     $this->withHeaders(['X-Inertia' => 'true'])->post("/invitations/{$created->token}", joinForm())->assertSessionHas('error');
+    $this->flushHeaders(); // withHeaders() sticks to the test case; with built assets the next GET would be a 409
 
     expect(LandlordMember::query()->where('landlord_account_id', $created->invitation->landlord_account_id)->count())->toBe(1);
 
