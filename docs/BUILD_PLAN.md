@@ -147,6 +147,8 @@ Ideas that came up and are deliberately not in any slice.
 | Search reservations by renter name or room, and a date filter, on the landlord list (the demo owner has 328, so finding one means paging) | Slice 3.2 |
 | Show a caretaker's email on the members page, if owners ask for it (today names only) | Slice 3.2 |
 | A map on the listing page. `lat`/`lng` were dropped (review after 4.2): if a map comes back, place the pin by geocoding the address or with a "drop a pin" picker, never typed coordinates | Slice 4.1, UI review |
+| `DemoSeeder`'s street addresses already contain the barangay and city ("444 Kalayaan Street, Barangay Sampaloc, Manila"), so the full address on a listing repeats them. Fixing it changes the seeder's hash and the demo text the e2e tests read | Slice 5.1 |
+| Free beds update as the move-in date changes (a partial reload), instead of the "Check free beds" button; needs JavaScript, so it would only enhance the plain form | Slice 5.1 |
 | Let an owner fix an ugly generated listing link (`-2`) before publishing; the form field was removed as too technical | UI review |
 | A styled list for date fields (the dropdown list is styled in Chromium via `appearance: base-select`; the date picker is still the browser's) | UI review |
 | Redirect old slugs: let a published property's slug change and keep the old URL working with a 301 | Slice 4.1 |
