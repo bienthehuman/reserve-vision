@@ -927,10 +927,17 @@ a {
 }
 
 @include media-breakpoint-up(lg) {
-  // Inline sidebar. Bootstrap makes the offcanvas transparent and its body a flex row here. It scrolls with the
-  // page (no own scroll box), so the action bar can stick to the bottom of the screen.
+  // Inline sidebar: Bootstrap makes the offcanvas transparent and its body a flex row here. The card is sticky and as
+  // tall as the screen allows below the page title (15rem = header, title, gap), so its action bar is on screen at the
+  // top of the page too; the fields scroll inside it and the bar stays at its bottom.
   .filter-sheet.offcanvas-lg {
+    position: sticky;
+    top: 1rem;
+    display: flex;
+    flex-direction: column;
     height: auto;
+    max-height: max(20rem, calc(100vh - 15rem));
+    overflow: hidden;
     border: 1px solid $rv-border !important;
     border-radius: $rv-radius-lg;
     background-color: $rv-surface !important;
@@ -938,8 +945,10 @@ a {
 
   .filter-sheet .offcanvas-body.filter-panel {
     display: block;
-    padding: 1rem;
-    overflow-y: visible;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 1rem 1rem 0;
+    overflow-y: auto;
   }
 }
 
