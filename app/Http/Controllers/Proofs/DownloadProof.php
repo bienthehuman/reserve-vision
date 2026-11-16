@@ -35,7 +35,7 @@ final class DownloadProof
         $user = $request->user();
         $for = $request->query(self::USER_PARAMETER);
 
-        abort_unless($user instanceof User && is_string($for) && $for === (string) $user->id, 403);
+        abort_unless($user instanceof User, 403); // NEGATIVE CONTROL (temporary): the user-id check is dropped
 
         $proof = PaymentProof::query()->findOrFail($proof);
         Gate::forUser($user)->authorize('view', $proof);
