@@ -262,7 +262,7 @@ To see a failed photo by hand: `docker compose stop worker`, upload, replace the
 
 | Piece | Where |
 | --- | --- |
-| Surfaces | The page is `bg`; content sits on white cards (`$card-bg`). Tables: `<Card className="table-card"><Table className="stack-table">`. Forms: `form.form-card` > `Card` > `section.form-section` (titled) + `div.form-actions` (primary button, then Cancel). Label/value pairs: `dl.details.row` |
+| Surfaces | The page is `bg`; content sits on white cards (`$card-bg`). Tables: `<Card className="table-card"><Table className="stack-table">`. Forms: `form` > `Card` > `section.form-section` (a `div` with the title and intro, then `div.form-section__fields`; two columns from `lg`) + `div.form-actions`. Buttons are right-aligned with the saving or deleting one last (Cancel, then Save); `.button-row` does the same for buttons under a form or on a card. Label/value pairs: `dl.details.row` |
 | Controls | One height: `--rv-control-height` (40 px, 44 px under `pointer: coarse`) as `min-height` on `.btn`, `.form-control`, `.form-select`; `--rv-control-height-sm` for `.btn-sm`. One radius (`$rv-radius`) for both button sizes and fields. `.btn` is `inline-flex` with a gap, so an icon goes in as a sibling of the text. Never put a `btn-sm` next to a full-size control (`ActionButton` takes `size="md"` for page headers) |
 | Buttons | `primary` (one per view), `outline-primary` (everything else), `outline-danger` (opens a confirmation), `danger` (confirms it). No `outline-secondary`, no `btn-link` |
 | Links | Underlined in a sentence; standing alone: `.link-plain` (ink), `.link-action` (ube), `.back-link` (via `PageHeader`) |

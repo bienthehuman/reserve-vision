@@ -68,15 +68,18 @@ export default function Form({ property, room, type_locked: typeLocked }: FormPr
                     back={{ href: `/landlord/properties/${property.id}`, label: `Back to ${property.name}` }}
                 />
 
-                <form noValidate onSubmit={submit} className="room-form form-card">
+                <form noValidate onSubmit={submit} className="room-form">
                     <ErrorSummary ref={summaryRef} errors={form.errors} order={FIELD_ORDER} />
 
                     <Card>
                         <section className="form-section" aria-labelledby="section-room">
+                            <div>
                             <h2 id="section-room" className="h3 form-section__title">
                                 The room
                             </h2>
                             <p className="form-section__intro">A private room is rented whole. A shared room is rented one bed at a time.</p>
+                            </div>
+                            <div className="form-section__fields">
 
                     <TextField
                         name="name"
@@ -130,13 +133,17 @@ export default function Form({ property, room, type_locked: typeLocked }: FormPr
                         </p>
                     )}
 
+                        </div>
                         </section>
 
                         <section className="form-section" aria-labelledby="section-prices">
+                            <div>
                             <h2 id="section-prices" className="h3 form-section__title">
                                 Prices
                             </h2>
                             <p className="form-section__intro">What a renter pays to reserve, and when they move in.</p>
+                            </div>
+                            <div className="form-section__fields">
 
                     <div className="row">
                         <div className="col-sm-6">
@@ -192,15 +199,16 @@ export default function Form({ property, room, type_locked: typeLocked }: FormPr
                         </div>
                     </div>
 
+                        </div>
                         </section>
 
                         <div className="form-actions">
-                            <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">
-                                {editing ? 'Save changes' : 'Add room'}
-                            </SubmitButton>
                             <Link href={`/landlord/properties/${property.id}`} className="btn btn-outline-primary">
                                 Cancel
                             </Link>
+                            <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">
+                                {editing ? 'Save changes' : 'Add room'}
+                            </SubmitButton>
                         </div>
                     </Card>
                 </form>

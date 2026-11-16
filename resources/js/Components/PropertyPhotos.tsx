@@ -75,13 +75,13 @@ function DescriptionForm({ photo, onDone }: { photo: Photo; onDone: () => void }
                 className="mb-2"
                 autoFocus
             />
-            <div className="d-flex flex-wrap gap-2">
-                <SubmitButton processing={form.processing} pendingLabel="Saving…" className="btn-sm">
-                    Save description
-                </SubmitButton>
+            <div className="button-row">
                 <Button type="button" size="sm" variant="outline-primary" onClick={onDone}>
                     Cancel
                 </Button>
+                <SubmitButton processing={form.processing} pendingLabel="Saving…" className="btn-sm">
+                    Save description
+                </SubmitButton>
             </div>
         </form>
     );
@@ -209,7 +209,7 @@ function PhotoCard({ photo, count, canManage }: { photo: Photo; count: number; c
                                 Describe
                             </Button>
                         )}
-                        <Button type="button" size="sm" variant="outline-danger" aria-label={`Delete ${name}`} onClick={() => setConfirming(true)}>
+                        <Button type="button" size="sm" variant="outline-danger" className="ms-auto" aria-label={`Delete ${name}`} onClick={() => setConfirming(true)}>
                             Delete
                         </Button>
                     </div>
@@ -348,9 +348,11 @@ export default function PropertyPhotos({ propertyId, propertyName, photos, limit
                         <p id={helpId} className="form-text mb-3">
                             JPEG, PNG or WebP photos, up to 10 MB each. Photos straight from a phone camera work best: very small pictures (under 800 pixels on the longer side) are refused. You can choose several at once.
                         </p>
-                        <SubmitButton processing={progress !== null} pendingLabel="Uploading…" className="">
-                            Upload photos
-                        </SubmitButton>
+                        <div className="button-row">
+                            <SubmitButton processing={progress !== null} pendingLabel="Uploading…" className="">
+                                Upload photos
+                            </SubmitButton>
+                        </div>
                     </form>
                 )}
                 {canManage && room <= 0 && (

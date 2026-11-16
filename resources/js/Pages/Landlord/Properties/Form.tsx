@@ -86,15 +86,18 @@ export default function Form({ property, locked, places, amenities, kinds, gende
                     back={{ href: backHref, label: editing ? `Back to ${property.name}` : 'Back to properties' }}
                 />
 
-                <form noValidate onSubmit={submit} className="property-form form-card">
+                <form noValidate onSubmit={submit} className="property-form">
                     <ErrorSummary ref={summaryRef} errors={form.errors} order={FIELD_ORDER} />
 
                     <Card>
                         <section className="form-section" aria-labelledby="section-basics">
+                            <div>
                             <h2 id="section-basics" className="h3 form-section__title">
                                 The basics
                             </h2>
                             <p className="form-section__intro">What renters see first on your listing.</p>
+                            </div>
+                            <div className="form-section__fields">
 
                             <TextField
                                 name="name"
@@ -131,13 +134,17 @@ export default function Form({ property, locked, places, amenities, kinds, gende
                                     />
                                 </div>
                             </div>
+                        </div>
                         </section>
 
                         <section className="form-section" aria-labelledby="section-address">
+                            <div>
                             <h2 id="section-address" className="h3 form-section__title">
                                 Address
                             </h2>
                             <p className="form-section__intro">Where the property is. Renters see this on your listing.</p>
+                            </div>
+                            <div className="form-section__fields">
 
                             <TextField
                                 name="address"
@@ -189,13 +196,17 @@ export default function Form({ property, locked, places, amenities, kinds, gende
                                     />
                                 </div>
                             </div>
+                        </div>
                         </section>
 
                         <section className="form-section" aria-labelledby="section-renters">
+                            <div>
                             <h2 id="section-renters" className="h3 form-section__title">
                                 For renters
                             </h2>
                             <p className="form-section__intro">What the place offers, its rules, and how to pay you.</p>
+                            </div>
+                            <div className="form-section__fields">
 
                             <CheckboxGroup
                                 name="amenities"
@@ -227,15 +238,16 @@ export default function Form({ property, locked, places, amenities, kinds, gende
                                 rows={3}
                                 optional
                             />
+                        </div>
                         </section>
 
                         <div className="form-actions">
-                            <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">
-                                {editing ? 'Save changes' : 'Save as a draft'}
-                            </SubmitButton>
                             <Link href={backHref} className="btn btn-outline-primary">
                                 Cancel
                             </Link>
+                            <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">
+                                {editing ? 'Save changes' : 'Save as a draft'}
+                            </SubmitButton>
                         </div>
                     </Card>
                 </form>

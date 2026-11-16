@@ -371,11 +371,9 @@ a {
   }
 }
 
-// Forms sit on a card, in titled sections.
-.form-card {
-  max-width: 46rem;
-}
-
+// Forms sit on a card as wide as the page, in titled sections. From lg a section is two
+// columns: its title and intro on the left, its fields on the right, so the fields of every
+// section line up on the right-hand side and the card has no empty half.
 .form-section {
   padding: 1.25rem;
 
@@ -383,13 +381,19 @@ a {
     padding: 1.5rem;
   }
 
+  @include media-breakpoint-up(lg) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: 0 2.5rem;
+  }
+
   + .form-section {
     border-top: 1px solid $rv-border;
   }
+}
 
-  > :last-child {
-    margin-bottom: 0;
-  }
+.form-section__fields > :last-child {
+  margin-bottom: 0;
 }
 
 .form-section__title {
@@ -402,11 +406,18 @@ a {
   font-size: $rv-font-size-small;
 }
 
-.form-actions {
+// A form's buttons are on the right, and the one that saves (or deletes) is the last:
+// Cancel, then Save. The same order as the confirmation dialogs.
+.form-actions,
+.button-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.form-actions {
   padding: 1rem 1.25rem;
   border-top: 1px solid $rv-border;
   border-radius: 0 0 calc(#{$rv-radius-lg} - 1px) calc(#{$rv-radius-lg} - 1px);

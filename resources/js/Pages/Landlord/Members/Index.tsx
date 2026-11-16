@@ -91,7 +91,7 @@ export default function Index({ members, invitations }: IndexProps) {
                     </Card>
                 )}
 
-                <Card className="form-card mt-4">
+                <Card className="mt-4">
                     <Card.Body>
                         <h2 className="h3 mb-3">Invite a caretaker</h2>
                         <Alert variant="info" className="d-flex gap-2 align-items-start">
@@ -112,9 +112,11 @@ export default function Index({ members, invitations }: IndexProps) {
                                 help="A caretaker can see reservations and properties, but can't change prices or invite people. The invitation is good for 7 days."
                                 required
                             />
-                            <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">
-                                Save invitation
-                            </SubmitButton>
+                            <div className="button-row">
+                                <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">
+                                    Save invitation
+                                </SubmitButton>
+                            </div>
                         </form>
                     </Card.Body>
                 </Card>

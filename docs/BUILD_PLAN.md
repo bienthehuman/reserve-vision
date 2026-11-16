@@ -142,7 +142,7 @@ Ideas that came up and are deliberately not in any slice.
 | Revoke an invitation and resend from the members page (the policy ability `revoke` exists; the UI is 4.3) | Slice 3.2 |
 | Show a caretaker's email on the members page, if owners ask for it (today names only) | Slice 3.2 |
 | A map on the listing page. `lat`/`lng` were dropped (review after 4.2): if a map comes back, place the pin by geocoding the address or with a "drop a pin" picker, never typed coordinates | Slice 4.1, UI review |
-| More cities, and provinces beyond the seven in `database/data/places.php` (a province → city → barangay list such as the PSGC) | UI review |
+| Every province, city and barangay: import the PSA's PSGC list into our own tables and make province → city → barangay dependent dropdowns, instead of the seven cities in `database/data/places.php` and a typed barangay. Bundled data, not a live third-party API. City slugs in listing URLs then need the province to stay unique (many towns are called San Jose) | UI review |
 | Let an owner fix an ugly generated listing link (`-2`) before publishing; the form field was removed as too technical | UI review |
 | A styled list for date fields (the dropdown list is styled in Chromium via `appearance: base-select`; the date picker is still the browser's) | UI review |
 | Redirect old slugs: let a published property's slug change and keep the old URL working with a 301 | Slice 4.1 |

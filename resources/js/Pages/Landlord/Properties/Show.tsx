@@ -91,13 +91,13 @@ function SpaceRow({ space }: { space: Space }) {
                         required
                         autoFocus
                     />
-                    <div className="d-flex gap-2">
-                        <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">
-                            Save name
-                        </SubmitButton>
+                    <div className="button-row">
                         <Button type="button" variant="outline-primary" onClick={() => { form.reset(); form.clearErrors(); setRenaming(false); }}>
                             Cancel
                         </Button>
+                        <SubmitButton processing={form.processing} pendingLabel="Saving…" className="">
+                            Save name
+                        </SubmitButton>
                     </div>
                 </form>
             </ListGroup.Item>
@@ -174,7 +174,7 @@ function RoomCard({ room }: { room: Room }) {
                 </ListGroup>
 
                 {(room.can_edit || room.can_add_space || room.can_archive) && (
-                    <div className="d-flex flex-wrap gap-2">
+                    <div className="button-row">
                         {room.can_edit && (
                             <Link href={`/landlord/rooms/${room.id}/edit`} className="btn btn-outline-primary btn-sm" aria-label={`Edit room ${room.name}`}>
                                 <Pencil aria-hidden="true" focusable="false" />
