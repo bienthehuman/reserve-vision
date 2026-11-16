@@ -136,6 +136,16 @@ const T6_BODIES = [
     'landlord.invitations.resend' => [],
     'landlord.invitations.destroy' => [],
     'landlord.members.destroy' => [],
+    // Slice 6.1, in the order routes/web.php registers them: the world's own reservation (proof uploaded) is confirmed,
+    // the confirmation undone, then declined, and the refund recorded on the declined one; the rest are 422 (T6_OWN_REFUSED).
+    'landlord.reservations.confirm' => [],
+    'landlord.reservations.undo' => [],
+    'landlord.reservations.decline' => ['reason' => 'Not a fit for the house rules.'],
+    'landlord.reservations.refund' => ['fee_refunded' => '1', 'refund_note' => 'Sent back by GCash.'],
+    'landlord.reservations.reject' => ['reason' => 'The amount is wrong.'],
+    'landlord.reservations.withdraw' => ['reason' => 'The roof is being repaired.'],
+    'landlord.reservations.moved-in' => [],
+    'landlord.reservations.end' => [],
     'rooms.reservations.store' => 'reservationWindow',
     // Slice 5.3. The proof is a real PNG, so the 404 on B's reservation isn't a validation error.
     'reservations.proofs.store' => 'proofBody',
@@ -156,6 +166,11 @@ const T6_OWN_REFUSED = [
     'landlord.photos.retry' => 422,
     // Renter A's own reservation already has its proof (proof_uploaded): the transition table refuses a second.
     'reservations.proofs.store' => 422,
+    // Slice 6.1: by the time these run, the world's own reservation is declined (see T6_BODIES), a final status.
+    'landlord.reservations.reject' => 422,
+    'landlord.reservations.withdraw' => 422,
+    'landlord.reservations.moved-in' => 422,
+    'landlord.reservations.end' => 422,
 ];
 
 /** @return array<string, mixed> */
@@ -490,7 +505,10 @@ it('T6: covers every record route there is today (the list moves only on purpose
         'landlord.photos.destroy', 'landlord.photos.move', 'landlord.photos.retry', 'landlord.photos.update',
         'landlord.properties.archive', 'landlord.properties.edit', 'landlord.properties.photos.store', 'landlord.properties.publish', 'landlord.properties.rooms.create', 'landlord.properties.rooms.store',
         'landlord.properties.show', 'landlord.properties.unarchive', 'landlord.properties.unpublish', 'landlord.properties.update',
-        'landlord.reservations.show',
+        // Slice 6.1: the decisions.
+        'landlord.reservations.confirm', 'landlord.reservations.decline', 'landlord.reservations.end', 'landlord.reservations.moved-in',
+        'landlord.reservations.refund', 'landlord.reservations.reject', 'landlord.reservations.show', 'landlord.reservations.undo',
+        'landlord.reservations.withdraw',
         'landlord.rooms.archive', 'landlord.rooms.edit', 'landlord.rooms.spaces.store', 'landlord.rooms.unarchive', 'landlord.rooms.update',
         'landlord.spaces.archive', 'landlord.spaces.unarchive', 'landlord.spaces.update',
         // Slice 5.3: open to both landlords and renters, walked in both contexts.

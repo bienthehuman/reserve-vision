@@ -505,6 +505,18 @@ a {
   gap: 0.5rem;
 }
 
+// Under the decision panel's buttons (slice 6.1): why a move is disabled, or until when it works.
+.decision-notes {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--bs-secondary-color);
+  font-size: $small-font-size;
+
+  li + li {
+    margin-top: 0.25rem;
+  }
+}
+
 // A dependent dropdown whose list didn't load (property form, slice 4.4): the reason, then the retry.
 .place-error {
   display: flex;
@@ -712,6 +724,13 @@ a {
     color: var(--bs-#{$color}-text-emphasis);
     background-color: var(--bs-#{$color}-bg-subtle);
     border-color: var(--bs-#{$color}-border-subtle);
+  }
+}
+
+// The renter's hold page (slice 6.1): what the landlord decided, on a card with a coloured edge.
+@each $color in (success, warning, danger) {
+  .outcome-card--#{$color} {
+    border-left: 0.25rem solid var(--bs-#{$color}-border-subtle);
   }
 }
 

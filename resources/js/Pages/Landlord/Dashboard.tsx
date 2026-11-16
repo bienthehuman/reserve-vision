@@ -9,7 +9,7 @@ interface DashboardProps {
     account: { name: string; slug: string; isVerified: boolean };
     role: 'owner' | 'caretaker';
     figures: {
-        proofs: { count: number; overdue: number; overdue_hours: number };
+        proofs: { count: number; overdue: number; overdue_hours: number; oldest_id: number | null };
         holds: { count: number; hours: number };
         move_ins: { count: number; days: number };
         occupancy: { occupied: number; total: number };
@@ -76,7 +76,21 @@ export default function Dashboard({ account, role, figures }: DashboardProps) {
 
                 <Row className="g-3">
                     <Col xs={12} md={6}>
-                        <FigureCard title="Payments to review" href="/landlord/reservations?status=proof_uploaded" figure={proofs.count} Icon={FileEarmarkCheck}>
+                        {/* Slice 6.1: the card opens the payment that has waited longest; the list is one link further. */}
+                        <FigureCard
+                            title="Payments to review"
+                            href={proofs.oldest_id === null ? '/landlord/reservations?status=proof_uploaded' : `/landlord/reservations/${proofs.oldest_id}`}
+                            figure={proofs.count}
+                            Icon={FileEarmarkCheck}
+                        >
+                            {proofs.count > 1 && (
+                                <p className="figure-card__note mb-1">
+                                    Opens the one waiting longest.{' '}
+                                    <Link href="/landlord/reservations?status=proof_uploaded" className="link-action position-relative">
+                                        See all {proofs.count}
+                                    </Link>
+                                </p>
+                            )}
                             {proofs.overdue > 0 ? (
                                 <p className="figure-card__note d-flex gap-2 align-items-start">
                                     <ExclamationTriangle aria-hidden="true" focusable="false" className="flex-shrink-0 mt-1 text-body" />

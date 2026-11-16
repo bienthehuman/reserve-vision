@@ -64,6 +64,9 @@ final class ListOwnReservations
             'move_in' => $reservation->move_in->toDateString(),
             'move_out' => $reservation->move_out->toDateString(),
             'hold_expires_at' => $reservation->isLiveHold() ? $reservation->hold_expires_at?->toIso8601String() : null,
+            // Slice 6.1: a live hold after the landlord sent the proof back, and a landlord's withdrawal, get their own words on the badge.
+            'new_proof_needed' => $reservation->isLiveHold() && $reservation->proof_rejections > 0,
+            'withdrawn' => $reservation->wasWithdrawn(),
         ];
     }
 }

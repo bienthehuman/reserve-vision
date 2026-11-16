@@ -19,6 +19,17 @@ interface Row {
     move_in: string;
     move_out: string;
     hold_expires_at: string | null;
+    new_proof_needed: boolean;
+    withdrawn: boolean;
+}
+
+/** Extra words on the badge (slice 6.1): what the landlord did that the status alone doesn't say. */
+function badgeDetail(row: Row): string | undefined {
+    if (row.new_proof_needed) {
+        return 'send a new proof';
+    }
+
+    return row.withdrawn ? 'by the landlord' : undefined;
 }
 
 interface IndexProps {
@@ -109,7 +120,7 @@ function ReservationList({ rows }: { rows: Row[] }) {
                                     </h3>
                                     <p className="small text-body-secondary mb-0">{row.place}</p>
                                 </div>
-                                <StatusBadge status={row.status} />
+                                <StatusBadge status={row.status} detail={badgeDetail(row)} />
                             </div>
                             <p className="mt-2 mb-0">
                                 {row.room_name} · {row.space_label}

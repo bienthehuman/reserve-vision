@@ -63,6 +63,15 @@ final class Reservation extends Model
     /** @use HasFactory<ReservationFactory> */
     use BelongsToLandlordAccount, HasFactory;
 
+    /** RejectProof can send a proof back this many times; then the landlord declines (RESERVATIONS.md). */
+    public const int MAX_PROOF_REJECTIONS = 2;
+
+    /** UndoConfirmation works for this many hours after the confirmation. */
+    public const int UNDO_HOURS = 24;
+
+    /** RejectProof gives the renter a new hold of this many hours. */
+    public const int HOLD_HOURS = 24;
+
     /**
      * @return array<string, string>
      */
@@ -267,6 +276,25 @@ final class Reservation extends Model
         return $this->status === ReservationStatus::Held && ! $this->isLiveHold() ? ReservationStatus::Expired : $this->status;
     }
 
+    /**
+     * Until when a confirmation can be undone: 24 hours after `decided_at` (exclusive), and never on or
+     * after the move-in date (RESERVATIONS.md). Null when the reservation isn't confirmed.
+     */
+    public function undoUntil(): ?CarbonImmutable
+    {
+        if ($this->status !== ReservationStatus::Confirmed || $this->decided_at === null) {
+            return null;
+        }
+
+        return $this->decided_at->addHours(self::UNDO_HOURS);
+    }
+
+    /** Cancelled by someone other than the renter: an owner withdrew it (WithdrawReservation, slice 6.1). */
+    public function wasWithdrawn(): bool
+    {
+        return $this->status === ReservationStatus::Cancelled && $this->cancelled_by !== null && $this->cancelled_by !== $this->renter_id;
+    }
+
     /** `held` and `hold_expires_at` is still in the future. */
     public function isLiveHold(): bool
     {
@@ -292,6 +320,31 @@ final class Reservation extends Model
         if ($this->status === ReservationStatus::Confirmed && $to === ReservationStatus::Cancelled
             && ! BusinessDate::today()->lt($this->move_in)) {
             throw InvalidTransition::stayStarted();
+        }
+
+        // proof_uploaded → held (RejectProof): at most twice, then the landlord declines (slice 6.1).
+        if ($this->status === ReservationStatus::ProofUploaded && $to === ReservationStatus::Held
+            && $this->proof_rejections >= self::MAX_PROOF_REJECTIONS) {
+            throw InvalidTransition::rejectionLimit();
+        }
+
+        // confirmed → proof_uploaded (UndoConfirmation): within 24 hours of the decision, and before the move-in date.
+        if ($this->status === ReservationStatus::Confirmed && $to === ReservationStatus::ProofUploaded) {
+            if (! BusinessDate::today()->lt($this->move_in)) {
+                throw InvalidTransition::undoAfterMoveIn();
+            }
+
+            $until = $this->undoUntil();
+
+            if ($until === null || ! $until->isAfter(Date::now())) {
+                throw InvalidTransition::undoWindowClosed();
+            }
+        }
+
+        // confirmed → active (MarkMovedIn): from the move-in date (business date).
+        if ($this->status === ReservationStatus::Confirmed && $to === ReservationStatus::Active
+            && BusinessDate::today()->lt($this->move_in)) {
+            throw InvalidTransition::beforeMoveIn($this->move_in);
         }
 
         if ($this->status !== ReservationStatus::Held) {

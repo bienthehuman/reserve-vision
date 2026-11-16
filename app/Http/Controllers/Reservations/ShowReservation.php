@@ -53,6 +53,13 @@ final class ShowReservation
                 'move_out' => $reservation->move_out->toDateString(),
                 'space_label' => $space->label,
                 'cancelled_at' => $reservation->cancelled_at?->toIso8601String(),
+                // Slice 6.1: the landlord's side. The reason of a decline or withdrawal, and the refund once recorded.
+                'withdrawn' => $reservation->wasWithdrawn(),
+                'decision_reason' => in_array($reservation->status, [ReservationStatus::Declined, ReservationStatus::Cancelled], true) ? $reservation->decision_reason : null,
+                'decided_at' => $reservation->decided_at?->toIso8601String(),
+                'proof_rejections' => $reservation->proof_rejections,
+                'fee_refunded' => $reservation->fee_refunded,
+                'refund_note' => $reservation->fee_refunded === null ? null : $reservation->refund_note,
                 'can_upload' => $liveHold,
                 'can_cancel' => Gate::allows('cancel', $reservation) && $this->allows($reservation, ReservationStatus::Cancelled),
             ],

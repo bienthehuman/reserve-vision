@@ -59,3 +59,41 @@ export function formatTimeLeft(milliseconds: number): string | null {
 
     return plural(minutes, 'minute');
 }
+
+const dayFormat = new Intl.DateTimeFormat('en-US', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+const manilaDate = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: BUSINESS_TIMEZONE });
+
+/** "2027-06-01" → "Tue 1 Jun" (a business date, slice 6.1's "Moving in opens on …"). */
+export function formatDay(date: string): string {
+    const parts = Object.fromEntries(dayFormat.formatToParts(new Date(`${date}T00:00:00Z`)).map((part) => [part.type, part.value]));
+
+    return `${parts.weekday} ${parts.day} ${parts.month}`;
+}
+
+/** "2027-06-01" plus `days` → "2027-06-02". */
+export function addDays(date: string, days: number): string {
+    const next = new Date(`${date}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + days);
+
+    return next.toISOString().slice(0, 10);
+}
+
+/**
+ * An ISO 8601 instant → "3:40 PM today", "3:40 PM tomorrow" or "3:40 PM, Mon 16 Nov" in Manila time, against
+ * `today` (the server's business date, so the server and the browser write the same words).
+ */
+export function formatUntil(instant: string, today: string): string {
+    const date = new Date(instant);
+    const day = manilaDate.format(date);
+    const time = holdTimeFormat.format(date);
+
+    if (day === today) {
+        return `${time} today`;
+    }
+
+    if (day === addDays(today, 1)) {
+        return `${time} tomorrow`;
+    }
+
+    return `${time}, ${formatDay(day)}`;
+}

@@ -6,6 +6,7 @@ use App\Enums\LandlordRole;
 use App\Models\LandlordInvitation;
 use App\Models\Property;
 use App\Models\PropertyPhoto;
+use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -18,9 +19,10 @@ use Illuminate\Support\Facades\Storage;
 | every other write route of the landlord pages: create or edit a property or room, add or
 | rename a space, archive or unarchive any of them, and (4.2) upload, describe, move, re-upload or
 | delete a photo, and (4.3) publish or unpublish, send an invitation again or cancel it, and remove
-| a member. Expected: 403, nothing changed, no audit
+| a member, and (6.1) withdraw a confirmed reservation. Expected: 403, nothing changed, no audit
 | row, on every one of them, and the edit forms (GET) refuse them too. The owner can do each
 | one, and each writes exactly one audit row. (Another account's records are T6: 404, not 403.)
+| Every other reservation decision (6.1) is open to both roles: a caretaker makes each one, with its audit row.
 | A test walks the route list, so a write route added later can't be left out.
 */
 
@@ -43,7 +45,7 @@ function t7Account(): array
 /** The tables a write could touch, as one comparable value. */
 function t7State(): string
 {
-    return md5((string) json_encode(collect(['properties', 'property_amenity', 'rooms', 'spaces', 'property_photos', 'landlord_invitations', 'landlord_members', 'audit_logs'])
+    return md5((string) json_encode(collect(['properties', 'property_amenity', 'rooms', 'spaces', 'property_photos', 'landlord_invitations', 'landlord_members', 'reservations', 'payment_proofs', 'audit_logs'])
         ->map(fn (string $table) => DB::table($table)->orderBy($table === 'property_amenity' ? 'property_id' : 'id')->get())));
 }
 
@@ -102,6 +104,38 @@ function t7WriteRoutes(array $account): array
         'landlord.invitations.resend' => ['POST', "/landlord/invitations/{$resendable->id}/resend", []],
         'landlord.invitations.destroy' => ['DELETE', "/landlord/invitations/{$revocable->id}", []],
         'landlord.members.destroy' => ['DELETE', "/landlord/members/{$membership->id}", []],
+        // Slice 6.1: owners only. In a property of its own, so the archive routes above aren't blocked by it.
+        'landlord.reservations.withdraw' => ['POST', '/landlord/reservations/'.t7Reservation($property->landlord_account_id, 'confirmed')->id.'/withdraw', ['reason' => 'The roof is being repaired.']],
+    ];
+}
+
+/** A reservation of `$state` (a factory state) on a room of its own in another published property of the account. */
+function t7Reservation(int $accountId, string $state, array $attributes = []): Reservation
+{
+    $room = Room::factory()->for(Property::factory()->published()->state(['landlord_account_id' => $accountId]))->create();
+
+    return Reservation::factory()->{$state}()->for($room->spaces()->sole(), 'space')->for(User::factory()->renter()->create(), 'renter')->create($attributes);
+}
+
+/**
+ * The reservation decisions open to both roles (slice 6.1), each on a reservation in the state it needs:
+ * method, path, body, and the audit action it writes.
+ *
+ * @return array<string, array{string, string, array<string, mixed>, string}>
+ */
+function t7DecisionRoutes(int $accountId): array
+{
+    $base = '/landlord/reservations/';
+    $today = now('Asia/Manila')->toDateString();
+
+    return [
+        'landlord.reservations.confirm' => ['POST', $base.t7Reservation($accountId, 'proofUploaded')->id.'/confirm', [], 'reservation.confirmed'],
+        'landlord.reservations.reject' => ['POST', $base.t7Reservation($accountId, 'proofUploaded')->id.'/reject', ['reason' => 'Blurry.'], 'reservation.proof_rejected'],
+        'landlord.reservations.decline' => ['POST', $base.t7Reservation($accountId, 'proofUploaded')->id.'/decline', ['reason' => 'Not a fit.'], 'reservation.declined'],
+        'landlord.reservations.undo' => ['POST', $base.t7Reservation($accountId, 'confirmed')->id.'/undo', [], 'reservation.confirmation_undone'],
+        'landlord.reservations.moved-in' => ['POST', $base.t7Reservation($accountId, 'confirmed', ['move_in' => $today])->id.'/moved-in', [], 'reservation.moved_in'],
+        'landlord.reservations.end' => ['POST', $base.t7Reservation($accountId, 'active')->id.'/end', [], 'reservation.stay_ended'],
+        'landlord.reservations.refund' => ['PUT', $base.t7Reservation($accountId, 'declined')->id.'/refund', ['fee_refunded' => '0'], 'reservation.refund_recorded'],
     ];
 }
 
@@ -110,7 +144,28 @@ it('T7: every write route of the landlord pages is covered here', function (): v
         ->filter(fn ($route) => in_array('landlord', $route->gatherMiddleware(), true) && array_diff($route->methods(), ['GET', 'HEAD']) !== [])
         ->map(fn ($route) => $route->getName())->sort()->values()->all();
 
-    expect(array_keys(t7WriteRoutes(t7Account())))->toEqualCanonicalizing($writes);
+    $account = t7Account();
+
+    expect([...array_keys(t7WriteRoutes($account)), ...array_keys(t7DecisionRoutes(accountIdOf($account[0])))])->toEqualCanonicalizing($writes);
+});
+
+it('T7: a caretaker makes every reservation decision but withdraw (6.1), each with one audit row, and a renter gets 403', function (): void {
+    [$owner, $caretaker] = t7Account();
+    $routes = t7DecisionRoutes(accountIdOf($owner));
+    $renter = User::factory()->renter()->create();
+
+    foreach ($routes as $name => [$method, $path, $body, $action]) {
+        $this->actingAs($renter)->call($method, $path, $body)->assertForbidden("{$name} should be 403 for a renter");
+
+        $count = auditRows()->count();
+        $response = $this->actingAs($caretaker)->call($method, $path, $body);
+        expect($response->isRedirect())->toBeTrue("{$name} should succeed for a caretaker, got {$response->getStatusCode()}: ".($response->exception?->getMessage() ?? ''));
+
+        $rows = auditRows()->slice($count);
+        expect($rows)->toHaveCount(1, "{$name} should write one audit row")
+            ->and($rows->first()->action)->toBe($action)
+            ->and($rows->first()->actor_id)->toBe($caretaker->id);
+    }
 });
 
 it('T7: a caretaker gets 403 on every write route, with a valid body or an empty one, and nothing changes', function (): void {
@@ -182,6 +237,7 @@ it('T7: the owner can do each write, with exactly one audit row each', function 
         'landlord.invitations.resend' => 'invitation.resent',
         'landlord.invitations.destroy' => 'invitation.revoked',
         'landlord.members.destroy' => 'member.removed',
+        'landlord.reservations.withdraw' => 'reservation.withdrawn',
     ];
     expect(array_keys($expected))->toEqualCanonicalizing(array_keys($routes));
 

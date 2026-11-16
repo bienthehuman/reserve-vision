@@ -7,6 +7,8 @@ import ComboboxField from '@/Components/Form/ComboboxField';
 import PriceTag from '@/Components/PriceTag';
 import HoldCountdown from '@/Components/HoldCountdown';
 import ProofViewer from '@/Components/ProofViewer';
+import RefundCard from '@/Components/RefundCard';
+import ReservationDecisions, { type Decisions } from '@/Components/ReservationDecisions';
 import StatusBadge from '@/Components/StatusBadge';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { designTokens } from '@/lib/designTokens';
@@ -22,6 +24,19 @@ function Section({ id, title, children }: { id: string; title: string; children:
         </section>
     );
 }
+
+const sampleDecisions: Decisions = {
+    moves: [
+        { key: 'confirm', allowed: true },
+        { key: 'reject', allowed: true },
+        { key: 'decline', allowed: true },
+    ],
+    owner_only: [],
+    rejections_left: 1,
+    undo_until: null,
+    today: '2027-03-15',
+    refund: null,
+};
 
 /** `holdSample`: a hold ending 23 hours from the request, so the countdown has something to count. */
 export default function Styleguide({ holdSample }: { holdSample: string }) {
@@ -267,6 +282,16 @@ export default function Styleguide({ holdSample }: { holdSample: string }) {
                         /proofs/{'{id}'}, so there is no live image here.
                     </p>
                     <ProofViewer proof={{ id: 0, url: '#hold', is_image: false }} label="Example proof" />
+                </Section>
+
+                <Section id="decisions" title="Landlord decisions">
+                    <p className="text-body-secondary small">
+                        ReservationDecisions (slice 6.1): only the moves the transition table allows for the status, the role and the date;
+                        a disabled one says why underneath. Reject, decline and withdraw ask for a reason in their dialog. The buttons here
+                        would post to reservation 0, which doesn't exist.
+                    </p>
+                    <ReservationDecisions reservationId={0} status="proof_uploaded" moveIn="2027-04-01" moveOut="2027-10-01" renterName="Ana Cruz" decisions={sampleDecisions} />
+                    <RefundCard reservationId={0} refund={{ can_record: true, fee_refunded: null, refund_note: null }} />
                 </Section>
             </Container>
         </PublicLayout>
