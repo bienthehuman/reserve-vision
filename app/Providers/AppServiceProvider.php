@@ -19,6 +19,9 @@ final class AppServiceProvider extends ServiceProvider
     /** Reserve requests per renter per minute (RESERVATIONS.md "Booking rules"). */
     public const int RESERVATIONS_PER_MINUTE = 10;
 
+    /** Invitation links opened, and accepts tried, per IP per minute (ACCESS.md "Accepting an invitation"). */
+    public const int INVITATIONS_PER_MINUTE = 10;
+
     public function register(): void
     {
         // Scoped, not a singleton: dropped between queue jobs (and requests on a
@@ -39,6 +42,16 @@ final class AppServiceProvider extends ServiceProvider
         RateLimiter::for('reservations', fn (Request $request): Limit => Limit::perMinute(self::RESERVATIONS_PER_MINUTE)
             ->by('reservations|'.($request->user() instanceof User ? $request->user()->id : $request->ip()))
             ->response($this->tooManyReservations(...)));
+
+        // Two buckets, so a person who mistypes the sign-up form a few times can still load the page.
+        // Guessing a 48-character token at 10 a minute is hopeless; the page answers 429 beyond that.
+        RateLimiter::for('invitations', fn (Request $request): Limit => Limit::perMinute(self::INVITATIONS_PER_MINUTE)
+            ->by('invitations|'.$request->ip()));
+        RateLimiter::for('invitation-accept', fn (Request $request): Limit => Limit::perMinute(self::INVITATIONS_PER_MINUTE)
+            ->by('invitation-accept|'.$request->ip())
+            ->response(fn (Request $request, array $headers): Response => $this->tooMany(
+                $request, $headers, __('Too many tries. Wait a minute, then try again.'),
+            )));
     }
 
     /**
@@ -49,8 +62,14 @@ final class AppServiceProvider extends ServiceProvider
      */
     private function tooManyReservations(Request $request, array $headers): Response
     {
-        $message = __('You\'ve tried to reserve too many times in a minute. Wait a moment, then try again.');
+        return $this->tooMany($request, $headers, __('You\'ve tried to reserve too many times in a minute. Wait a moment, then try again.'));
+    }
 
+    /**
+     * @param  array<array-key, mixed>  $headers
+     */
+    private function tooMany(Request $request, array $headers, string $message): Response
+    {
         if ($request->expectsJson()) {
             return response()->json(['message' => $message], 429, $headers);
         }

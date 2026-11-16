@@ -34,26 +34,29 @@ export default function LandlordLayout({ children }: { children: ReactNode }) {
     const isOwner = props.auth.user?.landlord_role === 'owner';
 
     return (
-        <PublicLayout>
-            <nav aria-label="Landlord" className="landlord-nav">
-                <Container>
-                    <ul className="landlord-nav__list">
-                        {items
-                            .filter((item) => !item.ownerOnly || isOwner)
-                            .map((item) => (
-                                <li key={item.href}>
-                                    <Link
-                                        href={item.href}
-                                        className="landlord-nav__link"
-                                        aria-current={isCurrent(item.href, url) ? 'page' : undefined}
-                                    >
-                                        {item.label}
-                                    </Link>
-                                </li>
-                            ))}
-                    </ul>
-                </Container>
-            </nav>
+        <PublicLayout
+            subnav={
+                <nav aria-label="Landlord" className="landlord-nav">
+                    <Container>
+                        <ul className="landlord-nav__list">
+                            {items
+                                .filter((item) => !item.ownerOnly || isOwner)
+                                .map((item) => (
+                                    <li key={item.href}>
+                                        <Link
+                                            href={item.href}
+                                            className="landlord-nav__link"
+                                            aria-current={isCurrent(item.href, url) ? 'page' : undefined}
+                                        >
+                                            {item.label}
+                                        </Link>
+                                    </li>
+                                ))}
+                        </ul>
+                    </Container>
+                </nav>
+            }
+        >
             {children}
         </PublicLayout>
     );

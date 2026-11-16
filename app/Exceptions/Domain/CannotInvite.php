@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exceptions\Domain;
 
-/** Why an invitation can't be created (CreateInvitation). The messages are shown to the owner as they are. */
+/** Why an invitation can't be created, sent again or taken back (CreateInvitation, ResendInvitation, RevokeInvitation). The messages are shown to the owner as they are. */
 final class CannotInvite extends BusinessRuleException
 {
     public static function alreadyAMember(): self
@@ -20,5 +20,15 @@ final class CannotInvite extends BusinessRuleException
     public static function alreadyPending(): self
     {
         return new self('There is already a pending invitation for that email.');
+    }
+
+    public static function alreadyAccepted(): self
+    {
+        return new self('That invitation has already been accepted. Remove the member instead.');
+    }
+
+    public static function alreadyRevoked(): self
+    {
+        return new self('That invitation was taken back. Invite the person again instead.');
     }
 }

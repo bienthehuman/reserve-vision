@@ -261,7 +261,7 @@ export default function PropertyPhotos({ propertyId, propertyName, photos, limit
     const room = limit - photos.length;
     const processing = photos.some((photo) => photo.status === 'processing');
 
-    const { start, stop } = usePoll(POLL_MS, { only: ['photos'] }, { autoStart: false });
+    const { start, stop } = usePoll(POLL_MS, { only: ['photos', 'checklist'] }, { autoStart: false });
     useEffect(() => {
         if (processing) {
             start();
@@ -305,7 +305,7 @@ export default function PropertyPhotos({ propertyId, propertyName, photos, limit
     };
 
     return (
-        <Card className="mb-4">
+        <Card className="mb-4" id="photos">
             <Card.Body>
                 <div className="card-title-row align-items-baseline mb-2">
                     <h2 className="h3 mb-0">Photos</h2>

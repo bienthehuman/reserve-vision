@@ -47,9 +47,10 @@ final class AuditLogger
     /**
      * @param  array<string, mixed>  $before  the subject's fields before the change (extra unchanged fields are fine)
      * @param  array<string, mixed>  $after  the same fields after it
+     * @param  User|null  $actor  only when the actor isn't logged in yet: a person accepting an invitation by signing up
      * @return AuditLog|null null when nothing changed: no change, no row
      */
-    public function record(string $action, Model $subject, array $before, array $after): ?AuditLog
+    public function record(string $action, Model $subject, array $before, array $after, ?User $actor = null): ?AuditLog
     {
         if (preg_match(self::ACTION_PATTERN, $action) !== 1) {
             throw new InvalidArgumentException("Audit action [{$action}] must be subject.verb in snake_case, like room.rate_changed.");
@@ -68,7 +69,7 @@ final class AuditLogger
         }
 
         return AuditLog::create([
-            'actor_id' => $this->actorId(),
+            'actor_id' => $actor === null ? $this->actorId() : $actor->id,
             'landlord_account_id' => $this->accountId($subject),
             'action' => $action,
             'subject_type' => Str::snake(class_basename($subject)),

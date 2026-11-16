@@ -9,6 +9,7 @@ use App\Models\Property;
 use App\Models\PropertyPhoto;
 use App\Models\Room;
 use App\Models\Space;
+use App\Support\PublishChecklist;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,7 +17,7 @@ use Inertia\Response;
 /**
  * One property with its photos, rooms and spaces. Read-only for a caretaker; for an owner the
  * `can_*` flags (the policies' answers; every endpoint asks again) switch on the edit,
- * add and archive buttons. `photos` is a closure: while a photo is processing the page
+ * add, archive and publish buttons. `checklist` is the publish checklist (slice 4.3). `photos` is a closure: while a photo is processing the page
  * polls for that prop alone (slice 4.2).
  */
 final class ViewProperty
@@ -41,9 +42,15 @@ final class ViewProperty
                 'can_edit' => Gate::allows('update', $property),
                 'can_add_room' => Gate::allows('create', [Room::class, $property]),
                 'can_archive' => Gate::allows('archive', $property),
+                'can_publish' => Gate::allows('publish', $property),
                 'can_manage_photos' => Gate::allows('upload', [PropertyPhoto::class, $property]),
                 'photo_limit' => PropertyPhoto::LIMIT,
             ],
+            // What is still needed before publishing (owners, while it isn't published). A closure, like
+            // `photos`: the page asks for both again while a photo is resizing, and a ready photo ticks an item.
+            'checklist' => fn (): ?array => ! $property->is_published && Gate::allows('publish', $property)
+                ? PublishChecklist::of($property)->items
+                : null,
             'photos' => fn (): array => $property->photos()->orderBy('id')->get()->map(fn (PropertyPhoto $photo): array => [
                 'id' => $photo->id,
                 'status' => $photo->status->value,

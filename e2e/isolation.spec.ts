@@ -104,7 +104,7 @@ test('Phase 3 demo: the owner sees the account\'s reservations, with the last-be
 
     await page.goto('/landlord/members');
     await expect(page.getByRole('heading', { level: 1, name: 'Members' })).toBeVisible();
-    await expect(page.getByText("We don't email invitations yet")).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send invitation' })).toBeVisible();
     await expectCleanPage(owner);
 
     await owner.close();

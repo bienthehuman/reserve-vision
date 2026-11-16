@@ -62,7 +62,8 @@ test('4.1: the owner adds a property with a 3-bed room, changes the rate and arc
     await clean();
 
     // A shared room of 3 beds.
-    await page.getByRole('link', { name: 'Add a room' }).click();
+    // Two links lead there on a draft: the publish checklist's (4.3) and the Rooms heading's. This is the heading's.
+    await page.getByRole('link', { name: 'Add a room' }).last().click();
     await page.waitForLoadState('networkidle');
     await page.getByLabel('Room name', { exact: true }).fill('Room 1');
     await page.getByLabel('Room type', { exact: true }).selectOption('shared');

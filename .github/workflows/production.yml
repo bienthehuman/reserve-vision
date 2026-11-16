@@ -86,6 +86,17 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
+      - name: An invitation link for the phase 4 demo
+        # There is no mailbox to read here, so e2e/landlord-phase4.spec.ts accepts through this link instead of
+        # the emailed one (the only step it skips). The account is owner@example.com's, read from the seeded data.
+        run: |
+          slug="$(docker compose --env-file .env.production exec -T app php artisan tinker --execute='echo "SLUG=".App\Models\LandlordAccount::query()->whereHas("members.user", fn ($q) => $q->where("email", "owner@example.com"))->value("slug");' | grep -o 'SLUG=[a-z0-9-]*' | cut -d= -f2)"
+          test -n "$slug"
+          url="$(docker compose --env-file .env.production exec -T app php artisan landlord:invite "$slug" e2e-production-caretaker@example.com | grep -o 'https\?://[^ ]*/invitations/[A-Za-z0-9]*')"
+          test -n "$url"
+          echo "::add-mask::$url"
+          echo "E2E_INVITATION_URL=$url" >> "$GITHUB_ENV"
+
       - name: Playwright + axe against the production stack
         run: npm run e2e
         env:

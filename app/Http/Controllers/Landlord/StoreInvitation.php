@@ -6,13 +6,15 @@ namespace App\Http\Controllers\Landlord;
 
 use App\Actions\CreateInvitation;
 use App\Http\Requests\StoreInvitationRequest;
+use App\Mail\Landlord\InvitationMail;
 use App\Models\LandlordInvitation;
 use App\Models\User;
 use App\Support\CurrentLandlordAccount;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Mail;
 
-/** POST /landlord/invitations: owners only. Creates the row; the email and acceptance are 4.3. */
+/** POST /landlord/invitations: owners only. Creates the invitation and emails its link (queued). */
 final class StoreInvitation
 {
     public function __invoke(
@@ -27,8 +29,10 @@ final class StoreInvitation
 
         $created = $createInvitation->handle($current->account(), $inviter, $request->string('email')->toString());
 
+        Mail::to($created->invitation->email)->queue(InvitationMail::for($created));
+
         return redirect()
             ->route('landlord.members.index')
-            ->with('status', __('Invitation saved for :email. The email is not sent yet.', ['email' => $created->invitation->email]));
+            ->with('status', __('We\'ve sent an invitation to :email.', ['email' => $created->invitation->email]));
     }
 }

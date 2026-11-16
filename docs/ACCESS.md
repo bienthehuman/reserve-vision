@@ -8,9 +8,9 @@ The source of truth for who can do what. Policies and the isolation tests are ch
 | --- | --- |
 | **Public** | Not logged in. Browses; anything members-only sends them to `/login`, and the page they wanted is kept (flow B) |
 | **Renter** | `/register`, "I want to: **rent a place**" → `RegisterRenter` creates a `users.type = renter` user. Logged in at once, then must confirm their email before reserving. Lands on `/` after login |
-| **Owner** | `/register`, "I want to: **list my property**" plus a business or display name → `RegisterLandlord` creates, in one transaction, the user (`type = landlord`), an **unverified** `landlord_account` (unique slug from the name) and the **owner** membership. Must confirm their email before opening `/landlord`, which says the account is being checked until the operator verifies the account. Lands on `/landlord` after login. Also by owner invite (4.3) |
-| **Caretaker** | Owner invite only (4.3). Lands on `/landlord` after login |
-| **Operator** | Shell access only: `php artisan landlord:verify`. Not a web role; an admin UI is under README "Next" |
+| **Owner** | `/register`, "I want to: **list my property**" plus a business or display name → `RegisterLandlord` creates, in one transaction, the user (`type = landlord`), an **unverified** `landlord_account` (unique slug from the name) and the **owner** membership. Must confirm their email before opening `/landlord`, which says the account is being checked until the operator verifies the account. Lands on `/landlord` after login. (Inviting a co-owner is in the backlog: invitations are for caretakers) |
+| **Caretaker** | Owner invite only: the owner enters an email on the members page, the person gets a link by email (`/invitations/{token}`, good for 7 days) and signs up or logs in through it ([Accepting an invitation](#accepting-an-invitation-slice-43)). Their email counts as confirmed, because the link proved the inbox. Lands on `/landlord` after login |
+| **Operator** | Shell access only: `php artisan landlord:verify`, and `php artisan landlord:invite {slug} {email}`, which makes a caretaker invitation in the first owner's name and prints the link instead of emailing it (for when email can't be relied on). Not a web role; an admin UI is under README "Next" |
 
 ### Logging in (slice 2.4)
 
@@ -64,6 +64,7 @@ Because the scope sits on the model, it also covers route model binding (another
 | `Space::listed()` | not archived, room `listed()` | the room page's space count and availability |
 | `Reservation::onListedSpaces()` | reservations on `listed()` spaces (counts only, never shown) | `Room::freeSpaceCount()` |
 | `Reservation::ownedByRenter($user)` | `renter_id = $user->id` (and `openForRenter()` builds on it) | `ShowReservation`, `ReserveSpace`'s limits, the room page |
+| `LandlordInvitation::forToken($token)` | `token_hash = sha256($token)`: the one invitation the link's holder has the key to | the invitation page and `AcceptInvitation` (4.3): the person isn't a member yet, and may be logged in as a landlord user without a membership, for whom the scope matches nothing |
 
 Landlords browse listings through these too, so a landlord on another account's room page sees what a guest sees. `withoutGlobalScope(…)` and `withoutGlobalScopes()` anywhere else fail the build, except in the system allowlist in that test, which is **empty**: system code has no landlord user, so it doesn't need to leave the scope. `DB::table()` on a landlord-owned table is allowed only in `database/` (seeders, factories) and `DoctorCommand` (the audit trigger probe).
 
@@ -84,16 +85,42 @@ Every `/landlord` page is behind `auth`, `verified` and `landlord`, shows the la
 | Add or rename a space | `POST /landlord/rooms/{room}/spaces` → `AddSpace` (`space.added`); `PATCH /landlord/spaces/{space}` → `RenameSpace` (`space.renamed`) | same (`create` on a space in a room, `update`) | owner |
 | Photos (slice 4.2) | On the property page. `POST …/properties/{property}/photos` → `UploadPropertyPhoto` (`photo.uploaded`), one file per request; `PATCH /landlord/photos/{photo}` → `DescribePropertyPhoto` (`photo.described`); `POST …/photos/{photo}/move` → `MovePropertyPhoto` (`photo.moved`); `POST …/photos/{photo}/retry` → `RetryPropertyPhoto` (`photo.retried`, failed photos only); `DELETE …/photos/{photo}` → `DeletePropertyPhoto` (`photo.deleted`) | Upload, reorder or delete photos (`upload`, `update`, `reorder`, `retry`, `delete`) | owner; a caretaker sees the photos and no button |
 | Archive or unarchive ("Restore" on the page) | `POST` and `DELETE` on `/landlord/{properties,rooms,spaces}/{id}/archive` → `Archive…` / `Unarchive…` (`property.archived`, `room.unarchived`, …) | Archive or unarchive a property, room or space (`archive`, `unarchive`) | owner |
+| Publish or unpublish (slice 4.3) | `POST` and `DELETE` on `/landlord/properties/{property}/publish` → `PublishProperty` (`property.published`) / `UnpublishProperty` (`property.unpublished`) | Publish or unpublish a property (`publish`, `unpublish`) | owner; a caretaker sees neither the checklist nor a button |
 | Members | `GET /landlord/members` | Invite or remove caretakers, revoke invites (`viewAny`): the page where that happens | owner; a caretaker gets `403` and no link |
-| Invite a caretaker | `POST /landlord/invitations` → `CreateInvitation`, audit `invitation.created` | Invite or remove caretakers, revoke invites (`create`) | owner |
+| Invite a caretaker | `POST /landlord/invitations` → `CreateInvitation`, audit `invitation.created`, and the invitation email (queued) | Invite or remove caretakers, revoke invites (`create`) | owner |
+| Send an invitation again, or cancel it (slice 4.3) | `POST /landlord/invitations/{invitation}/resend` → `ResendInvitation` (`invitation.resent`: a new token, so the old link dies, and 7 more days; a new email); `DELETE /landlord/invitations/{invitation}` → `RevokeInvitation` (`invitation.revoked`) | same (`resend`, `revoke`) | owner |
+| Remove a member (slice 4.3) | `DELETE /landlord/members/{member}` → `RemoveMember` (`member.removed`) | same (`remove`) | owner |
 
-A form request asks the policy before it validates, so a caretaker gets `403` and never a validation message. An invitation is saved with a random token **stored as a SHA-256 hash** and valid for 7 days. **No email is sent and there is no acceptance page** until 4.3, and the page says so. It is rejected for an email that belongs to a member of any account, to a renter (a person is one type), or that already has a pending invitation on this account. Changing a rate or fee touches nothing else: reservations keep the fee they were made with.
+A form request asks the policy before it validates, so a caretaker gets `403` and never a validation message. An invitation is saved with a random token **stored as a SHA-256 hash** and valid for 7 days; the plain token exists only in the email (a queued, encrypted job). It is rejected for an email that belongs to a member of any account, to a renter (a person is one type), or that already has a pending invitation on this account. Changing a rate or fee touches nothing else: reservations keep the fee they were made with.
 
 **Editing (slice 4.1).** The dashboard shows four figures, each linking to the reservations list that shows what was counted (`?status=proof_uploaded`, `?show=proofs_overdue`, `?show=holds_expiring`, `?show=moving_in`): payments to review (uploaded proofs, and how many waited over 24 hours), live holds that run out within 6 hours, confirmed move-ins from today to 7 days ahead, and occupancy (spaces with a confirmed or active stay today, out of the spaces that aren't archived in a room and property that aren't either). Every query is scoped to the account. Owners edit; a caretaker sees the same pages without a single button, and every write route and edit form answers `403` before validating (T7 walks the route list, so a new write route can't be missed). The address is entered as street address (optional), barangay, city and province: the city is chosen from `database/data/places.php` and decides the province, which the form shows read-only. The slug (the listing link) is generated from the name, unique per city (`-2`, `-3` on a clash); the form has no field for it (the request still accepts one until the property is first published). A room's type changes only while it has never had a reservation. Archiving is refused while a reservation still holds the space (`Reservation::blocking()`), naming it. The room row is locked first by every action that archives, changes a fee or type, or adds or renames spaces ([RESERVATIONS.md](RESERVATIONS.md#concurrency)).
 
 **Photos (slice 4.2).** JPEG, PNG or WebP, judged by content (not the file name or the browser's MIME type): up to 10 MB, at least 800 px on the longer side, at most 40 megapixels, and the file must decode. At most 12 per property. The first photo is the cover; Up and Down buttons reorder. The files are public once resized (the path is a random UUID), as they will be on the listing page; the original upload never is, and it is deleted after the resize. The resize job is the system's work and writes no audit row.
 
+**Publishing (slice 4.3).** A property can be published only when **all** of these hold: the account is verified, the property isn't archived, a room that isn't archived has at least one space that isn't, one photo is `ready`, and the payment instructions are written. (The address is always complete: the form requires barangay and city.) The property page shows an owner this as a checklist, each missing item with a link to fix it, and a Publish button that stays disabled until the list is done; `PublishProperty` checks the same list (`App\Support\PublishChecklist`) again on rows it has locked (the account, every room by id, then the property: `ArchiveProperty`'s order, so an archive can't interleave) and refuses with what is missing. The first publish sets `first_published_at`. Unpublishing is always allowed and touches no reservation: the ones the property has run their course, and nobody new can reserve.
+
+**Members (slice 4.3).** An owner removes a caretaker or another owner; nobody removes themself, and **the last owner can't be removed**. `RemoveMember` locks every member row of the account and reads those rules from the locked rows, so of two owners removing each other at the same moment exactly one succeeds. A removed person keeps their login but has no membership: every landlord page answers `403` (a page of one record answers `404`, because the record is looked up first and the scope finds nothing for them). They can be invited again.
+
 T6 and T7 ([tests](../tests/Feature/Isolation/T6CrossAccessTest.php)) prove all this on every route: see [CLAUDE.md](../CLAUDE.md#landlord-pages-slice-32).
+
+### Accepting an invitation (slice 4.3)
+
+`GET /invitations/{token}` and `POST /invitations/{token}` are public: the token is the key. Both are limited to 10 a minute per IP address (two separate counts, so mistyping the form doesn't lock the page), which makes guessing a 48-character token pointless. The invitation is found by `hash('sha256', $token)`.
+
+**One neutral page.** An unknown, expired, revoked or already accepted token gets the same page with the same sentence, "This invitation link isn't valid any more. Ask the owner to send a new one.", and status `404`. It never says which case it was, and shows nothing of any invitation.
+
+A valid token shows the account's name, the role and who sent the invitation, and then depends on who is looking:
+
+| Who opens the link | What they see | What accepting does |
+| --- | --- | --- |
+| Not logged in, and no user has the invited email | A short sign-up form: name, mobile number, password. The email is shown, fixed to the invited one | Creates a **landlord** user with the invited email, **marked verified** (the token proves the inbox), and the membership, in one transaction; logs them in → `/landlord` |
+| Not logged in, and a user has that email | "Log in to join". The link is kept as the page to return to after login | Signing up through the link is refused |
+| Logged in as the invited email, a landlord user without an account (a removed member) | One button, "Join <account>" | The membership; their email is marked verified if it wasn't → `/landlord` |
+| Logged in as the invited email, but a renter | Refused: a person is one type ([DATA_MODEL](DATA_MODEL.md)); ask for another email to be invited | Refused (`422`) |
+| Logged in as the invited email, already a member of an account | Refused: `landlord_members.user_id` is unique, a person belongs to one account | Refused (`422`) |
+| Logged in with another email | Says so, and offers to log out | Refused (`422`) |
+
+`AcceptInvitation` locks the invitation row first, then the user row, so two accepts of one link (or an accept and a revoke or resend) run one after the other: exactly one membership. Accepting sets `accepted_at` and writes one audit row on the account, `invitation.accepted`, with the new member as the actor. The role is the invitation's, never the request's.
 
 ## Permission matrix
 
@@ -134,8 +161,10 @@ Each main flow, step by step, with who acts and what they see. This is where gap
 | Wait for verification | operator | `landlord:verify {slug}`. Until then the owner can draft but not publish; the dashboard says the account is being checked |
 | Create property, rooms, spaces, rates | owner | Shared room: choose bed count, spaces generated as Bed A… |
 | Upload photos | owner | Several at once. Resized by a queued job; the page shows "Resizing…" and checks every two seconds until each is ready or failed. The first photo is the cover |
-| Publish | owner | Blocked unless verified, with at least one room and one ready photo |
-| Invite caretaker | owner | Email with a link; the caretaker registers or logs in with that email and accepts |
+| Publish | owner | The property page lists what is missing: a verified account, a room with a space, a ready photo, payment instructions. The button works when the list is done |
+| Invite caretaker | owner | Email with a link, good for 7 days; the owner can send it again or cancel it |
+| Accept | caretaker | Opens the link: signs up (name, mobile number, password; no email to confirm) or logs in with that email, and lands on `/landlord` with read-only property pages |
+| Remove a member | owner | The person keeps their login; landlord pages refuse them. The last owner can't be removed |
 
 ### Flow B: Renter reserves a bed
 
@@ -168,6 +197,8 @@ Each main flow, step by step, with who acts and what they see. This is where gap
 | A wrong proof forced a decline | `RejectProof` re-opens the hold |
 | A mistaken confirm was permanent | `UndoConfirmation` within 24h |
 | Caretaker invite had no table or flow | `landlord_invitations` |
+| The invited person could already have an account, be a renter, or be logged in as someone else | The acceptance page has a case for each ([Accepting an invitation](#accepting-an-invitation-slice-43)) |
+| An owner could publish a property nobody can pay for or see | The publish checklist (4.3) |
 | One renter's parallel requests could beat the hold limits | Renter-row lock ([RESERVATIONS.md](RESERVATIONS.md#concurrency)) |
 
 ## Private files

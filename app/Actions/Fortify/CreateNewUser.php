@@ -10,8 +10,8 @@ use App\Data\RegistrationDetails;
 use App\Enums\NameSuffix;
 use App\Enums\UserType;
 use App\Models\User;
+use App\Rules\PhilippineMobileNumber;
 use App\Support\PhilippineMobile;
-use Closure;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
@@ -43,11 +43,7 @@ final class CreateNewUser implements CreatesNewUsers
             'last_name' => ['required', 'string', 'max:100'],
             'suffix' => ['nullable', Rule::enum(NameSuffix::class)],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class)],
-            'phone' => ['required', 'string', 'max:32', function (string $attribute, mixed $value, Closure $fail): void {
-                if (! is_string($value) || PhilippineMobile::normalize($value) === null) {
-                    $fail(__('Enter a Philippine mobile number, like 0917 123 4567.'));
-                }
-            }],
+            'phone' => ['required', 'string', 'max:32', new PhilippineMobileNumber],
             'password' => $this->passwordRules(),
             'business_name' => ['exclude_unless:type,landlord', 'required', 'string', 'max:255'],
         ], [

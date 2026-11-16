@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 use App\Actions\CreateInvitation;
 use App\Enums\LandlordRole;
+use App\Mail\Landlord\InvitationMail;
 use App\Models\LandlordAccount;
 use App\Models\LandlordInvitation;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Bus;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia;
 
-// Slice 3.2: POST /landlord/invitations (owner only) and the members page. No email, no acceptance (4.3).
+// Slice 3.2: POST /landlord/invitations (owner only) and the members page. Slice 4.3: the email, sending again, cancelling.
 
 beforeEach(function (): void {
     $this->travelTo(CarbonImmutable::parse('2027-03-15 10:00', 'Asia/Manila'));
@@ -31,10 +33,9 @@ function invitationRows(): int
     return DB::table('landlord_invitations')->count();
 }
 
-it('creates a caretaker invitation: hashed token, 7 days, one audit row, nothing sent', function (): void {
+it('creates a caretaker invitation: hashed token, 7 days, one audit row, and one queued email with the link', function (): void {
     Mail::fake();
     Notification::fake();
-    Bus::fake();
     $owner = landlordUser();
 
     invite($this, $owner, '  New.Person@Example.COM ')->assertRedirect('/landlord/members')->assertSessionHas('status');
@@ -60,10 +61,126 @@ it('creates a caretaker invitation: hashed token, 7 days, one audit row, nothing
     expect($after)->toMatchArray(['email' => 'new.person@example.com', 'role' => 'caretaker', 'token_hash' => '[redacted]']);
     expect($rows[0]->after)->not->toContain($invitation->token_hash);
 
+    // One queued email to the invited address, whose link carries the token the row's hash was made from.
     Mail::assertNothingSent();
-    Mail::assertNothingQueued();
+    Mail::assertQueuedCount(1);
+    Mail::assertQueued(InvitationMail::class, function (InvitationMail $mail) use ($invitation, $owner): bool {
+        $token = basename($mail->url);
+
+        return $mail->hasTo('new.person@example.com')
+            && str_contains($mail->url, '/invitations/')
+            && hash('sha256', $token) === $invitation->token_hash
+            && $mail->inviterName === $owner->full_name
+            && $mail->accountName === $invitation->landlordAccount->name;
+    });
     Notification::assertNothingSent();
-    Bus::assertNothingDispatched();
+});
+
+it('writes the invitation email in the project\'s voice: who invited you to what, the link, how long it works', function (): void {
+    $owner = landlordUser();
+    $created = app(CreateInvitation::class)->handle($owner->landlordMember()->sole()->landlordAccount, $owner, 'new@example.com');
+
+    $mail = InvitationMail::for($created);
+
+    $mail->assertHasSubject("{$owner->full_name} invited you to {$created->invitation->landlordAccount->name} on ".config('app.name'));
+    $mail->assertSeeInText($owner->full_name);
+    $mail->assertSeeInText('as a caretaker');
+    $mail->assertSeeInText('7 days');
+    $mail->assertSeeInHtml('/invitations/'.$created->token);
+    expect($mail)->toBeInstanceOf(ShouldQueue::class)->toBeInstanceOf(ShouldBeEncrypted::class);
+});
+
+it('sends nothing when the invitation is refused', function (): void {
+    Mail::fake();
+    $owner = landlordUser();
+    $renter = User::factory()->renter()->create();
+
+    invite($this, $owner, $renter->email)->assertSessionHas('error');
+
+    Mail::assertNothingQueued();
+});
+
+it('sends an invitation again: a new token (the old link dies), 7 more days, one audit row, one email', function (): void {
+    Mail::fake();
+    $owner = landlordUser();
+    $created = app(CreateInvitation::class)->handle($owner->landlordMember()->sole()->landlordAccount, $owner, 'new@example.com');
+    $oldHash = $created->invitation->token_hash;
+    $this->travel(5)->days();
+
+    $this->actingAs($owner)->post("/landlord/invitations/{$created->invitation->id}/resend")
+        ->assertRedirect('/landlord/members')->assertSessionHas('status');
+
+    $invitation = $created->invitation->fresh();
+    expect($invitation->token_hash)->not->toBe($oldHash)
+        ->and($invitation->expires_at->equalTo(now()->addDays(7)))->toBeTrue()
+        ->and(LandlordInvitation::query()->forToken($created->token)->exists())->toBeFalse();
+
+    Mail::assertQueued(InvitationMail::class, fn (InvitationMail $mail): bool => $mail->hasTo('new@example.com')
+        && hash('sha256', basename($mail->url)) === $invitation->token_hash);
+
+    $row = auditRows('invitation.resent')->sole();
+    expect($row->actor_id)->toBe($owner->id)
+        ->and(json_decode($row->after, true))->toHaveKey('token_hash', '[redacted]')->toHaveKey('expires_at')
+        ->and($row->after.$row->before)->not->toContain($oldHash)->not->toContain($invitation->token_hash);
+
+    // The old link now gets the neutral page.
+    auth()->logout();
+    $this->get("/invitations/{$created->token}")->assertNotFound();
+});
+
+it('brings an expired invitation back by sending it again', function (): void {
+    Mail::fake();
+    $owner = landlordUser();
+    $invitation = LandlordInvitation::factory()->expired()->create(['landlord_account_id' => accountIdOf($owner), 'invited_by' => $owner->id]);
+
+    $this->actingAs($owner)->post("/landlord/invitations/{$invitation->id}/resend")->assertRedirect();
+
+    expect($invitation->fresh()->isPending())->toBeTrue();
+});
+
+it('refuses to send an accepted or cancelled invitation again, or one whose email has since joined an account', function (): void {
+    Mail::fake();
+    $owner = landlordUser();
+    $account = accountIdOf($owner);
+    $accepted = LandlordInvitation::factory()->accepted()->create(['landlord_account_id' => $account, 'invited_by' => $owner->id]);
+    $revoked = LandlordInvitation::factory()->revoked()->create(['landlord_account_id' => $account, 'invited_by' => $owner->id]);
+    $taken = LandlordInvitation::factory()->create(['landlord_account_id' => $account, 'invited_by' => $owner->id, 'email' => landlordUser()->email]);
+
+    foreach ([$accepted, $revoked, $taken] as $invitation) {
+        $this->actingAs($owner)->withHeaders(['X-Inertia' => 'true'])->post("/landlord/invitations/{$invitation->id}/resend")->assertSessionHas('error');
+    }
+
+    Mail::assertNothingQueued();
+    expect(auditRows('invitation.resent'))->toBeEmpty();
+});
+
+it('cancels an invitation: revoked_at is set, one audit row, the link stops working, and it leaves the list', function (): void {
+    $owner = landlordUser();
+    $created = app(CreateInvitation::class)->handle($owner->landlordMember()->sole()->landlordAccount, $owner, 'new@example.com');
+
+    $this->actingAs($owner)->delete("/landlord/invitations/{$created->invitation->id}")
+        ->assertRedirect('/landlord/members')->assertSessionHas('status');
+
+    expect($created->invitation->fresh()->revoked_at?->equalTo(now()))->toBeTrue()
+        ->and(auditRows('invitation.revoked')->sole()->actor_id)->toBe($owner->id);
+
+    // Again: nothing more happens.
+    $this->actingAs($owner)->delete("/landlord/invitations/{$created->invitation->id}")->assertRedirect();
+    expect(auditRows('invitation.revoked'))->toHaveCount(1);
+
+    $this->actingAs($owner)->get('/landlord/members')->assertInertia(fn (AssertableInertia $page) => $page->has('invitations', 0));
+
+    auth()->logout();
+    $this->get("/invitations/{$created->token}")->assertNotFound();
+});
+
+it('refuses to cancel an invitation that was already accepted', function (): void {
+    $owner = landlordUser();
+    $accepted = LandlordInvitation::factory()->accepted()->create(['landlord_account_id' => accountIdOf($owner), 'invited_by' => $owner->id]);
+
+    $this->actingAs($owner)->deleteJson("/landlord/invitations/{$accepted->id}")->assertStatus(422);
+
+    expect($accepted->fresh()->revoked_at)->toBeNull();
 });
 
 it('stores the token only as its hash', function (): void {

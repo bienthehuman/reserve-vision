@@ -16,6 +16,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -101,6 +102,8 @@ const T6_BODIES = [
     'landlord.properties.update' => 'propertyBody',
     'landlord.properties.archive' => [],
     'landlord.properties.unarchive' => [],
+    'landlord.properties.publish' => [],
+    'landlord.properties.unpublish' => [],
     'landlord.properties.rooms.store' => 'roomBody',
     'landlord.rooms.update' => 'roomBody',
     'landlord.rooms.archive' => [],
@@ -115,6 +118,10 @@ const T6_BODIES = [
     'landlord.photos.retry' => 'photoFileBody',
     // Registered last of the photo routes (routes/web.php): the calls above need the world's own photo to still exist.
     'landlord.photos.destroy' => [],
+    // Slice 4.3. The resend is registered before the DELETE (routes/web.php): a revoked invitation can't be sent again.
+    'landlord.invitations.resend' => [],
+    'landlord.invitations.destroy' => [],
+    'landlord.members.destroy' => [],
     'rooms.reservations.store' => 'reservationWindow',
 ];
 
@@ -368,6 +375,7 @@ function t6Print(string $heading, array $covered): void
 
 beforeEach(function (): void {
     fakeMediaDisks();
+    Mail::fake(); // the owner's own invitation is sent again (the control); nothing may be sent for B's
     $this->travelTo(CarbonImmutable::parse('2027-03-15 10:00', 'Asia/Manila'));
 });
 
@@ -425,9 +433,10 @@ it('T6: covers every record route there is today (the list moves only on purpose
         ->map(fn (array $info): string => $info['name'])->sort()->values()->all();
 
     expect($names('landlord'))->toBe([
+        'landlord.invitations.destroy', 'landlord.invitations.resend', 'landlord.members.destroy',
         'landlord.photos.destroy', 'landlord.photos.move', 'landlord.photos.retry', 'landlord.photos.update',
-        'landlord.properties.archive', 'landlord.properties.edit', 'landlord.properties.photos.store', 'landlord.properties.rooms.create', 'landlord.properties.rooms.store',
-        'landlord.properties.show', 'landlord.properties.unarchive', 'landlord.properties.update',
+        'landlord.properties.archive', 'landlord.properties.edit', 'landlord.properties.photos.store', 'landlord.properties.publish', 'landlord.properties.rooms.create', 'landlord.properties.rooms.store',
+        'landlord.properties.show', 'landlord.properties.unarchive', 'landlord.properties.unpublish', 'landlord.properties.update',
         'landlord.reservations.show',
         'landlord.rooms.archive', 'landlord.rooms.edit', 'landlord.rooms.spaces.store', 'landlord.rooms.unarchive', 'landlord.rooms.update',
         'landlord.spaces.archive', 'landlord.spaces.unarchive', 'landlord.spaces.update',

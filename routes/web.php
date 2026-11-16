@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Invitations\AcceptInvitationController;
+use App\Http\Controllers\Invitations\ShowInvitation;
 use App\Http\Controllers\Landlord\ArchivePropertyController;
 use App\Http\Controllers\Landlord\ArchiveRoomController;
 use App\Http\Controllers\Landlord\ArchiveSpaceController;
@@ -17,8 +19,12 @@ use App\Http\Controllers\Landlord\ListReservations;
 use App\Http\Controllers\Landlord\MovePropertyPhotoController;
 use App\Http\Controllers\Landlord\NewProperty;
 use App\Http\Controllers\Landlord\NewRoom;
+use App\Http\Controllers\Landlord\PublishPropertyController;
+use App\Http\Controllers\Landlord\RemoveMemberController;
 use App\Http\Controllers\Landlord\RenameSpaceController;
+use App\Http\Controllers\Landlord\ResendInvitationController;
 use App\Http\Controllers\Landlord\RetryPropertyPhotoController;
+use App\Http\Controllers\Landlord\RevokeInvitationController;
 use App\Http\Controllers\Landlord\SaveProperty;
 use App\Http\Controllers\Landlord\SaveRoom;
 use App\Http\Controllers\Landlord\StoreInvitation;
@@ -29,6 +35,7 @@ use App\Http\Controllers\Landlord\StoreSpace;
 use App\Http\Controllers\Landlord\UnarchivePropertyController;
 use App\Http\Controllers\Landlord\UnarchiveRoomController;
 use App\Http\Controllers\Landlord\UnarchiveSpaceController;
+use App\Http\Controllers\Landlord\UnpublishPropertyController;
 use App\Http\Controllers\Landlord\ViewProperty;
 use App\Http\Controllers\Landlord\ViewReservation;
 use App\Http\Controllers\Media\ShowLocalPhoto;
@@ -64,6 +71,14 @@ Route::middleware(['auth', 'verified', 'renter'])->group(function (): void {
 
     Route::get('/reservations/{reservation}', ShowReservation::class)->whereNumber('reservation')->name('reservations.show');
 });
+
+// An invitation link from an email (slice 4.3). Public: the token is the key, stored only as a hash, and
+// a link that can't be used gets one neutral page. Rate limited per IP (AppServiceProvider), so tokens can't
+// be guessed at speed. ExposeRequestTiming is a no-op unless CONCURRENCY_PROBE (never in production).
+Route::get('/invitations/{token}', ShowInvitation::class)
+    ->where('token', '[A-Za-z0-9]{1,128}')->middleware('throttle:invitations')->name('invitations.show');
+Route::post('/invitations/{token}', AcceptInvitationController::class)
+    ->where('token', '[A-Za-z0-9]{1,128}')->middleware(['throttle:invitation-accept', ExposeRequestTiming::class])->name('invitations.accept');
 
 // Landlord pages: logged in, email verified, and a landlord user (ACCESS.md).
 Route::middleware(['auth', 'verified', 'landlord'])->prefix('landlord')->name('landlord.')->group(function (): void {
@@ -106,6 +121,15 @@ Route::middleware(['auth', 'verified', 'landlord'])->prefix('landlord')->name('l
     Route::post('/photos/{photo}/retry', RetryPropertyPhotoController::class)->whereNumber('photo')->name('photos.retry');
     Route::delete('/photos/{photo}', DeletePropertyPhotoController::class)->whereNumber('photo')->name('photos.destroy');
 
+    // Slice 4.3: publish and unpublish (owners).
+    Route::post('/properties/{property}/publish', PublishPropertyController::class)->whereNumber('property')->name('properties.publish');
+    Route::delete('/properties/{property}/publish', UnpublishPropertyController::class)->whereNumber('property')->name('properties.unpublish');
+
     Route::get('/members', ListMembers::class)->name('members.index');
     Route::post('/invitations', StoreInvitation::class)->name('invitations.store');
+    // Slice 4.3 (owners). The resend stays before the DELETE: T6 calls them in order on one invitation, and a revoked one can't be sent again.
+    Route::post('/invitations/{invitation}/resend', ResendInvitationController::class)->whereNumber('invitation')->name('invitations.resend');
+    Route::delete('/invitations/{invitation}', RevokeInvitationController::class)->whereNumber('invitation')->name('invitations.destroy');
+    // `landlord_members` has no isolation scope: LandlordMemberPolicy::remove makes another account's member a 404.
+    Route::delete('/members/{member}', RemoveMemberController::class)->whereNumber('member')->middleware(ExposeRequestTiming::class)->name('members.destroy');
 });
