@@ -14,7 +14,8 @@ use Inertia\Response;
  * One reservation of the account. The only landlord page with the renter's
  * email and phone (matrix: "See a renter's contact details"), asked of the
  * policy as its own ability. Payment proofs are listed by amount, reference
- * and status; the file's path is never sent (files come with signed URLs in 5.3).
+ * and status, each with its `/proofs/{proof}` link (slice 5.3: the policy, then a
+ * signed URL for this user); the file's path on the disk is never sent.
  * Another account's reservation never gets here: the scope makes the route
  * binding a 404.
  */
@@ -62,6 +63,8 @@ final class ViewReservation
                     'status' => $proof->status->value,
                     'uploaded_at' => $proof->uploaded_at->toIso8601String(),
                     'rejection_reason' => $proof->rejection_reason,
+                    'is_image' => $proof->mime_type->isImage(),
+                    'url' => route('proofs.show', $proof->id, absolute: false),
                 ])->all(),
         ]);
     }

@@ -205,3 +205,41 @@ it('T7: a renter gets 403 on every write route too', function (): void {
         $this->actingAs($renter)->call($method, $path, $body)->assertForbidden("{$name} should be 403 for a renter");
     }
 });
+
+/**
+ * Every renter write route (slice 5.3), by name: method, a path to a record the landlord's own account
+ * holds, and a valid body, so a 403 can only be the kind of user. A route missing here fails the test below.
+ *
+ * @return array<string, array{string, string, array<string, mixed>}>
+ */
+function t7RenterWriteRoutes(Room $room): array
+{
+    $hold = liveHold(User::factory()->renter()->create(), $room);
+
+    return [
+        'rooms.reservations.store' => ['POST', "/rooms/{$room->id}/reservations", ['move_in' => now()->addDays(30)->toDateString(), 'months' => 6]],
+        'reservations.proofs.store' => ['POST', "/reservations/{$hold->id}/proofs", proofForm()],
+        'reservations.cancel' => ['POST', "/reservations/{$hold->id}/cancel", []],
+    ];
+}
+
+it('T7: every renter write route refuses landlord users with 403, even on their own account\'s room and reservations, and nothing changes', function (): void {
+    [$owner, $caretaker, $room] = t7Account();
+    $routes = t7RenterWriteRoutes($room);
+
+    $writes = collect(Route::getRoutes()->getRoutes())
+        ->filter(fn ($route) => in_array('renter', $route->gatherMiddleware(), true) && array_diff($route->methods(), ['GET', 'HEAD']) !== [])
+        ->map(fn ($route) => $route->getName())->sort()->values()->all();
+    expect(array_keys($routes))->toEqualCanonicalizing($writes);
+
+    $before = md5((string) json_encode([DB::table('reservations')->orderBy('id')->get(), DB::table('payment_proofs')->orderBy('id')->get()]));
+
+    foreach ([$owner, $caretaker] as $landlord) {
+        foreach ($routes as $name => [$method, $path, $body]) {
+            $this->actingAs($landlord)->call($method, $path, $body)->assertForbidden("{$name} should be 403 for a landlord user");
+        }
+    }
+
+    expect(md5((string) json_encode([DB::table('reservations')->orderBy('id')->get(), DB::table('payment_proofs')->orderBy('id')->get()])))->toBe($before)
+        ->and(Storage::disk('proofs')->allFiles())->toBeEmpty();
+});

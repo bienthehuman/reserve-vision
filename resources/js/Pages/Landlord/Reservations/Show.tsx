@@ -1,8 +1,9 @@
 import { Head, Link } from '@inertiajs/react';
-import { Badge, Card, Col, Container, Row, Table } from 'react-bootstrap';
+import { Badge, Card, Col, Container, Row } from 'react-bootstrap';
 import { Receipt } from 'react-bootstrap-icons';
 import PageHeader from '@/Components/PageHeader';
 import PriceTag from '@/Components/PriceTag';
+import ProofViewer from '@/Components/ProofViewer';
 import StatusBadge from '@/Components/StatusBadge';
 import EmptyState from '@/Components/EmptyState';
 import LandlordLayout from '@/Layouts/LandlordLayout';
@@ -24,7 +25,16 @@ interface ShowProps {
     };
     place: { property_id: number; property_name: string; room_name: string; space_label: string };
     renter: { name: string; email: string | null; phone: string | null };
-    proofs: { id: number; amount: number; reference_no: string | null; status: ProofStatus; uploaded_at: string; rejection_reason: string | null }[];
+    proofs: {
+        id: number;
+        amount: number;
+        reference_no: string | null;
+        status: ProofStatus;
+        uploaded_at: string;
+        rejection_reason: string | null;
+        is_image: boolean;
+        url: string;
+    }[];
 }
 
 const proofStatus: Record<ProofStatus, { label: string; color: 'info' | 'success' | 'danger' }> = {
@@ -33,7 +43,7 @@ const proofStatus: Record<ProofStatus, { label: string; color: 'info' | 'success
     rejected: { label: 'Rejected', color: 'danger' },
 };
 
-/** One reservation, with the renter's contact details: the only landlord page that shows them (slice 3.2). */
+/** One reservation, with the renter's contact details (the only landlord page that shows them, slice 3.2) and their proofs of payment (opened through a signed URL, slice 5.3). */
 export default function Show({ reservation, place, renter, proofs }: ShowProps) {
     return (
         <LandlordLayout>
@@ -120,38 +130,41 @@ export default function Show({ reservation, place, renter, proofs }: ShowProps) 
                         <EmptyState Icon={Receipt}>The renter hasn't uploaded a proof of payment yet.</EmptyState>
                     </Card>
                 ) : (
-                    <>
-                        <Card className="table-card">
-                        <Table className="stack-table align-middle">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Uploaded</th>
-                                    <th scope="col">Amount</th>
-                                    <th scope="col">Reference number</th>
-                                    <th scope="col">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {proofs.map((proof) => (
-                                    <tr key={proof.id}>
-                                        <td data-label="Uploaded">{formatDateTime(proof.uploaded_at)}</td>
-                                        <td data-label="Amount">
-                                            <PriceTag centavos={proof.amount} />
-                                        </td>
-                                        <td data-label="Reference number">{proof.reference_no ?? 'Not given'}</td>
-                                        <td data-label="Status">
-                                            <Badge pill bg="" className={`status-badge status-badge--${proofStatus[proof.status].color}`}>
-                                                {proofStatus[proof.status].label}
-                                            </Badge>
-                                            {proof.rejection_reason && <span className="d-block small text-body-secondary">{proof.rejection_reason}</span>}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </Table>
-                        </Card>
-                        <p className="small text-body-secondary mt-2">You'll be able to open the uploaded file here soon.</p>
-                    </>
+                    <ul className="proof-list">
+                        {proofs.map((proof) => {
+                            const label = `Proof of payment from ${renter.name}, uploaded ${formatDateTime(proof.uploaded_at)}`;
+
+                            return (
+                                <li key={proof.id}>
+                                    <Card>
+                                        <Card.Body>
+                                            <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                                                <span className="fw-semibold">Uploaded {formatDateTime(proof.uploaded_at)}</span>
+                                                <Badge pill bg="" className={`status-badge status-badge--${proofStatus[proof.status].color}`}>
+                                                    {proofStatus[proof.status].label}
+                                                </Badge>
+                                            </div>
+                                            <dl className="details row">
+                                                <dt className="col-6 col-sm-4">Amount</dt>
+                                                <dd className="col-6 col-sm-8">
+                                                    <PriceTag centavos={proof.amount} />
+                                                </dd>
+                                                <dt className="col-6 col-sm-4">Reference number</dt>
+                                                <dd className="col-6 col-sm-8 text-break">{proof.reference_no ?? 'Not given'}</dd>
+                                                {proof.rejection_reason && (
+                                                    <>
+                                                        <dt className="col-sm-4">Why it was rejected</dt>
+                                                        <dd className="col-sm-8">{proof.rejection_reason}</dd>
+                                                    </>
+                                                )}
+                                            </dl>
+                                            <ProofViewer proof={proof} label={label} />
+                                        </Card.Body>
+                                    </Card>
+                                </li>
+                            );
+                        })}
+                    </ul>
                 )}
             </Container>
         </LandlordLayout>

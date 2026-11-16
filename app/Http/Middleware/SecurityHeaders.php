@@ -30,7 +30,11 @@ final class SecurityHeaders
         $response = $next($request);
 
         $headers = $response->headers;
-        $headers->set('Content-Security-Policy', $this->contentSecurityPolicy($nonce, $request->isSecure()));
+        // A response that sets its own policy keeps it: the payment proof download sends
+        // `Content-Security-Policy: sandbox` (slice 5.3), which is stricter for a file than the page policy.
+        if (! $headers->has('Content-Security-Policy')) {
+            $headers->set('Content-Security-Policy', $this->contentSecurityPolicy($nonce, $request->isSecure()));
+        }
         $headers->set('X-Frame-Options', 'DENY');
         $headers->set('X-Content-Type-Options', 'nosniff');
         $headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');

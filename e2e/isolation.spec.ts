@@ -113,7 +113,8 @@ test('Phase 3 demo: the owner sees the account\'s reservations, with the last-be
 test('Phase 3 demo: the caretaker sees the same reservations, but cannot change a rate or invite', async ({ browser, viewport }) => {
     const size = viewport ?? { width: 360, height: 800 };
     const owner = await loggedIn(browser, 'owner@example.com', size);
-    await owner.page.goto('/landlord/reservations');
+    // Confirmed ones: other specs running in parallel (the Phase 5 demo) add and cancel reservations on this account.
+    await owner.page.goto('/landlord/reservations?status=confirmed');
     const ownersFirstRow = await owner.page.locator('tbody tr').first().innerText();
     await owner.close();
 
@@ -126,7 +127,7 @@ test('Phase 3 demo: the caretaker sees the same reservations, but cannot change 
     await expect(menu.getByRole('link', { name: 'Members' })).toHaveCount(0);
     await expectCleanPage(caretaker);
 
-    await page.goto('/landlord/reservations');
+    await page.goto('/landlord/reservations?status=confirmed');
     expect(await page.locator('tbody tr').first().innerText()).toBe(ownersFirstRow);
     await expectCleanPage(caretaker);
 

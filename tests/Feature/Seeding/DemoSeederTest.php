@@ -282,7 +282,8 @@ it('produces the same business data every time', function (): void {
      */
     // Changed in 4.4: real barangays from the PSGC (the `barangay` column), and each property's city and barangay codes.
     // Every other column is what it was: the Faker stream is unchanged (one draw picks the barangay, as before).
-    $expected = 'f273877b70bb16930778af09903124e80f7cd780f06e92768970c351961655cd';
+    // Slice 5.3: payment_proofs gained mime_type ('image/jpeg' on every demo proof); nothing else changed.
+    $expected = '63411793d88e1208e8549e9caace0f350528bb7c6d466a4422093fb3e371a071';
 
     // Amenities are reference data with auto-increment ids, whose counter survives a
     // rolled-back test, so they are hashed by slug, not by id.

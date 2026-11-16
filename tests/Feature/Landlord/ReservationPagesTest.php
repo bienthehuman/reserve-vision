@@ -97,10 +97,11 @@ it('shows the renter\'s email and phone, the hold expiry and the proofs on the d
         ->where('renter', ['name' => 'Ana Contact', 'email' => 'contact@renter.test', 'phone' => '09171234567'])
         ->where('reservation.hold_expires_at', $reservation->hold_expires_at->toIso8601String())
         ->has('proofs', 2)
-        ->has('proofs.0', fn (AssertableInertia $proof) => $proof->hasAll(['id', 'amount', 'reference_no', 'status', 'uploaded_at', 'rejection_reason'])));
+        ->has('proofs.0', fn (AssertableInertia $proof) => $proof->hasAll(['id', 'amount', 'reference_no', 'status', 'uploaded_at', 'rejection_reason', 'is_image', 'url'])
+            ->where('url', fn (string $url): bool => preg_match('#^/proofs/\d+$#', $url) === 1)));
 
-    // No file access: the stored path is never sent.
-    expect($response->getContent())->not->toContain('secret-path')->not->toContain('proofs/');
+    // The stored path is never sent: only the /proofs/{id} link, which checks who asks (slice 5.3).
+    expect($response->getContent())->not->toContain('secret-path')->not->toContain('proofs/proofs');
 })->with([LandlordRole::Owner, LandlordRole::Caretaker]);
 
 it('puts contact details on no other landlord page', function (): void {

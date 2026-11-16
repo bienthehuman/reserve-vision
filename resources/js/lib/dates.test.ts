@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDateTime } from './dates';
+import { formatDate, formatDateTime, formatHoldEnd, formatTimeLeft } from './dates';
 
 describe('formatDate', () => {
     it('shows a calendar date without shifting it by the local timezone', () => {
@@ -12,5 +12,29 @@ describe('formatDateTime', () => {
     it('shows an instant in Manila time', () => {
         // 02:00 UTC is 10:00 in Manila (UTC+8, no daylight saving).
         expect(formatDateTime('2026-11-16T02:00:00+00:00')).toMatch(/^Nov 16, 2026, 10:00\sAM$/);
+    });
+});
+
+describe('formatHoldEnd', () => {
+    it('shows the time, weekday, day and month in Manila time', () => {
+        // 07:40 UTC is 3:40 PM in Manila.
+        expect(formatHoldEnd('2026-11-16T07:40:00+00:00')).toMatch(/^3:40\sPM, Mon 16 Nov$/);
+        // Past midnight in Manila is already the next day.
+        expect(formatHoldEnd('2026-11-16T16:30:00+00:00')).toMatch(/^12:30\sAM, Tue 17 Nov$/);
+    });
+});
+
+describe('formatTimeLeft', () => {
+    it('speaks in hours, then minutes, rounding up', () => {
+        const minute = 60_000;
+        expect(formatTimeLeft(23 * 60 * minute + 30 * minute)).toBe('23 hours');
+        expect(formatTimeLeft(2 * 60 * minute)).toBe('2 hours');
+        expect(formatTimeLeft(65 * minute)).toBe('1 hour and 5 minutes');
+        expect(formatTimeLeft(61 * minute)).toBe('1 hour and 1 minute');
+        expect(formatTimeLeft(60 * minute)).toBe('1 hour');
+        expect(formatTimeLeft(10 * minute)).toBe('10 minutes');
+        expect(formatTimeLeft(1)).toBe('1 minute');
+        expect(formatTimeLeft(0)).toBeNull();
+        expect(formatTimeLeft(-5)).toBeNull();
     });
 });

@@ -44,11 +44,17 @@ use App\Http\Controllers\Listings\ShowListing;
 use App\Http\Controllers\Listings\ShowRobots;
 use App\Http\Controllers\Listings\ShowSitemap;
 use App\Http\Controllers\Media\ShowLocalPhoto;
+use App\Http\Controllers\Proofs\DownloadProof;
+use App\Http\Controllers\Proofs\ShowProof;
+use App\Http\Controllers\Reservations\CancelReservationController;
+use App\Http\Controllers\Reservations\ListOwnReservations;
 use App\Http\Controllers\Reservations\ShowReservation;
+use App\Http\Controllers\Reservations\StorePaymentProof;
 use App\Http\Controllers\Reservations\StoreReservation;
 use App\Http\Controllers\Rooms\RedirectRoom;
 use App\Http\Controllers\StyleguideController;
 use App\Http\Middleware\ExposeRequestTiming;
+use App\Http\Middleware\KeepReservationIntent;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
@@ -77,12 +83,23 @@ Route::get('/rooms/{room}', RedirectRoom::class)->whereNumber('room')->name('roo
 Route::middleware(['auth', 'verified', 'renter'])->group(function (): void {
     Route::post('/rooms/{room}/reservations', StoreReservation::class)
         ->whereNumber('room')
+        // KeepReservationIntent runs before `auth` (bootstrap/app.php): a guest comes back to the room with the stay.
         // ExposeRequestTiming is a no-op unless CONCURRENCY_PROBE (never in production).
-        ->middleware(['throttle:reservations', ExposeRequestTiming::class])
+        ->middleware([KeepReservationIntent::class, 'throttle:reservations', ExposeRequestTiming::class])
         ->name('rooms.reservations.store');
 
+    // Slice 5.3: my reservations, the hold page, sending a proof, cancelling. Another renter's reservation is a 404.
+    Route::get('/reservations', ListOwnReservations::class)->name('reservations.index');
     Route::get('/reservations/{reservation}', ShowReservation::class)->whereNumber('reservation')->name('reservations.show');
+    Route::post('/reservations/{reservation}/proofs', StorePaymentProof::class)->whereNumber('reservation')->name('reservations.proofs.store');
+    Route::post('/reservations/{reservation}/cancel', CancelReservationController::class)->whereNumber('reservation')->name('reservations.cancel');
 });
+
+// Payment proofs (slice 5.3, docs/ACCESS.md "Private files"). The renter whose proof it is and the members of
+// its account open `/proofs/{proof}`, which checks the policy and redirects to a signed URL valid 5 minutes for
+// that user only. The file route has no `auth` middleware on purpose: a guest gets 403 there, not a login page.
+Route::get('/proofs/{proof}', ShowProof::class)->whereNumber('proof')->middleware(['auth', 'verified'])->name('proofs.show');
+Route::get('/proofs/{proof}/file', DownloadProof::class)->whereNumber('proof')->middleware('signed:relative')->name('proofs.file');
 
 // An invitation link from an email (slice 4.3). Public: the token is the key, stored only as a hash, and
 // a link that can't be used gets one neutral page. Rate limited per IP (AppServiceProvider), so tokens can't

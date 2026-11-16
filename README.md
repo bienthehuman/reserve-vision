@@ -2,7 +2,7 @@
 
 Multi-landlord reservations for apartments and boarding-house beds, with a guarantee that no space is ever double-booked.
 
-> 🚧 Proof of concept: the reservation engine and landlord isolation are built and tested (the PoC gate, slice 3.2). Listings, search and the renter flow are still to come. See the [build plan](docs/BUILD_PLAN.md).
+> 🚧 In progress: the reservation engine, landlord isolation, the landlord pages, listings, search and the renter flow (reserve, proof of payment, cancel) are built and tested. Landlord decisions on proofs and the emails come next. See the [build plan](docs/BUILD_PLAN.md).
 
 [![Tests (MySQL 8.4)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml)
 [![Tests (MariaDB 11.4)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml)
@@ -29,7 +29,7 @@ Each guarantee links to the test that proves it (links filled in as the tests la
 | A landlord can't see or probe another landlord's data, on any route; a caretaker can't change rates or invite | [T6](tests/Feature/Isolation/T6CrossAccessTest.php) (generated over every `landlord` and `renter` route: 404, no data, nothing changed), [T7](tests/Feature/Isolation/T7RoleLimitsTest.php) (caretaker gets 403, no audit row), and the [phase 3 demo](e2e/isolation.spec.ts) |
 | An invitation link joins exactly one person, and an account never loses its last owner, even under simultaneous requests | [Accept race and remove race](tests/Concurrency/MembersRaceTest.php) (3 sign-ups through one link; 2 owners removing each other), [token guessing](tests/Feature/Invitations/AcceptInvitationTest.php) (one neutral page, rate limited), and the [phase 4 demo](e2e/landlord-phase4.spec.ts) |
 | Search only shows beds that are really free, by the same definition the booking uses | [T10](tests/Feature/Search/T10AvailabilityTest.php) (the query against a brute-force check over a grid of dates, lengths and prices, edge reservations included; the number of combinations is printed), and the query's [`EXPLAIN` and timing](docs/perf/availability-query.md) |
-| Payment proofs are private; links are short-lived and bound to one user | T9 |
+| Payment proofs are private; links are short-lived and bound to one user | [T9](tests/Feature/Proofs/T9SignedProofUrlTest.php) (a signed link used by another renter, another account, a guest, after 5 minutes, tampered with, or after the viewer lost access: 403 or 404, never the bytes), and the [phase 5 demo](e2e/renter-phase5.spec.ts) |
 
 T2 on the dev stack: six renters' requests are all inside the server at once; the room lock lets them through one at a time, so four get beds A to D and two are told there's no space. Each bar is one request, by the server's clock. Run it yourself with `docker compose exec app composer test:concurrency`.
 

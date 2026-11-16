@@ -7,6 +7,7 @@ use App\Enums\GenderPolicy;
 use App\Enums\LandlordRole;
 use App\Enums\PaymentProofStatus;
 use App\Enums\PhotoStatus;
+use App\Enums\ProofFileType;
 use App\Enums\PropertyKind;
 use App\Enums\ReservationStatus;
 use App\Enums\RoomType;
@@ -30,6 +31,7 @@ function enumChecks(): array
         'rooms.room_type' => ['rooms_room_type_valid', RoomType::class],
         'reservations.status' => ['reservations_status_valid', ReservationStatus::class],
         'payment_proofs.status' => ['payment_proofs_status_valid', PaymentProofStatus::class],
+        'payment_proofs.mime_type' => ['payment_proofs_mime_type_valid', ProofFileType::class],
         'viewing_requests.status' => ['viewing_requests_status_valid', ViewingRequestStatus::class],
         'cities.kind' => ['cities_kind_valid', CityKind::class],
     ];
@@ -43,7 +45,7 @@ function checkConstraintValues(string $constraint): array
         [$constraint],
     );
 
-    preg_match_all("/'([a-z_]+)\\\\?'/", $row->clause ?? '', $matches);
+    preg_match_all("/'([a-z_\/]+)\\\\?'/", $row->clause ?? '', $matches);
 
     sort($matches[1]);
 

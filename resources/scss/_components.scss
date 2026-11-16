@@ -1478,3 +1478,68 @@ $rv-swatches: (
 .sticky-reserve-spacer {
   height: 5rem;
 }
+
+// The hold page's countdown (slice 5.3): an hourglass beside one or two lines, on the warning tint
+// of the "On hold" badge, so the deadline reads first.
+.hold-countdown {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    color: var(--bs-warning-text-emphasis);
+    background: var(--bs-warning-bg-subtle);
+    border-radius: var(--bs-border-radius);
+
+    .text-body-secondary {
+        color: inherit !important;
+    }
+}
+
+.hold-countdown__icon {
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+}
+
+// A payment proof (slice 5.3): the image inline, at most as tall as a phone screen's half, and a
+// hint under it that tapping opens it full size.
+.proof-viewer {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 100%;
+    color: var(--bs-primary);
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover .proof-viewer__hint {
+        text-decoration: underline;
+    }
+}
+
+.proof-viewer__image {
+    display: block;
+    max-width: 100%;
+    max-height: 22rem;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    background: var(--bs-secondary-bg-subtle);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+}
+
+.proof-viewer__hint {
+    display: inline-flex;
+    gap: 0.375rem;
+    align-items: center;
+}
+
+// The renter's proofs on the hold page, and the landlord's on a reservation: one card each.
+.proof-list {
+    display: grid;
+    gap: 1rem;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}

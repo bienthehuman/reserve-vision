@@ -331,6 +331,39 @@ Tests: `tests/Feature/Listings/` (`ListingPageTest`, `ListingSeoTest`, `SitemapA
 
 Tests also in `tests/Feature/Search/SearchTest.php`. E2E: [e2e/search.spec.ts](e2e/search.spec.ts) (both viewports, no JavaScript, axe). `bin/smoke-production` checks `/listings?city=manila`.
 
+### Proofs and renter flow (slice 5.3)
+
+[docs/ACCESS.md](docs/ACCESS.md#private-files) is the spec for proofs (upload checks, the two routes, the headers, why streaming); [docs/RESERVATIONS.md](docs/RESERVATIONS.md#over-http-slice-25) has the renter routes and the cancel guard.
+
+| Piece | Where |
+| --- | --- |
+| Reserve intent | `App\Http\Middleware\KeepReservationIntent` on `rooms.reservations.store`, before `auth` in the priority list (`bootstrap/app.php`): a guest (→ `/login`) or an unverified renter (→ `/email/verify`) gets `url.intended` = the room on its listing, `?move_in=&months=#room-<id>`. `LoginResponse` answers an Inertia login whose target has a `#` with `Inertia::location()` (409 + `X-Inertia-Location`, a full page load) so the anchor survives |
+| Hold page | `Reservations\ShowReservation` → `Pages/Reservations/Show.tsx`: `HoldCountdown`, payment instructions (live hold only), landlord name + `contact_phone`, the proof form (a plain multipart form with `_token`, enhanced by Inertia's `useForm` + `forceFormData`), proof cards with `ProofViewer`, Cancel (`ConfirmButton` quoting `house_rules`). `Reservation::shownStatus()` shows a held-but-expired hold as `expired` |
+| My reservations | `Reservations\ListOwnReservations` (`/reservations`, `reservations.index`): current = `blocking()`, then past, 10 a page. "My reservations" in `UserMenu` for renters |
+| Upload | `StorePaymentProofRequest` (finds the renter's own reservation in `authorize()`, so another renter's id is 404 before validation; `amount` via `Pesos`, `reference_no` ≤ 64) → `UploadPaymentProof` (lock the reservation row, `assertCanMoveTo(ProofUploaded)`, write the original bytes to `proofs/<uuid>.<ext>`, insert `pending`, move the reservation; the file is deleted if the insert fails). No audit row (renter action) |
+| File checks | `App\Rules\PaymentProofFile` + `App\Support\Proofs\ProofFileInspector`: `detect()` by magic bytes, `reads()` (images through `PhotoProcessor::probe/decodes`, PDFs through `pdfPageCount()`: `%PDF-`, `%%EOF` in the last 1 KB, no `/Encrypt`, `/Type /Page` objects counted in the file and inside `/ObjStm` FlateDecode streams, inflated with a 20 MB cap). `App\Enums\ProofFileType` (= `payment_proofs.mime_type`, CHECKed) |
+| Cancel | `CancelReservation` (lock, `assertCanMoveTo(Cancelled)`, `cancelled_by`/`cancelled_at`). `assertCanMoveTo()` now also refuses `confirmed` → `cancelled` from the move-in date (`InvalidTransition::stayStarted()`), for 6.1's withdraw too |
+| Proof routes | `Proofs\ShowProof` (`/proofs/{proof}`, `auth` + `verified`, policy, redirect to `URL::temporarySignedRoute('proofs.file', 5 min, [proof, user], absolute: false)`) and `Proofs\DownloadProof` (`/proofs/{proof}/file`, `signed:relative`, **no `auth`**: a guest is a 403; user check, policy again, `response()->stream()` from the disk). `SecurityHeaders` keeps a CSP the response set itself (the download's `sandbox`) |
+| Landlord | `ViewReservation` sends `is_image` and `url` per proof; `Pages/Landlord/Reservations/Show.tsx` shows proof cards with `ProofViewer` |
+| Demo data | `DemoSeeder::writeProofFiles()` paints the nine `proofs/demo/placeholder-N.jpg` the demo proofs point at (`Database\Seeders\Demo\DemoReceiptPainter`); `e2e/fixtures/receipt.jpg` is placeholder 4 |
+
+**T6** now also walks every route behind `auth` or `signed` that is neither a landlord nor a renter route (today `proofs.show` and `proofs.file`), in both contexts; `T6_NOT_RECORD_ROUTES` excludes `verification.verify`. A signed route gets a valid signature for the actor from `t6Url()`. **T7** walks every renter write route as owner and caretaker (403, nothing changed). **T9**: [tests/Feature/Proofs/T9SignedProofUrlTest.php](tests/Feature/Proofs/T9SignedProofUrlTest.php). Other tests: `tests/Feature/Proofs/` (upload, inspector), `tests/Feature/Reservations/{CancelReservationTest,RenterPagesTest}.php`, T5's upload case in `ExpiredHoldTest`. Helpers in `tests/Pest.php`: `pdfBytes($pages, $objectStreams)`, `proofUpload()`, `liveHold($renter, $room)`, `proofForm()`. Vitest: `HoldCountdown.test.tsx`, `ProofViewer.test.tsx`, `lib/dates.test.ts` (`formatHoldEnd`, `formatTimeLeft`). Phase 5 demo: [e2e/renter-phase5.spec.ts](e2e/renter-phase5.spec.ts) (phone only; renter2 on the owner's Magno Rooms for Rent and Villanueva Dormitory; cancels renter2's leftovers first, so reruns work).
+
+### Quirks hit in 5.3
+
+- **The proof file route must not have `auth`**: `auth` would send a guest to `/login` (and keep the signed URL as the intended page); the controller answers 403 instead.
+- **A user model reused across test requests keeps its cached membership** (`LandlordMembership::of()` caches on the `landlordMember` relation): after removing a member, act as `$user->fresh()`, as the next real request would.
+- **`actingAs($user)->get(helper())` runs `actingAs` first**: a helper that calls `forgetGuards()` inside the argument logs the test out again. Compute the URL first.
+- **Inertia follows redirects by XHR, which drops the `#fragment`**: hence `Inertia::location()` in `LoginResponse`. Chrome logs its `409` as "Failed to load resource", so the phase 5 demo filters that one line.
+- **`$request->input('months')` is an `int` in Pest posts** and a string from a browser: the intent middleware accepts both.
+- **React SSR writes `encType`** (camelCase, like `fetchPriority`): match `/enctype/i`.
+- **`Constraints::in()` accepts MIME types** (`image/jpeg`) now, and `EnumChecksTest` reads values with a `/`.
+- **SSR splits dynamic text with `<!-- -->`**: strip it before matching a sentence with a value in it (the countdown).
+- **Larastan rejects a regex with `{0,2000}` around a lookahead** ("regular expression is too large"): the PDF inspector finds object streams with `strpos` instead.
+- **Two "Villanueva Dormitory" in Baguio** (accounts 1 and 2): the e2e picks the owner's by its link, `/listings/baguio/villanueva-dormitory`.
+- **The Phase 5 demo touches the demo owner's reservations while other specs run**: the Phase 3 caretaker test now compares the `?status=confirmed` list, which nothing in e2e changes. And renter2 never holds two open reservations at once, or the Phase 2 demo's renter2 would hit the limit instead of "no space".
+- **A local 6-worker e2e run overloads a 7 GB machine** (timeouts all over): `npx playwright test --workers=2`.
+
 ### Quirks hit in 5.2
 
 - **T10 takes about 60 s on MySQL but 9 s on MariaDB**: inside the test transaction the freshly filled tables have no InnoDB statistics, so the same queries take 40 ms instead of 2 ms (dev data). Don't judge the plan from a test.

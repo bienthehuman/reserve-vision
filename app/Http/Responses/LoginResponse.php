@@ -6,6 +6,7 @@ namespace App\Http\Responses;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -24,6 +25,14 @@ final class LoginResponse implements LoginResponseContract
         /** @var User $user */
         $user = $request->user();
 
-        return redirect()->intended($user->homePath());
+        $redirect = redirect()->intended($user->homePath());
+
+        // A page to come back to with a #fragment (the room on a listing page, slice 5.3): an Inertia visit follows
+        // redirects by XHR, which drops fragments, so the browser is sent there with a full page load instead.
+        if ($request->hasHeader('X-Inertia') && str_contains($redirect->getTargetUrl(), '#')) {
+            return Inertia::location($redirect->getTargetUrl());
+        }
+
+        return $redirect;
     }
 }
