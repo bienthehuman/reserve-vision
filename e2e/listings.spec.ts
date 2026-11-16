@@ -97,7 +97,10 @@ test('the last-bed listing: gallery, details, rooms and the sticky bar on phones
 
     // The old room URL lands on the room's anchor.
     await page.goto('/rooms/1?move_in=2031-01-01&months=3');
-    await expect(page).toHaveURL(/\/listings\/manila\/santos-bedspace-house\?move_in=2031-01-01&months=3#room-1$/);
+    await expect(page).toHaveURL(/\/listings\/manila\/santos-bedspace-house\?.*#room-1$/);
+    const landed = new URL(page.url());
+    expect(landed.searchParams.get('move_in')).toBe('2031-01-01');
+    expect(landed.searchParams.get('months')).toBe('3');
 
     await page.goto(LAST_BED_LISTING);
     await page.waitForLoadState('networkidle');
