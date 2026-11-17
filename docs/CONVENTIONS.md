@@ -24,8 +24,9 @@ A PR merges only when every one of these checks is green (the CI workflows are d
 | `MySQL 8.4 / Concurrency` | Tests (MySQL 8.4) | T1, T2, T8b, archive-versus-reserve, (4.3) three accepts of one invitation link and two owners removing each other, and (6.1) confirm versus decline and confirm versus the renter's cancel: real parallel HTTP against a 16-thread FrankenPHP server, 3–6 rounds each, every race proven to overlap inside the server |
 | `MariaDB 11.4 / Concurrency` | Tests (MariaDB 11.4) | The same on MariaDB |
 | `Pint + Larastan` | Quality | Code style, static analysis at max level |
-| `TypeScript + Vitest + build` | Quality | `tsc --noEmit`, Vitest, production build (client + SSR), CSS budget |
-| `Playwright + axe` | E2E | Smoke and accessibility on the dev stack, phone and desktop |
+| `TypeScript + Vitest + build` | Quality | `tsc --noEmit`, Vitest, production build (client + SSR), CSS budget, JavaScript budget (entry chunk and the listing page) |
+| `Playwright + axe` | E2E | Smoke and accessibility on the dev stack, phone and desktop, including the sweep that runs axe on every page route for every actor (`e2e/a11y-sweep.spec.ts`; an unmapped GET route fails it) |
+| `Lighthouse (mobile)` | Production | Lighthouse CI against the production stack: mobile preset, 3 runs per page on four pages, assertions on Accessibility, Best Practices, SEO, CLS and Performance; scores in the job summary, reports as an artifact |
 | `Production stack` | Production | Production image and `compose.prod.yaml` via `deploy.sh`, `app:doctor`, HTTP smoke test, Playwright + axe against it ([ADR 0007](adr/0007-deployable-not-hosted.md)) |
 
 A failing check is fixed in the PR, not skipped or retried until it passes.

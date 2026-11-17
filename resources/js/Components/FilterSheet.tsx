@@ -203,13 +203,23 @@ export default function FilterSheet({ values: initial, options, window: bookingW
     );
 
     if (!enhanced) {
+        // Server HTML and the first client render. Below `lg` the panel starts collapsed behind a label that looks like the
+        // hydrated "Filters" button (same height), opened by a visually hidden checkbox, so it works without JavaScript and
+        // nothing below it moves when the page hydrates (a form thousands of pixels tall turning into a button was a CLS of 0.66).
         return (
-            <section className="filter-panel card card-body" aria-labelledby="filters-title">
-                <h2 id="filters-title" className="h5">
-                    Filters
-                </h2>
-                {body}
-            </section>
+            <>
+                <input type="checkbox" id="filters-open" className="filter-open visually-hidden d-lg-none" aria-controls="filters-panel" />
+                <label htmlFor="filters-open" className="btn btn-outline-primary d-lg-none filter-toggle">
+                    <Sliders aria-hidden="true" focusable="false" />
+                    {active > 0 ? `Filters (${active})` : 'Filters'}
+                </label>
+                <section id="filters-panel" className="filter-panel filter-panel--static card card-body" aria-labelledby="filters-title">
+                    <h2 id="filters-title" className="h5">
+                        Filters
+                    </h2>
+                    {body}
+                </section>
+            </>
         );
     }
 

@@ -21,15 +21,16 @@ export interface ListingCardData {
 }
 
 /** A property in a list: cover thumbnail (4:3, lazy), name, place, from-price and the two chips. The whole card is one link. */
+/** `priority` is for the first card on a page: it is usually the largest thing on screen, so it loads at once with high priority instead of lazily. */
 /** `level` is the heading the name is: 3 under a section heading (the home page), 2 directly under the page's h1 (the list). */
-export default function ListingCard({ listing, level = 3, from = null }: { listing: ListingCardData; level?: 2 | 3; from?: string | null }) {
+export default function ListingCard({ listing, level = 3, from = null, priority = false }: { listing: ListingCardData; level?: 2 | 3; from?: string | null; priority?: boolean }) {
     const { cover } = listing;
     const Heading = level === 2 ? 'h2' : 'h3';
 
     return (
         <article className="listing-card card h-100">
             {cover ? (
-                <img className="listing-card__photo card-img-top" src={cover.src} width={cover.width} height={cover.height} alt={cover.alt} loading="lazy" />
+                <img className="listing-card__photo card-img-top" src={cover.src} width={cover.width} height={cover.height} alt={cover.alt} loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : undefined} decoding={priority ? undefined : 'async'} />
             ) : (
                 <div className="listing-card__photo listing-card__photo--empty card-img-top" aria-hidden="true">
                     <Image focusable="false" />

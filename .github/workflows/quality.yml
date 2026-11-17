@@ -74,3 +74,6 @@ jobs:
 
       - name: CSS budget (35 KB gzipped)
         run: node bin/check-css-budget.mjs
+
+      - name: JavaScript budget (entry chunk and the listing page, gzipped)
+        run: node bin/check-js-budget.mjs

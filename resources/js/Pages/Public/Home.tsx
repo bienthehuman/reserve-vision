@@ -16,7 +16,9 @@ export default function Home({ pitch, cities, window, featured }: HomeProps) {
 
     return (
         <PublicLayout>
-            <Head title="Find a room or a bed" />
+            <Head title="Find a room or a bed">
+                <meta head-key="description" name="description" content={pitch} />
+            </Head>
             <section className="hero py-5" aria-labelledby="hero-title">
                 <Container>
                     <h1 id="hero-title" className="display-1 mb-3">
@@ -75,9 +77,9 @@ export default function Home({ pitch, cities, window, featured }: HomeProps) {
                             </Link>
                         </div>
                         <Row as="ul" className="g-3 list-unstyled mb-0">
-                            {featured.map((listing) => (
+                            {featured.map((listing, index) => (
                                 <Col as="li" key={listing.id} xs={12} sm={6} lg={4}>
-                                    <ListingCard listing={listing} />
+                                    <ListingCard listing={listing} priority={index === 0} />
                                 </Col>
                             ))}
                         </Row>

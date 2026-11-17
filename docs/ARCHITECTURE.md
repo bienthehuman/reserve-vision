@@ -84,6 +84,21 @@ Controllers don't touch the query builder for writes. Actions don't know about H
 
 **Deployable, not hosted** ([ADR 0007](adr/0007-deployable-not-hosted.md)). On every PR to `main`, CI builds the production image, boots `compose.prod.yaml` with `deploy.sh`, runs migrations as `migrator`, runs `php artisan app:doctor`, and seeds the demo data (`APP_DEMO=true`, throwaway env only), smoke-tests the home and login pages over HTTP (SSR, security headers, session cookie flags, no dev pages) and logs in as a demo owner with a CSRF token, then runs the Playwright + axe suite against it. A public listing page (200 with its title in the raw HTML) and `sitemap.xml` (lists it) are in the smoke test since slice 5.1. The deploy path is proven continuously even without a live host.
 
+## Budgets and measurements (slice 7.2)
+
+Three numbers fail CI when they get worse, plus a Lighthouse run against the production stack. Details and the history: [perf/lighthouse.md](perf/lighthouse.md).
+
+| What | Limit | Where it's checked |
+| --- | --- | --- |
+| `app.css` | 35 kB gzipped | `bin/check-css-budget.mjs`, Quality workflow |
+| Entry chunk (`app.js`: React DOM, Inertia) | 118.9 kB gzipped (113.21 kB at 7.2, +5 %) | `bin/check-js-budget.mjs`, Quality workflow |
+| Listing page (`Pages/Listings/Show.tsx` and the chunks it imports beyond the entry) | 23.7 kB gzipped (22.57 kB at 7.2, +5 %) | `bin/check-js-budget.mjs`, Quality workflow |
+| Lighthouse, mobile (simulated slow 4G), median of 3 runs, on `/`, `/listings?city=manila`, the last-bed listing and `/login` | Accessibility 100, Best Practices ≥ 95, SEO ≥ 95 (not `/login`, which is `noindex`), CLS ≤ 0.1, Performance ≥ 90 | `lighthouserc.cjs` and `lighthouse-thresholds.cjs`, the `Lighthouse (mobile)` job of the Production workflow |
+
+The entry chunk is the framework floor: react-dom (208 kB raw) and Inertia with its dependencies (about 138 kB raw) are 95 % of it, and nothing else rides in it (icons, Downshift, date helpers and every page are separate chunks). Raising a limit is a decision, said in the PR.
+
+Built assets (`/build/assets/*`, content-hashed) are served by Caddy with `Cache-Control: public, max-age=31536000, immutable`; `bin/smoke-production` checks it. Every GET route is covered by the accessibility sweep ([perf/accessibility.md](perf/accessibility.md)).
+
 ## Production constraints from the first slice
 
 - **Least-privilege database users** ([ADR 0008](adr/0008-least-privilege-database-users.md)). Tests run as `app` too, so a missing grant fails in CI, not in production.

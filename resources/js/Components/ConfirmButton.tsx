@@ -103,6 +103,7 @@ export default function ConfirmButton({
                 variant={tone === 'danger' ? 'outline-danger' : 'outline-primary'}
                 aria-label={accessibleName}
                 aria-describedby={describedBy}
+                aria-haspopup="dialog"
                 disabled={disabled}
                 onClick={() => setConfirming(true)}
             >

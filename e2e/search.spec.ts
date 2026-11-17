@@ -100,6 +100,11 @@ test.describe('without JavaScript', () => {
 
     test('the filters are a plain GET form that narrows the results', async ({ page }) => {
         await page.goto('/listings?province=metro-manila');
+        // On a phone the filters start collapsed behind a label (a visually hidden checkbox opens it, no script needed).
+        const toggle = page.locator('label.filter-toggle');
+        if (await toggle.isVisible()) {
+            await toggle.click();
+        }
         await page.getByLabel('City or municipality').selectOption('quezon-city');
         await page.getByLabel('Highest monthly price in pesos').fill('20000');
         await page.getByRole('button', { name: 'Show places' }).click();
