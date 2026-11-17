@@ -20,7 +20,7 @@ flowchart LR
 | --- | --- | --- |
 | Runtime | PHP 8.4 on FrankenPHP 1.13 (Docker image `dunglas/frankenphp:1.13-php8.4-bookworm`), Node 24 LTS | slice 1.1 |
 | App | Laravel 13, Inertia 3 (inertia-laravel 3.7, @inertiajs/react 3.11), React 19.3, TypeScript 7.0 (`strict`), Vite 8 | slice 1.1 |
-| Rendering | Inertia SSR for public pages (listings, search, home); client-only for authenticated dashboards. In dev the Vite dev server renders through `@inertiajs/vite` (`/__inertia_ssr`); in production `vite build --ssr` + `php artisan inertia:start-ssr`. Pages are code-split (`import.meta.glob`, not eager). Public pages since 5.1: home (`/`), the listing list (`/listings`) and the listing page (`/listings/{city}/{slug}`) are server-rendered, carry their own `<head>` (title, description, canonical, Open Graph, JSON-LD) in the SSR HTML, and work without JavaScript (the listing's reserve buttons are plain form posts with a `_token`). Pages that send a session cookie aren't cached by anything but the browser; the one cached response is `/sitemap.xml` (Laravel's cache, an hour, forgotten after commit whenever a property or a landlord account is saved), and `/robots.txt` is a route, not a file, so non-production environments can disallow everything | slice 1.1, 5.1 |
+| Rendering | Inertia SSR for every page (the plan was client-only rendering for the logged-in pages, but SSR was never switched off per page: [ADR 0002](adr/0002-inertia-monolith.md#update-2026-11-17-as-built-in-v1)). In dev the Vite dev server renders through `@inertiajs/vite` (`/__inertia_ssr`); in production `vite build --ssr` + `php artisan inertia:start-ssr`. Pages are code-split (`import.meta.glob`, not eager). Public pages since 5.1: home (`/`), the listing list (`/listings`) and the listing page (`/listings/{city}/{slug}`) are server-rendered, carry their own `<head>` (title, description, canonical, Open Graph, JSON-LD) in the SSR HTML, and work without JavaScript (the listing's reserve buttons are plain form posts with a `_token`). Pages that send a session cookie aren't cached by anything but the browser; the one cached response is `/sitemap.xml` (Laravel's cache, an hour, forgotten after commit whenever a property or a landlord account is saved), and `/robots.txt` is a route, not a file, so non-production environments can disallow everything | slice 1.1, 5.1 |
 | Styling | Bootstrap 5.3.9 via Sass with only the partials we use, React-Bootstrap 2.10, react-bootstrap-icons 1.11, a custom theme through Sass variables. See [ADR 0006](adr/0006-bootstrap-over-utility-first.md) | slice 1.1 |
 | Database | MySQL 8.4 LTS (8.4.13 in dev; primary), MariaDB 11.4 LTS in the CI matrix | slice 1.1 |
 | Queue | Laravel database driver | slice 1.1 |
@@ -46,9 +46,9 @@ app/
   Models/             Eloquent models, scopes, casts. No business logic
   Models/Concerns/    BelongsToLandlordAccount (global scope + creating hook)
   Policies/           every authorization rule
-  Support/            CurrentLandlordAccount, Money
+  Support/            CurrentLandlordAccount, BusinessDate, AuditLogger, Pesos, and per-area helpers (Listings/, Search/, Places/, Mail/…)
 resources/js/
-  Pages/              Inertia pages: Public/, Renter/, Landlord/
+  Pages/              Inertia pages by area: Public/, Listings/, Reservations/, Viewings/, Landlord/, Auth/, Invitations/…
   Components/
 resources/scss/       theme variables + the Bootstrap partials we import
 ```

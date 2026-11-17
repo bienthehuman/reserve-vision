@@ -1,0 +1,18 @@
+# Link check for the Markdown in the repo (slice 7.3): .github/workflows/links.yml, `make links`.
+# Offline: only links inside the repository (files and #fragments), so the check is fast and never flaky.
+# External URLs (GitHub, Wikimedia Commons, the PSA) are left to the reader; they are excluded, not checked.
+offline = true
+include_fragments = "anchor-only"
+no_progress = true
+exclude_path = [
+    "node_modules",
+    "vendor",
+    "prompts",
+    "test-results",
+    "playwright-report",
+    "storage",
+    "public",
+    ".lighthouseci",
+    # The ADR template's "Superseded by [NNNN](NNNN-...)" is a placeholder, not a link.
+    "docs/adr/0000-template.md",
+]

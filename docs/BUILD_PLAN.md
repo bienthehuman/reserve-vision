@@ -89,18 +89,21 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | 6.3 | Jobs + email | `ExpireHolds`, `EndStays`, proof reminders, every status email (Markdown mailables); T12 on a mobile viewport |
 | — | **Phase demo** | Full T12 Playwright run as each role; tag `v1.0.0-rc`. **Done in 6.3** (`e2e/t12-full-flow.spec.ts`, both stacks); the tag follows the merge |
 
-### Phase 7: Ship (batch 7). Tag `v1.0.0`
+### Phase 7: Ship (batch 7). Tag `v1.0.0`. **Done**
 
 | # | Slice | Definition of done |
 | --- | --- | --- |
 | 7.1 | CC0 demo photos | ~24 public-domain interior photos with recorded sources, seeded through the photo pipeline |
 | 7.2 | Performance + accessibility | Lighthouse (mobile) in CI with assertions and recorded scores; axe on every page, generated from the route list; JS budget |
 | 7.3 | README, ADRs, release | README (pitch, GIF, diagram, Guarantees linked to tests, Origins, Out of scope), ADRs reviewed and Accepted, backlog groomed; tag `v1.0.0` |
+| — | **Phase demo** | **Done in 7.3**: the README's renter-flow GIF, recorded by a script against the production stack (`make media`); every check green; tag `v1.0.0` after the merge |
 
 ## Decisions log
 
 | Date | Decision | Where |
 | --- | --- | --- |
+| 2026-11-17 | Release `v1.0.0` after slice 7.3: every phase done, the ADRs reviewed against the code and Accepted (dated updates where reality changed), ADRs 0009–0013 written for decisions made during the build, the backlog groomed | [adr/README.md](adr/README.md) |
+| 2026-11-17 | The README GIF is recorded by a script (`e2e/media/renter-flow.ts`, `make media`) against the production stack, not by hand, so it can be re-recorded after UI changes | [CLAUDE.md](../CLAUDE.md#readme-media-slice-73) |
 | 2026-11-17 | Phase 7 is three slices (7.1 CC0 photos, 7.2 performance and accessibility, 7.3 README and release). Real CC0 / public-domain photos replace the generated ones; each is recorded with its source page, author and licence, and the licence is checked against an allowlist by a test | [CREDITS.md](../database/data/demo-photos/CREDITS.md) |
 | 2026-11-17 | No demo video: the README GIF and the T2 clip are enough | this file |
 | 2026-11-17 | The README's "Next" heading becomes "Out of scope" | this file |
@@ -109,7 +112,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | 2026-11-14 | Design system: ube primary (also prices), mango highlight, Plus Jakarta Sans headings; hue chosen to differ from Hilom/PesoTrack teal and the portfolio's orange, light mode only in v1 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
 | 2026-11-17 | Slice 6.1: landlord decisions take only the reservation row lock (no landlord move makes a free space blocked, so the room lock isn't needed); a decline rejects the pending proof with the decline reason; an undo clears `decided_by`/`decided_at`; every time guard lives in `Reservation::assertCanMoveTo()` | [RESERVATIONS.md](RESERVATIONS.md#transition-table) |
 | 2026-11-17 | Slice 5.3: payment proofs are streamed through PHP after three checks (signature and expiry, the logged-in user named in the URL, the policy again), never served by S3 pre-signed URLs; the bucket stays unreachable from outside. Proofs are kept byte for byte (no re-encoding) and judged by content; the download carries `Content-Security-Policy: sandbox` | [ACCESS.md](ACCESS.md#private-files) |
-| 2026-11-17 | No map in v1: the listing shows the address and an "Open in Maps" link that searches the address text. No map script, tiles or coordinates | [ARCHITECTURE.md](ARCHITECTURE.md#stack) |
+| 2026-11-17 | No map in v1: the listing shows the address and an "Open in Maps" link that searches the address text. No map script, tiles or coordinates | [ARCHITECTURE.md](ARCHITECTURE.md#shape) |
 | 2026-11-16 | Slice 4.4 built: the PSGC 3Q 2026 publication as three CSVs in the repo, imported by `places:import`; properties link to a city and barangay and keep their text columns as copies. Metro Manila and BARMM's Special Geographic Area are province rows; independent cities go under the province whose PSGC row excludes them | [DATA_MODEL.md](DATA_MODEL.md#places-slice-44) |
 | 2026-11-16 | Slice 4.4 added: places from the PSGC list, bundled rather than a live API, before 5.1 so search uses the same list. Tag `v0.4.0` moves to after 4.4 | this file |
 | 2026-11-16 | UI review after 4.2: design system retuned (surface layer, one control height and radius, link styles, account menu, pager), addresses standardized as street / barangay / city / province, `lat`/`lng` dropped. 4.3's publish rule no longer asks for coordinates | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md), [DATA_MODEL.md](DATA_MODEL.md) |
@@ -122,79 +125,102 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 
 ## Backlog
 
-Ideas that came up and are deliberately not in any slice.
+Ideas that came up and are deliberately not in any slice, one sentence each with where it came from. Groomed for v1 in slice 7.3: grouped, duplicates merged, done rows removed.
+
+### Renter
 
 | Idea | Source |
 | --- | --- |
-| Admin web UI for landlord verification | Kickoff |
-| Undo "moved in" | RESERVATIONS correction paths |
-| No-shows: a `confirmed` reservation whose stay passed without "moved in" is left as it is; decide what the job should do with it | 6.3 |
-| Per-member email preferences (who gets which mail) | 6.3 |
-| SMS or push notifications, digest emails, calendar invites for viewings | 6.3 |
-| An audit row for the system's own moves (expired holds, ended stays) | 6.3 |
-| Undo a decline within a short window, if the space is still free (today a mistaken decline is final; the renter reserves again) | Slice 6.1 |
-| Common reasons to pick from when rejecting a proof ("The amount is wrong", "I can't read it"), next to the free text | Slice 6.1 |
-| A reservation's history on its page (who confirmed, rejected, undid, and when), from the audit log; today the page shows only the latest decision | Slice 6.1 |
-| Show the renter which member decided (today the renter sees the landlord account's name only) | Slice 6.1 |
-| Undo a decline | RESERVATIONS correction paths |
-| Dark mode | DESIGN_SYSTEM |
-| Filipino translation of the UI | DESIGN_SYSTEM |
-| Drop the `brianium/paratest` `<7.28` conflict in composer.json once Pest supports ParaTest 7.28 | Slice 1.2 |
-| Frontend strings through translation helpers (today only server-side strings use `__()`) | Slice 1.1 |
-| Smaller production image: the FrankenPHP bookworm base is 805 MB of the 1.09 GB, mostly compilers it keeps. Options: the Alpine variant (musl, differs from dev) or a static FrankenPHP build | Slice 1.3 |
-| `deploy.sh` takes a database backup before migrating | Slice 1.3 |
-| Cache the production image build in CI (Buildx with the GitHub Actions cache) | Slice 1.3 |
-| Make the Vite dev server (HMR) work in Codespaces; today the dev container uses built assets | Slice 1.3 |
-| CSP `img-src` for a photos origin other than the app (external S3 or CDN: `AWS_PHOTOS_URL`). Photos are same-origin (`/media/photos`) with MinIO, so 4.2 didn't need it | Slice 1.3, 4.2 |
-| A third, mid-size photo variant (about 960 px WebP) next to `-thumb` and `-full`: a phone's listing cover picks the 1600 px file (153 kB) because the 480 px thumb is too small, and Lighthouse's image-delivery audit puts the saving at about 120 kB (listing page LCP 3.5 s on simulated slow 4G, Performance 90). Needs a new file per photo, a backfill for existing rows, and changes in `PhotoProcessor`, the actions that write and delete photo files, the seeder and their tests | Slice 7.2 |
-| Run Lighthouse once against a deployment with TLS: CI serves plain HTTP on localhost, so `is-on-https` and `redirects-http` are skipped there (and HTTP/2 isn't measured) | Slice 7.2 |
-| Cover the invitation page's usable states (register, log in, join) in the accessibility sweep: it needs a live invitation link, which only the phase 4 demo can make today, so the sweep covers the neutral 404 | Slice 7.2 |
-| Real screen-reader passes (NVDA, VoiceOver, TalkBack) on the reserve and decision flows: 7.2 could only check the accessibility tree and the keyboard order in the dev environment ([perf/accessibility.md](perf/accessibility.md)) | Slice 7.2 |
-| Narrow the "status is written only in `App\Actions`" arch test to reservations if it gets noisy for `PropertyPhoto`/`PaymentProof` status writes | Slice 2.1 |
-| Two-factor authentication and passkeys (Fortify supports both; the routes are off) | Slice 2.4 |
-| Profile and settings pages: change name, phone, email (re-verify) and password | Slice 2.4 |
-| Social login (Google, Facebook) | Slice 2.4 |
-| Login, logout and sign-up without JavaScript (plain form posts with a `_token` field); today the forms need hydration | Slice 2.4 |
-| Header nav as `Navbar` + `Offcanvas` once there are more than the account links | Slice 2.4 |
-| Lowercase emails on save everywhere (today Fortify lowercases at login and registration only) | Slice 2.4 |
-| A reservation transaction that deadlocks on all 3 attempts is a bare `500`. Answer it as a domain-style "busy, try again" (`503` + `Retry-After`, or the `error` flash) instead. Seen only in the 2.5 negative controls (no room lock), but neighbouring rooms can deadlock under load (ADR 0001) | Slice 2.5 |
-| Make `flash.error` dismissible and focus it after a failed post (2.5 renders it as a plain `role="alert"` alert) | Slice 2.5 |
-| Extend the scope arch test to raw `DB::select()` / `DB::statement()` naming a landlord-owned table (today only `DB::table()` is caught) | Slice 3.1 |
-| Policies for `LandlordAccount` (account settings) and `User` (profile) once those pages exist, with matrix rows | Slice 3.1 |
-| Factories that work while a landlord is logged in (today fixtures must be created before `actingAs()`, or the write guard refuses them) | Slice 3.1 |
-| Search reservations by renter name or room, and a date filter, on the landlord list (the demo owner has 328, so finding one means paging) | Slice 3.2 |
-| Show a caretaker's email on the members page, if owners ask for it (today names only) | Slice 3.2 |
-| A map on the listing page. `lat`/`lng` were dropped (review after 4.2): if a map comes back, place the pin by geocoding the address or with a "drop a pin" picker, never typed coordinates | Slice 4.1, UI review |
-| `DemoSeeder`'s street addresses already contain the barangay and city ("444 Kalayaan Street, Barangay Sampaloc, Manila"), so the full address on a listing repeats them. Fixing it changes the seeder's hash and the demo text the e2e tests read | Slice 5.1 |
-| Free beds update as the move-in date changes (a partial reload), instead of the "Check free beds" button; needs JavaScript, so it would only enhance the plain form | Slice 5.1 |
-| Let an owner fix an ugly generated listing link (`-2`) before publishing; the form field was removed as too technical | UI review |
-| A styled list for date fields (the dropdown list is styled in Chromium via `appearance: base-select`; the date picker is still the browser's) | UI review |
-| Redirect old slugs: let a published property's slug change and keep the old URL working with a 301 | Slice 4.1 |
-| Delete a room or space that was never reserved (today only archive) | Slice 4.1 |
-| Reorder or bulk-rename beds; a bed count change that adds several at once | Slice 4.1 |
-| Show on the property page which spaces are blocked from archiving, and by whom, before the owner clicks | Slice 4.1 |
-| The Phase 5 search e2e (`search.spec.ts`, Quezon City from today + 14 days) fails on a freshly seeded database (also on `main`, checked in 7.1): the demo has no free place there at that date, so it depends on when the volume was seeded. Pick the place and date from the data, or have the seed leave a known free window | Slice 7.1 |
-| HEIC/HEIF uploads (iPhones' default format; today the owner has to export a JPEG) | Slice 4.2 |
-| Sweep temporary uploads (`uploads/tmp/` on the proofs disk) older than a day: a worker killed at the wrong moment can leave one behind | Slice 4.2 |
-| Retry a failed photo without choosing the file again, when the failure was storage and not the file (today the upload is deleted on failure) | Slice 4.2 |
-| Upload progress per file, and drag-and-drop to reorder next to the Up and Down buttons | Slice 4.2 |
-| Photos per room ("Bed area of Room 2"), not only per property | Slice 4.2 |
-| Tell an owner when an import leaves their property without a linked barangay (today they see it only as a publish checklist item, or on the form) | Slice 4.4 |
-| Invite a co-owner (today only caretakers can be invited; the `role` column already allows `owner`) | Slice 4.3 |
-| Change a member's role (caretaker to owner and back) without removing and inviting again | Slice 4.3 |
-| Let a member leave an account themself (today another owner removes them) | Slice 4.3 |
-| After "Log out" on the invitation page (logged in with another email), come back to the invitation instead of the home page | Slice 4.3 |
-| Tell the owner by email when an invitation is accepted | Slice 4.3 |
-| Show on the members page who was removed and when (the audit log has it; there is no page for it yet) | Slice 4.3 |
-| A preview of the listing before publishing | Slice 4.3 |
-| Tell the owner why a photo failed (unreadable file or storage) instead of one message | Slice 4.2 |
-| Full-text search (property names, house rules) and saved searches | Slice 5.2 |
-| Search results on a map | Slice 5.2 |
-| Barangay in the search link by PSGC code instead of id, so a link survives a reimport into an empty database | Slice 5.2 |
-| Home-page "Where" lists only cities with listings; a province-aware combobox would reach every place | Slice 5.2 |
-| Let a renter replace a proof while it waits for review (today they cancel, or wait for the landlord to reject it) | Slice 5.3 |
+| Let a renter replace a proof while it waits for review (today they cancel, or wait for the landlord to ask for a new one) | Slice 5.3 |
 | Upload progress on the proof form, and a client-side check of the 5 MB limit before sending | Slice 5.3 |
-| Check how desktop browsers open a PDF proof served with `Content-Security-Policy: sandbox`: Chromium is expected to refuse its built-in PDF viewer in a sandboxed document (plugins are disabled there) and offer a download instead (not verified by hand; headless Chromium always downloads PDFs). If landlords want PDFs inline, render a first-page preview server-side | Slice 5.3 |
-| Delete proof files when a reservation's data is purged (a retention policy for personal data: proofs are kept forever today) | Slice 5.3 |
-| E2E on a 6-worker local run against the dev stack times out (7 GB machine, Vite dev server): run `npx playwright test --workers=2` locally, as CI's 4-vCPU runner does | Slice 5.3 |
-| A first-time sign-up through Reserve comes back to the room only after confirming the email (the link is a full page load); a "Continue to your room" link on the "confirm your email" page would help someone who confirms on another device | Slice 5.3 |
+| A "Continue to your room" link on the "confirm your email" page, for a first-time sign-up through Reserve who confirms on another device | Slice 5.3 |
+| Show the renter which member decided (today they see the landlord account's name only) | Slice 6.1 |
+| Free beds update as the move-in date changes (a partial reload enhancing the plain "Check free beds" form) | Slice 5.1 |
+| Full-text search (property names, house rules) and saved searches | Slice 5.2 |
+| A map, on the listing page and for search results, with the pin from geocoding or a "drop a pin" picker, never typed coordinates ([ADR 0009](adr/0009-no-map-in-v1.md)) | Slice 4.1, 5.2, UI review |
+| The home page's "Where" lists only cities with listings; a province-aware combobox would reach every place | Slice 5.2 |
+| Barangay in the search link by PSGC code instead of id, so a shared link survives a reimport into an empty database | Slice 5.2 |
+| Login, logout and sign-up without JavaScript (plain form posts with a `_token`), like the listing and search pages | Slice 2.4 |
+| Profile and settings pages: change name, phone, email (re-verified) and password, with `User` and `LandlordAccount` policies and matrix rows | Slice 2.4, 3.1 |
+| Two-factor authentication and passkeys (Fortify supports both; the routes are off) | Slice 2.4 |
+| Social login (Google, Facebook) | Slice 2.4 |
+| Filipino translation of the UI, which first needs the frontend strings to go through translation helpers (today only server-side strings use `__()`) | DESIGN_SYSTEM, slice 1.1 |
+| Dark mode | DESIGN_SYSTEM |
+| SMS or push notifications, digest emails, and calendar invites for viewings | Slice 6.3 |
+
+### Landlord
+
+| Idea | Source |
+| --- | --- |
+| Undo a decline within a short window if the space is still free (today a mistaken decline is final; the renter reserves again) | RESERVATIONS correction paths, slice 6.1 |
+| Undo "moved in" | RESERVATIONS correction paths |
+| Decide what happens to a `confirmed` reservation whose stay passed without "moved in" (no-shows; the job leaves it as it is) | Slice 6.3 |
+| Common reasons to pick from when asking for a new proof ("The amount is wrong", "I can't read it"), next to the free text | Slice 6.1 |
+| A reservation's history on its page (who confirmed, rejected, undid, and when), read from the audit log | Slice 6.1 |
+| Search the landlord's reservations by renter name or room, and filter by date (the demo owner has over 300) | Slice 3.2 |
+| Per-member email preferences (who gets which mail) | Slice 6.3 |
+| Invite a co-owner (the `role` column already allows `owner`), and change a member's role without removing and inviting again | Slice 4.3 |
+| Let a member leave an account themself | Slice 4.3 |
+| Tell the owner by email when an invitation is accepted | Slice 4.3 |
+| Show who was removed from the account and when (the audit log has it) | Slice 4.3 |
+| After "Log out" on the invitation page, come back to the invitation instead of the home page | Slice 4.3 |
+| Show a caretaker's email on the members page, if owners ask for it | Slice 3.2 |
+| A preview of the listing before publishing | Slice 4.3 |
+| Let an owner fix a generated listing link (`-2`) before publishing | UI review |
+| Change a published property's slug and keep the old URL working with a `301` | Slice 4.1 |
+| Delete a room or space that was never reserved (today only archive) | Slice 4.1 |
+| Reorder or bulk-rename beds, and add several at once | Slice 4.1 |
+| Show which spaces block archiving, and by whom, before the owner clicks | Slice 4.1 |
+| Tell an owner when a places import leaves their property without a linked barangay (today only the publish checklist shows it) | Slice 4.4 |
+| HEIC/HEIF photo uploads (iPhones' default) | Slice 4.2 |
+| Photos per room ("Bed area of Room 2"), not only per property | Slice 4.2 |
+| Upload progress per photo, and drag-and-drop next to the Up and Down buttons | Slice 4.2 |
+| Say why a photo failed (unreadable file or storage), and retry a storage failure without choosing the file again | Slice 4.2 |
+| A styled picker for date fields (the browser's is used; dropdown lists are styled in Chromium) | UI review |
+
+### Operations
+
+| Idea | Source |
+| --- | --- |
+| An admin web UI for landlord verification, for more than one operator ([ADR 0013](adr/0013-landlord-verification-by-artisan-command.md)) | Kickoff |
+| An audit row for the system's own moves (expired holds, ended stays) | Slice 6.3 |
+| A retention policy for personal data: delete proof files when a reservation's data is purged (kept forever today) | Slice 5.3 |
+| Sweep temporary photo uploads (`uploads/tmp/` on the proofs disk) older than a day, left by a worker killed mid-job | Slice 4.2 |
+| `deploy.sh` takes a database backup before migrating | Slice 1.3 |
+| Lowercase emails on save everywhere (Fortify lowercases at login and registration only) | Slice 2.4 |
+| Fix the demo street addresses, which repeat the barangay and city already shown after them (changes the seeder's hash and the e2e texts) | Slice 5.1 |
+
+### Quality
+
+| Idea | Source |
+| --- | --- |
+| Fix a focus race from 7.2: after a post that navigates (login), `app.tsx` focuses `main h1` 150 ms later, and that `focusin` closes an account menu opened in between (`auth.spec.ts` "demo user … logs in" failed on PR #37). Skip the move when focus has changed since the visit | Slice 7.3 |
+| Fix the flaky `SecurityHeadersTest`: it writes `public/hot` for a moment, and a parallel Pest worker then renders SSR against the Vite dev server that CI doesn't run (failed `MariaDB 11.4 / Pest` on `main` after #36) | Slice 7.3 |
+| Fix a flaky concurrency fixture: two Faker emails collided in the committed fixtures (`users_email_unique`, failed `MySQL 8.4 / Concurrency` on `main` after #35); use unique emails | Slice 7.3 |
+| Make the Phase 5 search e2e (Quezon City, today + 14 days) independent of the day the database was seeded: pick the place and date from the data, or have the seed keep a free window | Slice 7.1 |
+| Answer a reservation that deadlocks on all 3 attempts as "busy, try again" (`503` + `Retry-After`, or the `error` flash) instead of a bare `500` | Slice 2.5 |
+| Extend the scope arch test to raw `DB::select()` / `DB::statement()` naming a landlord-owned table (only `DB::table()` is caught) | Slice 3.1 |
+| Factories that work while a landlord is logged in (fixtures must be created before `actingAs()`) | Slice 3.1 |
+| Narrow the "status is written only in `App\Actions`" arch test to reservations if photo and proof status writes make it noisy | Slice 2.1 |
+| Cover the invitation page's usable states in the accessibility sweep (needs a live invitation link; the sweep covers the neutral `404`) | Slice 7.2 |
+| Real screen-reader passes (NVDA, VoiceOver, TalkBack) on the reserve and decision flows ([perf/accessibility.md](perf/accessibility.md)) | Slice 7.2 |
+| Remove `resources/js/Pages/Rooms/Show.tsx`, the 2.5 room page that nothing renders since 5.1 made `/rooms/{room}` a redirect | Slice 7.3 |
+| Check by hand how desktop browsers open a PDF proof served with `Content-Security-Policy: sandbox`, and render a first-page preview if landlords want PDFs inline | Slice 5.3 |
+
+### Performance
+
+| Idea | Source |
+| --- | --- |
+| A mid-size photo variant (about 960 px WebP) for the listing cover on phones: about 120 kB less on the slowest page, with a backfill for existing photos | Slice 7.2 |
+| Run Lighthouse once against a deployment with TLS (CI skips `is-on-https` and `redirects-http`, and doesn't measure HTTP/2) | Slice 7.2 |
+
+### Infrastructure
+
+| Idea | Source |
+| --- | --- |
+| A smaller production image: the FrankenPHP bookworm base is most of it (Alpine variant or a static FrankenPHP build) | Slice 1.3 |
+| Cache the production image build in CI (Buildx with the GitHub Actions cache) | Slice 1.3 |
+| CSP `img-src` for a photos origin other than the app (`AWS_PHOTOS_URL` on an external S3 or CDN) | Slice 1.3, 4.2 |
+| The Vite dev server (HMR) in Codespaces; the dev container uses built assets | Slice 1.3 |
+| Drop the `brianium/paratest` `<7.28` conflict in composer.json once Pest supports ParaTest 7.28 | Slice 1.2 |
+| Header nav as `Navbar` + `Offcanvas` once there are more links than the account menu | Slice 2.4 |

@@ -1,8 +1,9 @@
 # 0008. Use separate least-privilege database users from the first slice
 
-- Status: Proposed
-- Amended: 2026-11-15 (slice 2.1: how `audit_logs` is protected)
+- Status: Accepted (2026-11-17)
 - Date: 2026-11-14
+- Amended: 2026-11-15 (slice 2.1: how `audit_logs` is protected)
+- Updated: 2026-11-17 (as built in v1, last section)
 
 ## Context
 
@@ -49,3 +50,9 @@ Tests run as `app`. They reset data with transactions (`DatabaseTransactions`); 
 - Good: a SQL injection or a bug can't drop tables or rewrite the audit history.
 - Good: a missing grant fails in CI, not in production.
 - Bad: test setup is slightly more involved (two connections; `RefreshDatabase` replaced by a migrate-once + transaction strategy). This is settled in slice 1.1, while there is almost nothing to change.
+
+## Update 2026-11-17: as built in v1
+
+- Every environment uses both users: dev, the dev container, CI (Pest in four parallel schemas, the concurrency suite in its own) and the production stack. `tests/TestCase.php` refuses to migrate any schema whose name doesn't end in `_test` or `_test_N`.
+- The seeders and `places:import` run as `app` (they only insert and update). Only `composer migrate` / `deploy.sh` use `migrator`.
+- `app:doctor` checks on every deploy that `app` is denied `CREATE TABLE` (1142) and that the `audit_logs` trigger rejects an `UPDATE`.

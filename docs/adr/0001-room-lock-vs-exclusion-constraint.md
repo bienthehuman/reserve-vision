@@ -1,7 +1,8 @@
 # 0001. Prevent double-booking with a room-row lock, not an exclusion constraint
 
-- Status: Proposed
+- Status: Accepted (2026-11-17, reviewed against v1 in slice 7.3)
 - Date: 2026-11-14
+- Updated: in slice 2.3 (the read snapshot), 2.5 (evidence), 4.1 (archive versus reserve) and on 2026-11-17 (the v1 review, last section)
 
 ## Context
 
@@ -53,18 +54,18 @@ The concurrency suite (`tests/Concurrency/ReservationRaceTest.php`, `composer te
 | T8b: 1 renter, 3 rooms in 3 properties | 2 holds, 1 × "2 open reservations" | ✓ |
 | T8b: 1 renter, 2 rooms in 1 property | 1 hold, 1 × "open reservation in this property" | ✓ |
 
-In every round all requests overlapped inside the server, typically for 80–120 ms; the timelines are in the job output. CI runs: RUNS_WITH_LOCKS.
+In every round all requests overlapped inside the server, typically for 80–120 ms; the timelines are in the job output. CI runs of the merged code: [MySQL 8.4](https://github.com/bienthehuman/reserve-vision/actions/runs/43708429782), [MariaDB 11.4](https://github.com/bienthehuman/reserve-vision/actions/runs/43708429767).
 
 ### Negative controls (temporary commits, reverted)
 
-Each control removed one thing from `ReserveSpace::reserve()` and ran the same suite. No artificial delay was needed: the race window is wide enough without one, so the slice adds no test-only hook inside `ReserveSpace`.
+Each control removed one thing from `ReserveSpace::reserve()` and ran the same suite. (Update 2026-11-17: the temporary commits were not kept in the merged history, and neither were links to their runs, so the table records the results without them. Later controls, such as 6.1's, are kept as a commit and its revert.) No artificial delay was needed: the race window is wide enough without one, so the slice adds no test-only hook inside `ReserveSpace`.
 
-| Removed | Result | Runs |
-| --- | --- | --- |
-| Room lock only (reads still locking) | **No double-booking**, but T2 fails every round: requests die with `500` (deadlock `1213` on all 3 attempts). T1 mostly still passes | NC_ROOM |
-| Renter lock only (reads still locking) | T8b still passes: the limits query share-locks the renter's reservation range, the parallel inserts deadlock, and the retry reads the winner's hold | NC_RENTER |
-| Room lock **and** the locking reads on spaces/reservations | **Double-booked every round**: T1 ends with 2–4 blocking reservations on one space, T2 with two holds on the same bed | NC_ROOM_READS |
-| Renter lock **and** the locking limits read | **Limits broken every round**: T8b ends with 3 open reservations (and 2 in one property) | NC_RENTER_READS |
+| Removed | Result |
+| --- | --- |
+| Room lock only (reads still locking) | **No double-booking**, but T2 fails every round: requests die with `500` (deadlock `1213` on all 3 attempts). T1 mostly still passes |
+| Renter lock only (reads still locking) | T8b still passes: the limits query share-locks the renter's reservation range, the parallel inserts deadlock, and the retry reads the winner's hold |
+| Room lock **and** the locking reads on spaces/reservations | **Double-booked every round**: T1 ends with 2–4 blocking reservations on one space, T2 with two holds on the same bed |
+| Renter lock **and** the locking limits read | **Limits broken every round**: T8b ends with 3 open reservations (and 2 in one property) |
 
 What this shows:
 
@@ -77,3 +78,13 @@ What this shows:
 
 Negative control: with the room lock removed from `ArchiveRoom` (its other reads still locking), the archive deadlocks against the hold's insert and answers `HTTP 500` in the rounds where a hold got in first: the race test fails. Lock restored.
 
+## Update 2026-11-17: as built in v1
+
+The decision held through every later slice. What the first draft didn't foresee:
+
+- **The read snapshot** (section above, slice 2.3) turned out to be half of the guarantee. The first draft said "check and insert while the lock is held"; that is only true if the checks are locking reads.
+- **Other writers take the same lock.** Archiving a room or space, changing a room's fee or type, and adding, renaming or unarchiving a space (slice 4.1), and publishing a property (4.3) lock the room row first, so none of them can slip between a renter's check and insert. The landlord's decisions (6.1: confirm, decline, undo…) lock only the reservation row: none of them can make a free space blocked, so they can't double-book.
+- **Search uses the same definition.** `Space::freeDuring()` composes the same `blocking()` and `overlapping()` scopes, so the search page can't disagree with the booking ([perf/availability-query.md](../perf/availability-query.md), T10).
+- **More races, same harness.** Archive versus reserve (4.1), invitation accepts and owner removals (4.3), confirm versus decline and confirm versus the renter's cancel (6.1), and the proof reminders (6.3) all run as real parallel requests or processes in the concurrency suite, with a negative control each.
+- **The architecture test** forbids any reservation insert or status write outside `app/Actions` (`tests/Arch/ReservationWritesTest.php`), as promised under Consequences.
+- **Not done:** the PostgreSQL exclusion constraint stays a note for a move that hasn't happened. A transaction that deadlocks on all three attempts is still a bare `500` (backlog).
