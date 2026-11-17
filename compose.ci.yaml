@@ -1,0 +1,9 @@
+# CI only (slice 6.3): added to compose.prod.yaml by the Production workflow (COMPOSE_FILE=compose.prod.yaml:compose.ci.yaml),
+# never part of a real deployment. A Mailpit the production stack's SMTP points at (bin/ci-production-env sets MAIL_HOST=mail),
+# so the T12 run against production can read the emails the worker sends. The API is published on 127.0.0.1:8226 only.
+services:
+  mail:
+    image: axllent/mailpit:v1.33
+    ports:
+      - "127.0.0.1:8226:8025"
+    restart: unless-stopped

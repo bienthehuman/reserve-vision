@@ -12,12 +12,14 @@ use App\Exceptions\Domain\MoveInOutOfRange;
 use App\Exceptions\Domain\NoSpaceAvailable;
 use App\Exceptions\Domain\NotARenter;
 use App\Exceptions\Domain\RoomNotReservable;
+use App\Mail\Reservations\HoldCreated;
 use App\Models\Property;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\Space;
 use App\Models\User;
 use App\Support\BusinessDate;
+use App\Support\Mail\Notify;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -75,10 +77,15 @@ final class ReserveSpace
 
         // Only ids go in: the models passed in may be stale, and touching any of
         // their relations inside the transaction would be a non-locking read.
-        return DB::transaction(
+        $reservation = DB::transaction(
             fn (): Reservation => $this->reserve($renter->id, $room->id, $moveIn, $moveOut),
             self::ATTEMPTS,
         );
+
+        // After the transaction (and after commit, however the caller wraps this): the hold email.
+        Notify::user($renter, new HoldCreated($reservation->id));
+
+        return $reservation;
     }
 
     /**

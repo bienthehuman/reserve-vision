@@ -8,6 +8,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -65,6 +66,9 @@ abstract class TestCase extends BaseTestCase
         // files call fakeMediaDisks() again, which also empties them.
         Storage::fake('photos', ['url' => config('filesystems.disks.photos.url'), 'visibility' => 'public']);
         Storage::fake('proofs');
+
+        // Status emails (slice 6.3) are queued by the actions: nothing renders or sends in a test unless it asserts on it.
+        Mail::fake();
     }
 
     private function migrateOnceAsMigrator(): void

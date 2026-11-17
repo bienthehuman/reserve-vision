@@ -7,9 +7,11 @@ namespace App\Actions;
 use App\Actions\Concerns\DecidesReservations;
 use App\Enums\ReservationStatus;
 use App\Exceptions\Domain\InvalidTransition;
+use App\Mail\Reservations\ReservationWithdrawn;
 use App\Models\Reservation;
 use App\Models\User;
 use App\Support\AuditLogger;
+use App\Support\Mail\Notify;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 
@@ -28,7 +30,7 @@ final class WithdrawReservation
     /** @throws InvalidTransition when it isn't confirmed, or the stay has started */
     public function handle(User $owner, Reservation $reservation, string $reason): Reservation
     {
-        return DB::transaction(function () use ($owner, $reservation, $reason): Reservation {
+        $result = DB::transaction(function () use ($owner, $reservation, $reason): Reservation {
             $locked = $this->lock($reservation);
             $locked->assertCanMoveTo(ReservationStatus::Cancelled);
 
@@ -48,5 +50,9 @@ final class WithdrawReservation
 
             return $locked;
         });
+
+        Notify::renter($result->renter_id, new ReservationWithdrawn($result->id, $reason));
+
+        return $result;
     }
 }

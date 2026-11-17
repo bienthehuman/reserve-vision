@@ -33,7 +33,7 @@ enum ReservationStatus: string
         return [
             ['from' => null, 'to' => self::Held, 'action' => 'ReserveSpace'],
             ['from' => self::Held, 'to' => self::ProofUploaded, 'action' => 'UploadPaymentProof'],
-            ['from' => self::Held, 'to' => self::Expired, 'action' => 'ExpireHolds'],
+            ['from' => self::Held, 'to' => self::Expired, 'action' => 'ExpireHold'],
             ['from' => self::Held, 'to' => self::Cancelled, 'action' => 'CancelReservation'],
             ['from' => self::ProofUploaded, 'to' => self::Held, 'action' => 'RejectProof'],
             ['from' => self::ProofUploaded, 'to' => self::Confirmed, 'action' => 'ConfirmReservation'],
@@ -44,7 +44,7 @@ enum ReservationStatus: string
             ['from' => self::Confirmed, 'to' => self::Cancelled, 'action' => 'CancelReservation'],
             ['from' => self::Confirmed, 'to' => self::Cancelled, 'action' => 'WithdrawReservation'],
             ['from' => self::Active, 'to' => self::Ended, 'action' => 'EndStay'],
-            ['from' => self::Active, 'to' => self::Ended, 'action' => 'EndStays'],
+            ['from' => self::Active, 'to' => self::Ended, 'action' => 'EndFinishedStay'],
         ];
     }
 

@@ -84,7 +84,7 @@ Every other action that changes a reservation's status (confirm, decline, cancel
 stateDiagram-v2
     [*] --> held: ReserveSpace (renter)
     held --> proof_uploaded: UploadPaymentProof (renter, hold live)
-    held --> expired: ExpireHolds job (hold past expiry)
+    held --> expired: ExpireHold, from the expire-holds job (hold past expiry)
     held --> cancelled: CancelReservation (renter)
     proof_uploaded --> held: RejectProof (landlord, max 2, new 24h window)
     proof_uploaded --> confirmed: ConfirmReservation (landlord)
@@ -93,7 +93,7 @@ stateDiagram-v2
     confirmed --> proof_uploaded: UndoConfirmation (landlord, within 24h)
     confirmed --> active: MarkMovedIn (landlord, on/after move_in)
     confirmed --> cancelled: CancelReservation (renter, before move_in) or WithdrawReservation (owner, reason)
-    active --> ended: EndStay (landlord, early) or EndStays job (after move_out)
+    active --> ended: EndStay (landlord, early) or EndFinishedStay, from the end-stays job (after move_out)
     expired --> [*]
     declined --> [*]
     cancelled --> [*]
@@ -110,7 +110,7 @@ Every arrow is one action class. The transition table (`ReservationStatus::canTr
 | --- | --- | --- | --- | --- | --- |
 | — | held | `ReserveSpace` | renter | rules above | email renter: hold + payment instructions |
 | held | proof_uploaded | `UploadPaymentProof` | renter (own) | `hold_expires_at > now()` | email landlord members |
-| held | expired | `ExpireHolds` | system | `hold_expires_at <= now()` | email renter |
+| held | expired | `ExpireHold` | system | `hold_expires_at <= now()` | email renter |
 | held | cancelled | `CancelReservation` | renter (own) | — | — |
 | proof_uploaded | held | `RejectProof` | owner, caretaker | `proof_rejections < 2`; reason required | new `hold_expires_at = now()+24h`; proof marked rejected; email renter |
 | proof_uploaded | confirmed | `ConfirmReservation` | owner, caretaker | — | proof marked accepted; email renter |
@@ -121,7 +121,7 @@ Every arrow is one action class. The transition table (`ReservationStatus::canTr
 | confirmed | cancelled | `CancelReservation` | renter (own) | `today < move_in` | email landlord; refund recorded |
 | confirmed | cancelled | `WithdrawReservation` | owner | reason required, `today < move_in` | email renter; refund recorded |
 | active | ended | `EndStay` | owner, caretaker | sets `move_out = max(today, move_in + 1 day)` if earlier than planned | frees the space from that date |
-| active | ended | `EndStays` | system | `move_out <= today` | — |
+| active | ended | `EndFinishedStay` | system | `move_out <= today` | — |
 
 Every landlord-side transition writes an `audit_logs` row; the renter's own (`UploadPaymentProof`, `CancelReservation`) write none.
 
@@ -142,7 +142,7 @@ Each is one action in `app/Actions`, one transaction: lock the reservation row `
 
 The guards that depend on the row or the clock are all in `Reservation::assertCanMoveTo()`, so the decision panel asks the same question as the action: `proof_rejections < 2` for `proof_uploaded` → `held`; for `confirmed` → `proof_uploaded`, `today < move_in` and `now < decided_at + 24h` (exactly 24 hours later is too late); `today >= move_in` for `confirmed` → `active`. A `proof_uploaded` reservation can be confirmed, rejected or declined whatever its old `hold_expires_at` says: the hold ended when the proof came in, and the proof keeps blocking. A `held` reservation can't be confirmed or rejected at all (the table has no such arrow).
 
-**Blocking stays correct at every moment.** Confirm, reject and undo go from one blocking state to another in one `UPDATE` (reject's new hold is live from the same statement), so no other request can ever see the space free between them; decline, withdraw and end stay only free it. That's why none of them needs the room lock: no landlord move makes a space blocked that wasn't. Tested against `ReserveSpace` and the 5.2 search (`tests/Feature/Landlord/DecisionsTest.php`), and over real parallel HTTP by the concurrency suite: the owner confirming while a caretaker declines, and the landlord confirming while the renter cancels on the move-in date (`tests/Concurrency/DecisionRaceTest.php`; exactly one wins, one audit row). The emails in the side-effects column come with slice 6.3. Cancelling leaves the proofs as they are: a `pending` proof of a cancelled reservation is shown to the renter as "Not reviewed", and the refund is the landlord's to record (6.1).
+**Blocking stays correct at every moment.** Confirm, reject and undo go from one blocking state to another in one `UPDATE` (reject's new hold is live from the same statement), so no other request can ever see the space free between them; decline, withdraw and end stay only free it. That's why none of them needs the room lock: no landlord move makes a space blocked that wasn't. Tested against `ReserveSpace` and the 5.2 search (`tests/Feature/Landlord/DecisionsTest.php`), and over real parallel HTTP by the concurrency suite: the owner confirming while a caretaker declines, and the landlord confirming while the renter cancels on the move-in date (`tests/Concurrency/DecisionRaceTest.php`; exactly one wins, one audit row). The emails in the side-effects column are queued by the actions since slice 6.3 ([Emails](#emails-slice-63)). Cancelling leaves the proofs as they are: a `pending` proof of a cancelled reservation is shown to the renter as "Not reviewed", and the refund is the landlord's to record (6.1).
 
 ### Correction paths
 
@@ -160,6 +160,24 @@ The guards that depend on the row or the clock are all in `Reservation::assertCa
 
 The system never moves money. When a reservation is declined, cancelled or withdrawn after proof was uploaded, the landlord records `fee_refunded` (yes/no) and an optional note (`RecordRefund`, slice 6.1, owner or caretaker). It is refused on any other status, and on a reservation that never had a proof ("there is no fee to refund"). It can be changed again, the correction path: each change is one `reservation.refund_recorded` audit row, and saving the same values writes none. Until one is recorded the renter's page says to ask the landlord; afterwards it says what the landlord recorded, with the note. The listing shows the property's refund rule as free text from `properties.house_rules`.
 
+### Emails (slice 6.3)
+
+Every "email …" in the side-effects column is a queued Markdown mailable (`app/Mail/Reservations`, `app/Mail/Viewings`), queued by the action **after its transaction** and flagged `afterCommit`, so a move that fails or rolls back sends nothing. A mail carries only ids and what the action alone knows (a reason, an amount) and reads the rest when the worker renders it. One mail per recipient; "landlord members" is every member of the account, owner and caretakers. Times are Manila time, labelled "Philippine time". Where this document's table and the code differ, the code is the rule:
+
+- `held` → `cancelled` sends **nothing**: the landlord never saw that hold. A cancel from `proof_uploaded` or `confirmed` emails the landlord members.
+- `ExpireHold` and `EndFinishedStay` (the per-row actions of the two jobs) write no audit row: nobody acted. Only `ExpireHold` emails (the renter).
+- The renter's name goes to the landlord members; their phone and email never do (they are on the landlord's reservation page). A renter's mail carries the landlord account's contact phone, never a member's own.
+
+### The scheduled jobs
+
+`routes/console.php`, run by the `scheduler` service (`schedule:work`); each is an artisan command that calls actions, logs one summary line, is idempotent and uses `withoutOverlapping()`:
+
+| Command | When | Does |
+| --- | --- | --- |
+| `reservations:expire-holds` | every minute | `held` with `hold_expires_at <= now()` → `expired` (`ExpireHold`, one transaction per row). A row that moved on in the meantime (a proof uploaded a second ago) is skipped, not an error |
+| `reservations:end-stays` | daily 00:05 Manila | `active` with `move_out <=` today (Manila date) → `ended` (`EndFinishedStay`). A `confirmed` reservation whose stay passed without "moved in" is left alone (no-shows are in the backlog) |
+| `reservations:remind-proofs` | hourly | the reminders below |
+
 ### Unanswered proofs
 
-A `proof_uploaded` reservation keeps blocking the space, because the renter has paid. Landlord members get a reminder email after 24h and again after 48h, and the dashboard flags it as overdue. The system never declines a paid reservation automatically (decision to check).
+A `proof_uploaded` reservation keeps blocking the space, because the renter has paid. Landlord members get a reminder email after 24h and again after 48h (a proof already past both gets the 48h one only), and the dashboard flags it as overdue. What was sent is the `proof_reminders` table: one row per proof and threshold, with a unique key, so reruns and overlapping runs send nothing twice (`tests/Concurrency/ReminderRaceTest.php`: four processes at once). A new proof after a rejection starts again. The system never declines a paid reservation automatically (decision to check).

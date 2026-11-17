@@ -19,11 +19,21 @@ export default defineConfig({
     projects: [
         {
             name: 'phone-360',
+            testIgnore: /t12-full-flow/,
             use: { ...devices['Desktop Chrome'], viewport: { width: 360, height: 800 }, isMobile: true, hasTouch: true },
         },
         {
             name: 'desktop-1280',
+            testIgnore: /t12-full-flow/,
             use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+        },
+        {
+            // T12 (slice 6.3): the full flow on a phone. It uses renter2 and the demo owner's account, so it runs alone,
+            // after every other spec has finished (the Phase 2 and 5 demos also use renter2's two open reservations).
+            name: 't12',
+            testMatch: /t12-full-flow/,
+            dependencies: ['phone-360', 'desktop-1280'],
+            use: { ...devices['Desktop Chrome'], viewport: { width: 360, height: 800 }, isMobile: true, hasTouch: true },
         },
     ],
 });

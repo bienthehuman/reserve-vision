@@ -8,8 +8,10 @@ use App\Actions\Concerns\DecidesReservations;
 use App\Enums\PaymentProofStatus;
 use App\Enums\ReservationStatus;
 use App\Exceptions\Domain\InvalidTransition;
+use App\Mail\Reservations\ConfirmationUndone;
 use App\Models\Reservation;
 use App\Support\AuditLogger;
+use App\Support\Mail\Notify;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -28,7 +30,7 @@ final class UndoConfirmation
     /** @throws InvalidTransition when it isn't confirmed, the 24 hours are over, or the stay has started */
     public function handle(Reservation $reservation): Reservation
     {
-        return DB::transaction(function () use ($reservation): Reservation {
+        $result = DB::transaction(function () use ($reservation): Reservation {
             $locked = $this->lock($reservation);
             $locked->assertCanMoveTo(ReservationStatus::ProofUploaded);
 
@@ -54,5 +56,9 @@ final class UndoConfirmation
 
             return $locked;
         });
+
+        Notify::renter($result->renter_id, new ConfirmationUndone($result->id));
+
+        return $result;
     }
 }

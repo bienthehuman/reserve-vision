@@ -8,9 +8,11 @@ use App\Enums\UserType;
 use App\Enums\ViewingRequestStatus;
 use App\Exceptions\Domain\CannotRequestViewing;
 use App\Exceptions\Domain\NotARenter;
+use App\Mail\Viewings\ViewingRequested;
 use App\Models\Property;
 use App\Models\User;
 use App\Models\ViewingRequest;
+use App\Support\Mail\Notify;
 use App\Support\Viewings\ViewingSlots;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  * 8:00 AM to 6:00 PM Manila time in 30-minute steps, and at least ViewingSlots::LEAD_HOURS from now. Limits:
  * ViewingRequest::MAX_OPEN open requests per renter and MAX_OPEN_PER_PROPERTY per property, checked under a lock
  * on the renter row (first statement, every read a locking read: the snapshot pitfall in ReserveSpace::reserve()),
- * so one renter's parallel requests can't both pass. The new request is `requested`; no audit row (a renter action).
+ * so one renter's parallel requests can't both pass. The new request is `requested`; no audit row (a renter action). The landlord's members are emailed after the transaction.
  */
 final class RequestViewing
 {
@@ -54,10 +56,14 @@ final class RequestViewing
         $message = $message === null ? null : trim($message);
 
         // Only ids go in (see ReserveSpace::handle()): the models passed in may be stale.
-        return DB::transaction(
+        $viewing = DB::transaction(
             fn (): ViewingRequest => $this->request($renter->id, $property->id, $preferredAt->utc(), $message === '' ? null : $message),
             self::ATTEMPTS,
         );
+
+        Notify::landlordMembers($viewing->landlord_account_id, new ViewingRequested($viewing->id));
+
+        return $viewing;
     }
 
     private function request(int $renterId, int $propertyId, CarbonImmutable $preferredAt, ?string $message): ViewingRequest

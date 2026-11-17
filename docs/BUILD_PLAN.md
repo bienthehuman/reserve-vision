@@ -87,7 +87,7 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 | 6.1 | Landlord decisions | Confirm, reject proof, decline, undo, withdraw, mark moved in, end stay, refund record |
 | 6.2 | Viewing requests | Request, accept/decline, done, cancel |
 | 6.3 | Jobs + email | `ExpireHolds`, `EndStays`, proof reminders, every status email (Markdown mailables); T12 on a mobile viewport |
-| — | **Phase demo** | Full T12 Playwright run as each role; tag `v1.0.0-rc` |
+| — | **Phase demo** | Full T12 Playwright run as each role; tag `v1.0.0-rc`. **Done in 6.3** (`e2e/t12-full-flow.spec.ts`, both stacks); the tag follows the merge |
 
 ### Phase 7: Ship (batch 7). Tag `v1.0.0`
 
@@ -123,6 +123,10 @@ Ideas that came up and are deliberately not in any slice.
 | --- | --- |
 | Admin web UI for landlord verification | Kickoff |
 | Undo "moved in" | RESERVATIONS correction paths |
+| No-shows: a `confirmed` reservation whose stay passed without "moved in" is left as it is; decide what the job should do with it | 6.3 |
+| Per-member email preferences (who gets which mail) | 6.3 |
+| SMS or push notifications, digest emails, calendar invites for viewings | 6.3 |
+| An audit row for the system's own moves (expired holds, ended stays) | 6.3 |
 | Undo a decline within a short window, if the space is still free (today a mistaken decline is final; the renter reserves again) | Slice 6.1 |
 | Common reasons to pick from when rejecting a proof ("The amount is wrong", "I can't read it"), next to the free text | Slice 6.1 |
 | A reservation's history on its page (who confirmed, rejected, undid, and when), from the audit log; today the page shows only the latest decision | Slice 6.1 |

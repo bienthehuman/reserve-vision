@@ -49,4 +49,10 @@ final class InvalidTransition extends BusinessRuleException
     {
         return new self("The renter can be marked as moved in from {$moveIn->format('D j M Y')}.");
     }
+
+    /** active → ended by the daily job before the planned move-out has come. */
+    public static function stayNotOver(): self
+    {
+        return new self("This stay hasn't reached its move-out date yet.");
+    }
 }

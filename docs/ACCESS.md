@@ -196,9 +196,9 @@ Each main flow, step by step, with who acts and what they see. This is where gap
 | Cancel | renter | From the hold page while held, proof uploaded, or confirmed before the move-in date; the dialog quotes the house rules on refunds |
 | My reservations | renter | `/reservations` (the account menu): current ones first, then past, ten a page |
 | Review proof | owner or caretaker | Proof opened via a signed URL. Confirm, ask for a new proof (the renter gets a new 24-hour hold, at most twice) or decline, from the decision panel (6.1) |
-| Notified | renter | Email at every status change |
+| Notified | renter | Email at every status change (6.3; the list is in [RESERVATIONS.md](RESERVATIONS.md#emails-slice-63)) |
 | Move in | owner or caretaker | Mark moved in on or after `move_in` |
-| Stay ends | system or landlord | `EndStays` job, or `EndStay` early |
+| Stay ends | system or landlord | `reservations:end-stays` job (`EndFinishedStay`), or `EndStay` early |
 
 ### Flow C: Viewing request (slice 6.2)
 
@@ -209,6 +209,7 @@ Each main flow, step by step, with who acts and what they see. This is where gap
 | See the renter's contact details | owner or caretaker | Email and phone on the request's page only, never on the list |
 | Mark done | owner or caretaker | From the preferred time, on an accepted viewing |
 | Cancel | renter | While requested or accepted, until the preferred time |
+| Emails (6.3) | system | Landlord members: a request, a cancel. Renter: accepted or declined, with the note (an accepted one carries the address and the landlord's phone) |
 | See where to go | renter | Once accepted, `/viewings` shows the landlord account's contact phone and the property's full address; before that, neither |
 
 #### Transition table

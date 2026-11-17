@@ -203,7 +203,8 @@ it('serializes one renter: the lock on the renter row is the first statement', f
 
     app(RequestViewing::class)->handle($renter, $property, manila('2027-03-17 09:00'), null);
 
-    $selects = array_values(array_filter($statements, fn (string $sql): bool => str_starts_with($sql, 'select')));
+    // The landlord members who get the email are looked up after the transaction (slice 6.3): not part of the booking.
+    $selects = array_values(array_filter($statements, fn (string $sql): bool => str_starts_with($sql, 'select') && ! str_contains($sql, 'from `landlord_members`')));
 
     expect($selects[0])->toContain('from `users`')->toContain('for update');
 
