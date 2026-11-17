@@ -37,6 +37,8 @@ Baseline = `main` at 7.1. After = this branch, same stack, same machine.
 | `/login` | before | 99 | 100 | 100 | 54 (noindex) | 0.63 s | 0.000 | 102 ms | 215 kB |
 | | after | 99 | 100 | 100 | 54 (noindex) | 0.64 s | 0.000 | 111 ms | 216 kB |
 
+**On the CI runner** ([run 44028626664](https://github.com/bienthehuman/reserve-vision/actions/runs/44028626664), the `Lighthouse (mobile)` job, same commit): home 95, search 96, last-bed listing **92**, login 100 (Accessibility 100 and Best Practices 100 everywhere, SEO 100 on the three public pages, CLS 0.000, LCP 2.91 s, 2.71 s, 3.40 s and 0.61 s). The listing page has two points of headroom over the bar there.
+
 ## Each fix
 
 | Fix | Why (the audit) | Measured effect |
