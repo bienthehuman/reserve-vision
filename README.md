@@ -1,6 +1,6 @@
 # ReserveVision
 
-Reservations for apartments and boarding-house beds in the Philippines, for renters and the landlords who run them, with a guarantee, proven by tests that fire real parallel requests, that no bed is ever booked twice.
+Reservations for apartments and boarding-house beds in the Philippines, for renters and the landlords who run them. The guarantee: no bed is ever booked twice, proven by tests that fire real parallel requests.
 
 [![Tests (MySQL 8.4)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml)
 [![Tests (MariaDB 11.4)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml)
