@@ -11,7 +11,8 @@ import { chooseAddress, collectConsoleErrors, expectNoAxeViolations, logIn, LOYO
  * through Caddy at /media/photos. Like 4.1's test it adds a property to the demo owner's account on
  * each run, so it runs in one project only. Set SCREENSHOT_DIR to save the 360 px screenshots for the PR.
  *
- * The two fixtures are paintings by Database\Seeders\Demo\DemoPhotoPainter, scaled to 1000 × 750.
+ * The two fixtures are drawings made for this repository (flat-colour bunk and kitchen scenes, 1000 × 750), so they carry no
+ * licence question. They are test inputs only: the demo listings' photos are the CC0 set in database/data/demo-photos (slice 7.1).
  */
 
 test.describe.configure({ timeout: 120_000 });
@@ -138,7 +139,10 @@ test('4.2: a seeded listing has ready photos, and a caretaker sees them without 
     const images = page.locator('.photo-card img');
     expect(await images.count()).toBeGreaterThanOrEqual(3);
     expect(await images.count()).toBeLessThanOrEqual(6);
-    await expect(images.first()).toHaveAttribute('alt', 'Front of Santos Bedspace House');
+    // Real photos since 7.1: each has its own description (the cover is a building or a room), not "Front of <name>".
+    for (const image of await images.all()) {
+        expect((await image.getAttribute('alt')) ?? '').toMatch(/^.{20,}$/);
+    }
     for (const image of await images.all()) {
         await image.scrollIntoViewIfNeeded();
         await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(480);

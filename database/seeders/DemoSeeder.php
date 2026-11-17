@@ -21,7 +21,7 @@ use App\Models\PropertyPhoto;
 use App\Support\Photos\PhotoProcessor;
 use App\Support\Viewings\ViewingSlots;
 use Carbon\CarbonImmutable;
-use Database\Seeders\Demo\DemoPhotoPainter;
+use Database\Seeders\Demo\DemoPhotos;
 use Database\Seeders\Demo\DemoReceiptPainter;
 use Database\Seeders\Demo\StayScheduler;
 use Faker\Factory;
@@ -44,13 +44,14 @@ use RuntimeException;
  *   timestamps. Ids are assigned here (max + 1) so the rows don't depend on
  *   auto-increment counters either.
  * - Reservations come from StayScheduler, not ReserveSpace (slice 2.3).
- * - Every published property gets 3 to 6 ready photos (slice 4.2), painted by
- *   DemoPhotoPainter and resized by the same PhotoProcessor as an upload. The
- *   files go to the photos disk before the transaction commits. Their paths
- *   come from the seeded Faker too, so a reseed overwrites the same files.
+ * - Every published property gets 3 to 6 ready photos (slice 4.2), chosen by kind from the
+ *   public-domain set in database/data/demo-photos (slice 7.1, see DemoPhotos) and resized by the same
+ *   PhotoProcessor as an upload. The files go to the photos disk before the transaction commits. The
+ *   choice and the paths come from a Faker stream of their own, built last, so the photo set can change
+ *   without shifting any other row, and a reseed overwrites the same files.
  * - Places are real (slice 4.4): the cities of `database/data/places.php` and their
  *   barangays from the places tables, so `php artisan places:import` runs first.
- * - Viewing requests (slice 6.2) come last, from the same Faker stream, so nothing above shifts: a scripted set
+ * - Viewing requests (slice 6.2) come last on the main Faker stream, so nothing above shifts: a scripted set
  *   for the demo owner's properties and renter1 and renter2 (open ones in every state, and past ones; renter1 keeps a
  *   free place under the limit of 3, which the Phase 6 demo uses), then about 150 more across the pool.
  * - Refuses to run in production unless APP_DEMO=true.
@@ -141,8 +142,8 @@ final class DemoSeeder extends Seeder
             $this->buildPeople();
             $this->buildListings();
             $this->buildReservations();
-            $this->buildPhotos();
             $this->buildViewings();
+            $this->buildPhotos();
             $this->flush();
             $this->writePhotoFiles();
             $this->writeProofFiles();
@@ -284,11 +285,11 @@ final class DemoSeeder extends Seeder
     /** @var list<array{id: int, account: int, kind: string, published: bool, name: string, created: CarbonImmutable}> */
     private array $listings = [];
 
-    /** @var list<array{path: string, scene: string, palette: string}> */
+    /** @var list<array{path: string, file: string}> */
     private array $photoFiles = [];
 
-    /** @var array<string, ProcessedPhoto> painted and resized once per process: "scene/palette" */
-    private static array $paintings = [];
+    /** @var array<string, ProcessedPhoto> each curated photo is resized once per process, by file name */
+    private static array $processed = [];
 
     /** @var list<array{id: int, room: int, account: int, property: int, label: string, fee: int, special: bool}> */
     private array $spaceRefs = [];
@@ -776,36 +777,54 @@ final class DemoSeeder extends Seeder
     // ------------------------------------------------------------------ photos
 
     /**
-     * 3 to 6 ready photos for each published property: the front first (the cover), then rooms
-     * that fit its kind, all in one colourway. Called after everything else, so the photos don't
-     * shift the random sequence the rest of the data is built from.
+     * 3 to 6 ready photos for each published property, from the curated set: a building photo and
+     * two to five rooms that fit the kind (bunks first for a boarding house, an apartment interior
+     * first for an apartment). Half the properties lead with the building, the rest with a room, so
+     * the cards on the home page don't all show one of five facades. Built last, from a stream of its own.
      */
     private function buildPhotos(): void
     {
-        foreach ($this->listings as $listing) {
-            if (! $listing['published']) {
-                continue;
-            }
+        $main = $this->faker;
+        $this->faker = Factory::create('en_PH');
+        $this->faker->seed(self::SEED + 1);
 
-            $rooms = $listing['kind'] === PropertyKind::BoardingHouse->value
-                ? ['bunks', ...$this->shuffled(['bedroom', 'kitchen', 'bathroom', 'desk'])]
-                : ['bedroom', ...$this->shuffled(['kitchen', 'bathroom', 'desk'])];
-            $scenes = ['front', ...array_slice($rooms, 0, $this->int(2, min(5, count($rooms))))];
-            $palette = $this->pick(array_keys(DemoPhotoPainter::PALETTES));
+        try {
+            foreach ($this->listings as $listing) {
+                if (! $listing['published']) {
+                    continue;
+                }
 
-            foreach ($scenes as $index => $scene) {
-                $path = 'properties/'.$this->faker->uuid();
-                $this->rows['property_photos'][] = [
-                    'id' => $this->nextId('property_photos'), 'property_id' => $listing['id'], 'landlord_account_id' => $listing['account'],
-                    'path' => $path,
-                    'alt' => str_replace(':property', $listing['name'], DemoPhotoPainter::SCENES[$scene]),
-                    'width' => DemoPhotoPainter::WIDTH, 'height' => DemoPhotoPainter::HEIGHT,
-                    'sort' => $index + 1, 'status' => PhotoStatus::Ready->value,
-                    'created_at' => $this->ts($listing['created']), 'updated_at' => $this->ts($listing['created']),
+                $rooms = [
+                    $listing['kind'] === PropertyKind::BoardingHouse->value ? 'bunk' : 'apartment',
+                    ...$this->shuffled(['bedroom', 'kitchen', 'bathroom', 'laundry']),
                 ];
-                $this->photoFiles[] = ['path' => $path, 'scene' => $scene, 'palette' => $palette];
+                $kinds = array_slice($rooms, 0, $this->int(2, 5));
+                $kinds = $this->chance(50) ? ['exterior', ...$kinds] : [...$kinds, 'exterior'];
+
+                foreach ($kinds as $index => $kind) {
+                    $photo = $this->pick(DemoPhotos::ofKind($kind));
+                    $processed = $this->processed($photo['file']);
+                    $path = 'properties/'.$this->faker->uuid();
+
+                    $this->rows['property_photos'][] = [
+                        'id' => $this->nextId('property_photos'), 'property_id' => $listing['id'], 'landlord_account_id' => $listing['account'],
+                        'path' => $path, 'alt' => $photo['alt'],
+                        'width' => $processed->width, 'height' => $processed->height,
+                        'sort' => $index + 1, 'status' => PhotoStatus::Ready->value,
+                        'created_at' => $this->ts($listing['created']), 'updated_at' => $this->ts($listing['created']),
+                    ];
+                    $this->photoFiles[] = ['path' => $path, 'file' => $photo['file']];
+                }
             }
+        } finally {
+            $this->faker = $main;
         }
+    }
+
+    /** A curated photo through the same resize code as an upload, once per process. */
+    private function processed(string $file): ProcessedPhoto
+    {
+        return self::$processed[$file] ??= (new PhotoProcessor)->process(DemoPhotos::bytes($file));
     }
 
     // ---------------------------------------------------------------- viewings
@@ -929,18 +948,16 @@ final class DemoSeeder extends Seeder
         ];
     }
 
-    /** Each scene and colourway is painted and resized once, then written under every photo's own path. */
+    /** Each curated photo is resized once, then written under every photo row's own path. */
     private function writePhotoFiles(): void
     {
         $disk = Storage::disk(PropertyPhoto::DISK);
-        $painter = new DemoPhotoPainter;
-        $processor = new PhotoProcessor;
 
         foreach ($this->photoFiles as $file) {
-            $painting = self::$paintings["{$file['scene']}/{$file['palette']}"] ??= $processor->process($painter->paint($file['scene'], $file['palette']));
+            $processed = $this->processed($file['file']);
 
-            $disk->put("{$file['path']}-thumb.webp", $painting->thumb, PropertyPhoto::WRITE_OPTIONS);
-            $disk->put("{$file['path']}-full.webp", $painting->full, PropertyPhoto::WRITE_OPTIONS);
+            $disk->put("{$file['path']}-thumb.webp", $processed->thumb, PropertyPhoto::WRITE_OPTIONS);
+            $disk->put("{$file['path']}-full.webp", $processed->full, PropertyPhoto::WRITE_OPTIONS);
         }
     }
 

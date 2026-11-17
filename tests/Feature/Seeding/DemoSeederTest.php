@@ -6,7 +6,7 @@ use App\Enums\ReservationStatus;
 use App\Support\Viewings\ViewingSlots;
 use Carbon\CarbonImmutable;
 use Database\Seeders\DatabaseSeeder;
-use Database\Seeders\Demo\DemoPhotoPainter;
+use Database\Seeders\Demo\DemoPhotos;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -239,37 +239,42 @@ it('gives every demo property payment instructions, and a first-published date t
         ->and(DB::table('properties')->where('is_published', false)->whereNotNull('first_published_at')->count())->toBe(0);
 });
 
-it('gives every published property 3 to 6 ready photos, resized like an upload, and none to a draft', function (): void {
+it('gives every published property 3 to 6 ready photos from the curated set, resized like an upload, and none to a draft', function (): void {
     $photos = DB::table('property_photos')->orderBy('property_id')->orderBy('sort')->get();
-    $published = DB::table('properties')->where('is_published', true)->pluck('name', 'id');
+    $published = DB::table('properties')->where('is_published', true)->pluck('kind', 'id');
+    $curated = collect(DemoPhotos::all())->keyBy('alt'); // every curated description is its own
 
     expect($photos->pluck('status')->unique()->all())->toBe(['ready'])
         ->and($photos->pluck('property_id')->unique()->sort()->values()->all())->toBe($published->keys()->sort()->values()->all())
-        ->and($photos->pluck('path')->unique())->toHaveCount($photos->count());
+        ->and($photos->pluck('path')->unique())->toHaveCount($photos->count())
+        ->and($curated)->toHaveCount(count(DemoPhotos::all()));
 
     foreach ($photos->groupBy('property_id') as $propertyId => $ofProperty) {
+        $kinds = $ofProperty->map(fn (object $row): string => $curated[$row->alt]['kind'] ?? throw new RuntimeException("Alt text not in photos.php: {$row->alt}"));
+
+        // 3 to 6, in order, one of each kind (so no repeat in a gallery), one building, and rooms that fit the kind.
         expect($ofProperty->count())->toBeBetween(3, 6)
             ->and($ofProperty->pluck('sort')->all())->toBe(range(1, $ofProperty->count()))
-            ->and($ofProperty->first()->alt)->toBe("Front of {$published[$propertyId]}"); // the cover
+            ->and($kinds->unique())->toHaveCount($kinds->count())
+            ->and($kinds->contains('exterior'))->toBeTrue()
+            ->and($kinds->contains($published[$propertyId] === 'boarding_house' ? 'bunk' : 'apartment'))->toBeTrue()
+            ->and($kinds->contains($published[$propertyId] === 'boarding_house' ? 'apartment' : 'bunk'))->toBeFalse();
     }
 
-    // The files: a 480 px wide thumbnail and a 1600 px full size, both WebP, for every row and nothing else.
+    // Both kinds of cover are used, so the home page doesn't show one of five facades.
+    $covers = $photos->groupBy('property_id')->map(fn ($rows): string => $curated[$rows->first()->alt]['kind']);
+    expect($covers->contains('exterior'))->toBeTrue()->and($covers->reject(fn (string $kind): bool => $kind === 'exterior')->isNotEmpty())->toBeTrue();
+
+    // The files: a 480 px wide thumbnail and a full size of at most 1600 px, both WebP, for every row and nothing else.
     $disk = Storage::disk('photos');
     expect($disk->allFiles())->toHaveCount($photos->count() * 2);
 
     $cover = $photos->first();
     $thumb = getimagesizefromstring($disk->get("{$cover->path}-thumb.webp"));
     $full = getimagesizefromstring($disk->get("{$cover->path}-full.webp"));
-    expect([$thumb[0], $thumb[1], $thumb['mime']])->toBe([480, 360, 'image/webp'])
+    expect($thumb[0])->toBe(480)->and($thumb['mime'])->toBe('image/webp')
         ->and([$full[0], $full[1], $full['mime']])->toBe([$cover->width, $cover->height, 'image/webp'])
-        ->and([$cover->width, $cover->height])->toBe([1600, 1200]);
-});
-
-it('paints the same demo photo every time', function (): void {
-    $painter = new DemoPhotoPainter;
-
-    expect(hash('sha256', $painter->paint('bunks', 'ube')))->toBe(hash('sha256', $painter->paint('bunks', 'ube')))
-        ->and($painter->paint('bunks', 'ube'))->not->toBe($painter->paint('bunks', 'mango'));
+        ->and(max($cover->width, $cover->height))->toBeLessThanOrEqual(1600);
 });
 
 it('seeds viewing requests across every status, within the limits, in real slots (slice 6.2)', function (): void {
@@ -331,7 +336,11 @@ it('produces the same business data every time', function (): void {
     // Every other column is what it was: the Faker stream is unchanged (one draw picks the barangay, as before).
     // Slice 5.3: payment_proofs gained mime_type ('image/jpeg' on every demo proof); nothing else changed.
     // Slice 6.2: viewing_requests joined the hash (about 150 random rows and the scripted set); the other tables hash as before.
-    $expected = '41ceb98e00e55f9c7bab7cffb575c9e11e77bf2bc8c1f305376ed976618c0122';
+    // Slice 7.1: real CC0 photos replace the painted ones. property_photos changed (which photo, its alt text, its size), and
+    // so did viewing_requests: the photo choice used to draw from the main Faker stream before the viewings were built; it now
+    // has a stream of its own (SEED + 1), so the random viewings shifted once. Nothing else draws from the photo stream, so no
+    // other table is meant to have changed.
+    $expected = '1337ce78b828c3a43b64eb0b8e38d048bae9f6b3e5e8613426c8f54cf48b53ac';
 
     // Amenities are reference data with auto-increment ids, whose counter survives a
     // rolled-back test, so they are hashed by slug, not by id.

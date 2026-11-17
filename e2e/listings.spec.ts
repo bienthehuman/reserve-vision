@@ -108,6 +108,35 @@ test('the last-bed listing: gallery, details, rooms and the sticky bar on phones
     await expectNoAxeViolations(page);
 });
 
+test('the last-bed listing shows the real, public-domain photos, each loaded and described (slice 7.1)', async ({ page }) => {
+    const errors = await collectConsoleErrors(page);
+
+    await page.goto(LAST_BED_LISTING);
+    await page.waitForLoadState('networkidle');
+
+    const images = page.locator('.gallery img');
+    const count = await images.count();
+    expect(count).toBeGreaterThanOrEqual(3);
+    expect(count).toBeLessThanOrEqual(6);
+
+    // Scroll each into view (the later ones are lazy), then check the browser really decoded a picture from our own media route.
+    const alts: string[] = [];
+    for (const image of await images.all()) {
+        await image.scrollIntoViewIfNeeded();
+        await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+        await expect(image).toHaveAttribute('src', /^\/media\/photos\/properties\/.+\.webp$/);
+
+        const alt = (await image.getAttribute('alt')) ?? '';
+        expect(alt.length).toBeGreaterThanOrEqual(20); // a description of the photo, not the old "Front of <name>"
+        expect(alt).not.toMatch(/^Front of /);
+        alts.push(alt);
+    }
+    expect(new Set(alts).size).toBe(alts.length);
+
+    expect(errors).toEqual([]);
+    await expectNoAxeViolations(page);
+});
+
 test('another place, unknown listings and old links', async ({ page, request }) => {
     expect((await request.get('/listings/manila/not-a-house')).status()).toBe(404);
     expect((await request.get('/listings/atlantis/santos-bedspace-house')).status()).toBe(404);

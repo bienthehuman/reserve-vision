@@ -107,7 +107,7 @@ Each property photo is stored twice in the photos bucket, both as WebP: a thumbn
 | Full size | 150–350 kB | 700 kB |
 | One property with all 12 photos | about 4 MB | about 9 MB |
 
-These are estimates for camera photos at WebP quality 80, not measurements from a live site; the generated demo photos are far smaller (about 20 kB a pair, 4 MB for the whole demo set). A thousand full properties is then 4 to 9 GB, so the 20 GB disk above is enough to start, and `minio-data` is the volume to watch. The worker needs memory for the decoded original: up to 160 MB for the largest accepted photo (40 megapixels), inside PHP's 256 MB limit. Photos are served with `Cache-Control: public, max-age=31536000, immutable`; a replaced photo gets a new URL.
+These are estimates for camera photos at WebP quality 80, not measurements from a live site; the demo set is real photographs (7.1): about 75 kB a pair on average, 38 MB for the 500 or so photos of the seeded demo, and a cold `db:seed` spends about 14 s resizing them. A thousand full properties is then 4 to 9 GB, so the 20 GB disk above is enough to start, and `minio-data` is the volume to watch. The worker needs memory for the decoded original: up to 160 MB for the largest accepted photo (40 megapixels), inside PHP's 256 MB limit. Photos are served with `Cache-Control: public, max-age=31536000, immutable`; a replaced photo gets a new URL.
 
 `AWS_PHOTOS_URL` can stay empty with MinIO: photo URLs are then `/media/photos/…` on the site's own address, which Caddy serves from the bucket.
 
