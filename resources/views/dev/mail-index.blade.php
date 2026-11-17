@@ -4,8 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mail previews · {{ config('app.name') }}</title>
+    <style nonce="{{ Vite::cspNonce() }}">
+        body { font-family: system-ui, sans-serif; margin: 1.5rem; }
+        th, td { padding: 0.25rem 1rem 0.25rem 0; text-align: left; }
+        td a { display: inline-block; padding: 0.5rem 0; }
+    </style>
 </head>
 <body>
+<main>
 <h1>Mail previews</h1>
 <p>Every status email, rendered with the newest reservation and viewing request in this database. Development only.</p>
 @if ($mails === [])
@@ -24,5 +30,6 @@
         </tbody>
     </table>
 @endif
+</main>
 </body>
 </html>

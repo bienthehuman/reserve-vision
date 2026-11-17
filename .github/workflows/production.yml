@@ -126,3 +126,61 @@ jobs:
         run: |
           docker compose --env-file .env.production ps -a
           docker compose --env-file .env.production logs --no-color --tail=200
+
+  # Slice 7.2: what a visitor's phone gets from the production stack (the dev stack's Vite server would give
+  # meaningless numbers). Own job = own fresh stack: no e2e data around, and it runs next to the e2e job.
+  lighthouse:
+    name: Lighthouse (mobile)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Throwaway .env.production (Caddy on plain HTTP)
+        run: bin/ci-production-env 8280
+
+      - name: Deploy (build, migrate as migrator, up, optimize, app:doctor, /up)
+        run: ./deploy.sh --current
+
+      - name: Seed demo data
+        run: docker compose --env-file .env.production exec -T app php artisan db:seed --force
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22'
+          cache: npm
+
+      - name: Install JavaScript dependencies (Lighthouse CI)
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium
+        # The same Chromium the e2e job uses: lhci launches it through CHROME_PATH.
+        run: |
+          npx playwright install --with-deps chromium
+          echo "CHROME_PATH=$(node -p "require('@playwright/test').chromium.executablePath()")" >> "$GITHUB_ENV"
+
+      - name: Lighthouse, mobile preset, 3 runs per page, assertions (lighthouserc.cjs)
+        # Plain HTTP on localhost: is-on-https and redirects-http are skipped (lighthouserc.cjs), and the summary says so.
+        run: npx lhci autorun
+        env:
+          LHCI_BASE_URL: ${{ env.BASE_URL }}
+
+      - name: Scores in the job summary
+        if: always()
+        run: node bin/lighthouse-summary.mjs
+
+      - name: Upload the Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 14
+
+      - name: Stack status and logs
+        if: failure()
+        run: |
+          docker compose --env-file .env.production ps -a
+          docker compose --env-file .env.production logs --no-color --tail=200

@@ -47,6 +47,15 @@ expect_body "the pitch is in the raw HTML" "Reserve apartments and boarding-hous
 expect_body "the page was rendered by the SSR server" 'data-server-rendered="true"'
 expect_body "built assets, not the Vite dev server" '/build/assets/app-'
 
+echo "Built assets are cached for good (slice 7.2)"
+home_assets="$(grep -o '/build/assets/[A-Za-z0-9._-]*\.\(js\|css\|woff2\)' "$tmp/body" | sort -u)"
+test -n "$home_assets" || fail "no /build/assets files linked from /"
+for asset in $home_assets; do
+    fetch "$asset" >/dev/null
+    expect_header Cache-Control "immutable"
+done
+fetch / >/dev/null
+
 echo "Security headers on /"
 expect_header Strict-Transport-Security "max-age=31536000"
 expect_header Content-Security-Policy "default-src 'self'"

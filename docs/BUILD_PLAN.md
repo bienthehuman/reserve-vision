@@ -146,7 +146,10 @@ Ideas that came up and are deliberately not in any slice.
 | Cache the production image build in CI (Buildx with the GitHub Actions cache) | Slice 1.3 |
 | Make the Vite dev server (HMR) work in Codespaces; today the dev container uses built assets | Slice 1.3 |
 | CSP `img-src` for a photos origin other than the app (external S3 or CDN: `AWS_PHOTOS_URL`). Photos are same-origin (`/media/photos`) with MinIO, so 4.2 didn't need it | Slice 1.3, 4.2 |
-| Trim the entry chunk (`app.js`, 112 KB gzipped, mostly React DOM + Inertia) and add a JS budget next to the CSS budget | Slice 1.1 build output |
+| A third, mid-size photo variant (about 960 px WebP) next to `-thumb` and `-full`: a phone's listing cover picks the 1600 px file (153 kB) because the 480 px thumb is too small, and Lighthouse's image-delivery audit puts the saving at about 120 kB (listing page LCP 3.5 s on simulated slow 4G, Performance 90). Needs a new file per photo, a backfill for existing rows, and changes in `PhotoProcessor`, the actions that write and delete photo files, the seeder and their tests | Slice 7.2 |
+| Run Lighthouse once against a deployment with TLS: CI serves plain HTTP on localhost, so `is-on-https` and `redirects-http` are skipped there (and HTTP/2 isn't measured) | Slice 7.2 |
+| Cover the invitation page's usable states (register, log in, join) in the accessibility sweep: it needs a live invitation link, which only the phase 4 demo can make today, so the sweep covers the neutral 404 | Slice 7.2 |
+| Real screen-reader passes (NVDA, VoiceOver, TalkBack) on the reserve and decision flows: 7.2 could only check the accessibility tree and the keyboard order in the dev environment ([perf/accessibility.md](perf/accessibility.md)) | Slice 7.2 |
 | Narrow the "status is written only in `App\Actions`" arch test to reservations if it gets noisy for `PropertyPhoto`/`PaymentProof` status writes | Slice 2.1 |
 | Two-factor authentication and passkeys (Fortify supports both; the routes are off) | Slice 2.4 |
 | Profile and settings pages: change name, phone, email (re-verify) and password | Slice 2.4 |

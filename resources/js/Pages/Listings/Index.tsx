@@ -37,7 +37,9 @@ export default function Index({ listings, total, page, lastPage, prevHref, nextH
 
     return (
         <PublicLayout>
-            <Head title={filtered ? 'Search results' : 'Browse all listings'} />
+            <Head title={filtered ? 'Search results' : 'Browse all listings'}>
+                <meta head-key="description" name="description" content="Rooms and bedspaces for rent across the Philippines: filter by place, price, house rules and move-in date, and hold a space for 24 hours." />
+            </Head>
             <Container className="py-4 py-md-5">
                 <PageHeader title={filtered ? 'Search results' : 'All listings'} back={{ href: '/', label: 'Home' }}>
                     <p className="page-header__subtitle mb-0" role="status">
@@ -71,9 +73,9 @@ export default function Index({ listings, total, page, lastPage, prevHref, nextH
                             </EmptyState>
                         ) : (
                             <Row as="ul" className="g-3 list-unstyled mb-4">
-                                {listings.map((listing) => (
+                                {listings.map((listing, index) => (
                                     <Col as="li" key={listing.id} xs={12} sm={6} xl={4}>
-                                        <ListingCard listing={listing} level={2} from={from} />
+                                        <ListingCard listing={listing} level={2} from={from} priority={index === 0} />
                                     </Col>
                                 ))}
                             </Row>

@@ -1,0 +1,276 @@
+[
+    {
+        "key": "/up",
+        "uri": "/up",
+        "access": "public",
+        "parameters": []
+    },
+    {
+        "key": "dev.mail.index",
+        "uri": "/dev/mail",
+        "access": "public",
+        "parameters": []
+    },
+    {
+        "key": "dev.mail.show",
+        "uri": "/dev/mail/{key}",
+        "access": "public",
+        "parameters": [
+            "key"
+        ]
+    },
+    {
+        "key": "home",
+        "uri": "/",
+        "access": "public",
+        "parameters": []
+    },
+    {
+        "key": "invitations.show",
+        "uri": "/invitations/{token}",
+        "access": "public",
+        "parameters": [
+            "token"
+        ]
+    },
+    {
+        "key": "landlord.dashboard",
+        "uri": "/landlord",
+        "access": "landlord",
+        "parameters": []
+    },
+    {
+        "key": "landlord.members.index",
+        "uri": "/landlord/members",
+        "access": "landlord",
+        "parameters": []
+    },
+    {
+        "key": "landlord.properties.create",
+        "uri": "/landlord/properties/create",
+        "access": "landlord",
+        "parameters": []
+    },
+    {
+        "key": "landlord.properties.edit",
+        "uri": "/landlord/properties/{property}/edit",
+        "access": "landlord",
+        "parameters": [
+            "property"
+        ]
+    },
+    {
+        "key": "landlord.properties.index",
+        "uri": "/landlord/properties",
+        "access": "landlord",
+        "parameters": []
+    },
+    {
+        "key": "landlord.properties.rooms.create",
+        "uri": "/landlord/properties/{property}/rooms/create",
+        "access": "landlord",
+        "parameters": [
+            "property"
+        ]
+    },
+    {
+        "key": "landlord.properties.show",
+        "uri": "/landlord/properties/{property}",
+        "access": "landlord",
+        "parameters": [
+            "property"
+        ]
+    },
+    {
+        "key": "landlord.reservations.index",
+        "uri": "/landlord/reservations",
+        "access": "landlord",
+        "parameters": []
+    },
+    {
+        "key": "landlord.reservations.show",
+        "uri": "/landlord/reservations/{reservation}",
+        "access": "landlord",
+        "parameters": [
+            "reservation"
+        ]
+    },
+    {
+        "key": "landlord.rooms.edit",
+        "uri": "/landlord/rooms/{room}/edit",
+        "access": "landlord",
+        "parameters": [
+            "room"
+        ]
+    },
+    {
+        "key": "landlord.viewings.index",
+        "uri": "/landlord/viewings",
+        "access": "landlord",
+        "parameters": []
+    },
+    {
+        "key": "landlord.viewings.show",
+        "uri": "/landlord/viewings/{viewing}",
+        "access": "landlord",
+        "parameters": [
+            "viewing"
+        ]
+    },
+    {
+        "key": "listings.count",
+        "uri": "/listings/count",
+        "access": "public",
+        "parameters": []
+    },
+    {
+        "key": "listings.index",
+        "uri": "/listings",
+        "access": "public",
+        "parameters": []
+    },
+    {
+        "key": "listings.show",
+        "uri": "/listings/{city}/{slug}",
+        "access": "public",
+        "parameters": [
+            "city",
+            "slug"
+        ]
+    },
+    {
+        "key": "login",
+        "uri": "/login",
+        "access": "guest",
+        "parameters": []
+    },
+    {
+        "key": "media.photos.show",
+        "uri": "/media/photos/{path}",
+        "access": "public",
+        "parameters": [
+            "path"
+        ]
+    },
+    {
+        "key": "password.request",
+        "uri": "/forgot-password",
+        "access": "guest",
+        "parameters": []
+    },
+    {
+        "key": "password.reset",
+        "uri": "/reset-password/{token}",
+        "access": "guest",
+        "parameters": [
+            "token"
+        ]
+    },
+    {
+        "key": "places.barangays",
+        "uri": "/places/cities/{city}/barangays",
+        "access": "public",
+        "parameters": [
+            "city"
+        ]
+    },
+    {
+        "key": "places.cities",
+        "uri": "/places/provinces/{province}/cities",
+        "access": "public",
+        "parameters": [
+            "province"
+        ]
+    },
+    {
+        "key": "proofs.file",
+        "uri": "/proofs/{proof}/file",
+        "access": "signed",
+        "parameters": [
+            "proof"
+        ]
+    },
+    {
+        "key": "proofs.show",
+        "uri": "/proofs/{proof}",
+        "access": "auth",
+        "parameters": [
+            "proof"
+        ]
+    },
+    {
+        "key": "register",
+        "uri": "/register",
+        "access": "guest",
+        "parameters": []
+    },
+    {
+        "key": "reservations.index",
+        "uri": "/reservations",
+        "access": "renter",
+        "parameters": []
+    },
+    {
+        "key": "reservations.show",
+        "uri": "/reservations/{reservation}",
+        "access": "renter",
+        "parameters": [
+            "reservation"
+        ]
+    },
+    {
+        "key": "robots",
+        "uri": "/robots.txt",
+        "access": "public",
+        "parameters": []
+    },
+    {
+        "key": "rooms.show",
+        "uri": "/rooms/{room}",
+        "access": "public",
+        "parameters": [
+            "room"
+        ]
+    },
+    {
+        "key": "sitemap",
+        "uri": "/sitemap.xml",
+        "access": "public",
+        "parameters": []
+    },
+    {
+        "key": "storage.local",
+        "uri": "/storage/{path}",
+        "access": "public",
+        "parameters": [
+            "path"
+        ]
+    },
+    {
+        "key": "styleguide",
+        "uri": "/styleguide",
+        "access": "public",
+        "parameters": []
+    },
+    {
+        "key": "verification.notice",
+        "uri": "/email/verify",
+        "access": "auth",
+        "parameters": []
+    },
+    {
+        "key": "verification.verify",
+        "uri": "/email/verify/{id}/{hash}",
+        "access": "signed",
+        "parameters": [
+            "id",
+            "hash"
+        ]
+    },
+    {
+        "key": "viewings.index",
+        "uri": "/viewings",
+        "access": "renter",
+        "parameters": []
+    }
+]

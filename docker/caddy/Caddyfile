@@ -25,6 +25,15 @@
 		respond 405
 	}
 
+	# Vite's build output is content-hashed (app-XBP2INB6.js, the font, the CSS): a changed file gets a new URL,
+	# so browsers and CDNs may keep it for a year and never revalidate. Only /build/assets, never /build/manifest.json.
+	handle /build/assets/* {
+		reverse_proxy app:8000 {
+			header_down -Server
+			header_down Cache-Control "public, max-age=31536000, immutable"
+		}
+	}
+
 	handle {
 		reverse_proxy app:8000 {
 			header_down -Server

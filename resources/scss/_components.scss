@@ -983,6 +983,24 @@ a {
   margin-bottom: 1rem;
 }
 
+// Before hydration (and without JavaScript) the filters are a card on the page; below lg it stays closed until the
+// visually hidden checkbox before the "Filters" label is checked, so hydrating (the label becomes the real button)
+// moves nothing.
+@include media-breakpoint-down(lg) {
+  .filter-panel--static {
+    display: none;
+  }
+
+  .filter-open:checked ~ .filter-panel--static {
+    display: block;
+  }
+}
+
+.filter-open:focus-visible + .filter-toggle {
+  outline: $rv-focus-outline-width solid $rv-primary;
+  outline-offset: $rv-focus-outline-offset;
+}
+
 .filter-form__pair {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
