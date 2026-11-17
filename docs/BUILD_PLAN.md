@@ -194,6 +194,7 @@ Ideas that came up and are deliberately not in any slice, one sentence each with
 
 | Idea | Source |
 | --- | --- |
+| Fix a focus race from 7.2: after a post that navigates (login), `app.tsx` focuses `main h1` 150 ms later, and that `focusin` closes an account menu opened in between (`auth.spec.ts` "demo user … logs in" failed on PR #37). Skip the move when focus has changed since the visit | Slice 7.3 |
 | Fix the flaky `SecurityHeadersTest`: it writes `public/hot` for a moment, and a parallel Pest worker then renders SSR against the Vite dev server that CI doesn't run (failed `MariaDB 11.4 / Pest` on `main` after #36) | Slice 7.3 |
 | Fix a flaky concurrency fixture: two Faker emails collided in the committed fixtures (`users_email_unique`, failed `MySQL 8.4 / Concurrency` on `main` after #35); use unique emails | Slice 7.3 |
 | Make the Phase 5 search e2e (Quezon City, today + 14 days) independent of the day the database was seeded: pick the place and date from the data, or have the seed keep a free window | Slice 7.1 |
