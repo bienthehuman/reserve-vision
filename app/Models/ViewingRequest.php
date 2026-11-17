@@ -114,10 +114,30 @@ final class ViewingRequest extends Model
             ->where($query->qualifyColumn('preferred_at'), '>', self::now());
     }
 
+    /**
+     * `requested` and the time has come with nobody answering: what pages show as `expired`.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeUnanswered(Builder $query): void
+    {
+        $query->where($query->qualifyColumn('status'), ViewingRequestStatus::Requested)
+            ->where($query->qualifyColumn('preferred_at'), '<=', self::now());
+    }
+
     /** "Now" as a UTC binding, from Laravel's clock (so travelTo() controls it). */
     public static function now(): CarbonImmutable
     {
         return CarbonImmutable::instance(Date::now())->utc();
+    }
+
+    /**
+     * What pages call the status: a `requested` one nobody answered before its time shows as `expired` (display
+     * only, like a hold that ran out: the row stays `requested`, and no table move leads to "expired").
+     */
+    public function shownStatus(): string
+    {
+        return $this->status === ViewingRequestStatus::Requested && ! $this->isUpcoming() ? 'expired' : $this->status->value;
     }
 
     /** The preferred time is still ahead. */

@@ -67,7 +67,7 @@ final class ListOwnViewings
 
         return [
             'id' => $viewing->id,
-            'status' => $viewing->status->value,
+            'status' => $viewing->shownStatus(),
             'property_name' => $property->name,
             'place' => trim("{$property->barangay}, {$property->city}", ', '),
             'listing_url' => $listed ? ListingCards::url($property) : null,

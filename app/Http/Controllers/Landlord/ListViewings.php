@@ -31,7 +31,10 @@ final class ListViewings
     {
         Gate::authorize('viewAny', ViewingRequest::class);
 
-        $status = ViewingRequestStatus::tryFrom($request->string('status')->toString());
+        // `expired` is a display status (requested, unanswered, the time gone); `requested` then means still waiting.
+        $filter = $request->string('status')->toString();
+        $expired = $filter === 'expired';
+        $status = $expired ? null : ViewingRequestStatus::tryFrom($filter);
         $show = in_array($request->string('show')->toString(), self::SHOWS, true) ? $request->string('show')->toString() : null;
 
         $now = ViewingRequest::now();
@@ -40,7 +43,9 @@ final class ListViewings
 
         $page = ViewingRequest::query()
             ->with(['property', 'renter'])
-            ->when($status !== null, fn (Builder $query) => $query->where('viewing_requests.status', $status))
+            ->when($expired, fn (Builder $query) => $query->unanswered())
+            ->when($status === ViewingRequestStatus::Requested, fn (Builder $query) => $query->waiting())
+            ->when($status !== null && $status !== ViewingRequestStatus::Requested, fn (Builder $query) => $query->where('viewing_requests.status', $status))
             ->when($show === 'waiting', fn (Builder $query) => $query->waiting())
             // 0: still to come today and open, 1: still to come, 2: past.
             ->orderByRaw(
@@ -56,7 +61,7 @@ final class ListViewings
         return Inertia::render('Landlord/Viewings/Index', [
             'viewings' => $page->getCollection()->map(fn (ViewingRequest $viewing): array => [
                 'id' => $viewing->id,
-                'status' => $viewing->status->value,
+                'status' => $viewing->shownStatus(),
                 'renter_name' => $viewing->renter->full_name,
                 'property_name' => $viewing->property->name,
                 'preferred_at' => $viewing->preferred_at->toIso8601String(),
@@ -72,8 +77,8 @@ final class ListViewings
                 'prev_url' => $page->previousPageUrl(),
                 'next_url' => $page->nextPageUrl(),
             ],
-            'filter' => ['status' => $status?->value, 'show' => $show],
-            'statuses' => array_map(fn (ViewingRequestStatus $s): string => $s->value, ViewingRequestStatus::cases()),
+            'filter' => ['status' => $expired ? 'expired' : $status?->value, 'show' => $show],
+            'statuses' => [...array_map(fn (ViewingRequestStatus $s): string => $s->value, ViewingRequestStatus::cases()), 'expired'],
         ]);
     }
 }

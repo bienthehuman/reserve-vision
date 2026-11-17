@@ -61,12 +61,12 @@ export default function ViewingForm({ propertyId, propertyName, viewing, today, 
             )}
 
             {isLandlord ? (
-                <Alert variant="info" className="d-flex gap-2 align-items-start mb-0">
+                <Alert variant="info" role="status" className="d-flex gap-2 align-items-start mb-0">
                     <InfoCircle aria-hidden="true" focusable="false" className="flex-shrink-0 mt-1" />
                     <div>Renters can ask {propertyName} for a viewing from here. Log in with a renter account to try it.</div>
                 </Alert>
             ) : viewing.open ? (
-                <Alert variant="info" className="d-flex gap-2 align-items-start mb-0">
+                <Alert variant="info" role="status" className="d-flex gap-2 align-items-start mb-0">
                     <InfoCircle aria-hidden="true" focusable="false" className="flex-shrink-0 mt-1" />
                     <div>
                         You already asked to see this place on {formatHoldEnd(viewing.open.preferred_at)} (Manila time).{' '}

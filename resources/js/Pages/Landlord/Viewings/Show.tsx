@@ -6,12 +6,12 @@ import PageHeader from '@/Components/PageHeader';
 import ViewingStatusBadge from '@/Components/ViewingStatusBadge';
 import LandlordLayout from '@/Layouts/LandlordLayout';
 import { formatHoldEnd } from '@/lib/dates';
-import type { ViewingStatus } from '@/types/viewing';
+import type { ShownViewingStatus } from '@/types/viewing';
 
 interface ShowProps {
     viewing: {
         id: number;
-        status: ViewingStatus;
+        status: ShownViewingStatus;
         preferred_at: string;
         is_upcoming: boolean;
         message: string | null;
@@ -45,7 +45,7 @@ export default function Show({ viewing, moves, property, renter }: ShowProps) {
             <Container className="py-4 py-md-5">
                 <PageHeader title={`Viewing: ${renter.name}`} back={{ href: '/landlord/viewings', label: 'Back to viewings' }}>
                     <p className="mb-0">
-                        <ViewingStatusBadge status={viewing.status} detail={!viewing.is_upcoming && (viewing.status === 'requested' || viewing.status === 'accepted') ? 'time has passed' : undefined} />
+                        <ViewingStatusBadge status={viewing.status} detail={!viewing.is_upcoming && viewing.status === 'accepted' ? 'time has passed' : undefined} />
                     </p>
                 </PageHeader>
 

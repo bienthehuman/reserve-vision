@@ -372,18 +372,18 @@ Tests: `tests/Feature/Landlord/DecisionsTest.php` (each action, every guard and 
 | Lifecycle | `ViewingRequestStatus::transitions()` (compared with the ACCESS.md table by `tests/Feature/Docs/ViewingTransitionTableTest.php`); the clock guards are `ViewingRequest::assertCanMoveTo()` (accept, decline and cancel before `preferred_at`, done from it); `canMoveTo()` for what pages offer. Scopes `open()`, `openForRenter()`, `waiting()` are the only definitions of those words; `ViewingRequest::now()` is the UTC binding |
 | Slots | `App\Support\Viewings\ViewingSlots`: `LEAD_HOURS` (2), `WINDOW_DAYS` (30), 8:00 to 18:00 in 30-minute steps, `earliest()`, `isSlot()`, `at($date, $time)`. Manila in, UTC stored |
 | Actions | `RequestViewing` (renter row lock first, every read a locking read, 3 attempts; limits 3 open and 1 per property), `AcceptViewing`, `DeclineViewing`, `MarkViewingDone` (trait `Actions\Concerns\DecidesViewings`: lock the row, check, update, one audit row `viewing.accepted`/`.declined`/`.marked_done`), `CancelViewing` (renter, no audit) |
-| Routes | Renter: `POST /viewings` (`property_id`, `date`, `time`, `message`; no record parameter, so T6 doesn\'t walk it), `GET /viewings`, `POST /viewings/{viewing}/cancel`. Landlord (last of the group): `GET /landlord/viewings`, `.../{viewing}`, `POST .../accept`, `.../decline`, `.../done`. `KeepViewingIntent` keeps `listing#viewing` for a guest or unverified renter |
-| Pages | `Components/ViewingForm` (on `Listings/Show`, a plain post; the earliest slot is the default), `Viewings/Index` (renter: an accepted request shows the landlord\'s phone and the full address), `Landlord/Viewings/{Index,Show}` (today\'s first, marked "Today"; contact details on the detail only), `ViewingStatusBadge`, dashboard figure "Viewing requests waiting" (`?show=waiting`) |
-| Demo data | `DemoSeeder::buildViewings()`, last (so no earlier row shifts): a scripted set for renter1 (two open, one place left under the limit), renter2 (one for today) and the owner\'s properties, then about 150 random ones. A volume seeded before 6.2 has none until reseeded |
+| Routes | Renter: `POST /viewings` (`property_id`, `date`, `time`, `message`; no record parameter, so T6 doesn't walk it), `GET /viewings`, `POST /viewings/{viewing}/cancel`. Landlord (last of the group): `GET /landlord/viewings`, `.../{viewing}`, `POST .../accept`, `.../decline`, `.../done`. `KeepViewingIntent` keeps `listing#viewing` for a guest or unverified renter |
+| Pages | `Components/ViewingForm` (on `Listings/Show`, a plain post; the earliest slot is the default), `Viewings/Index` (renter: an accepted request shows the landlord's phone and the full address), `Landlord/Viewings/{Index,Show}` (today's first, marked "Today"; contact details on the detail only), `ViewingStatusBadge`, dashboard figure "Viewing requests waiting" (`?show=waiting`) |
+| Demo data | `DemoSeeder::buildViewings()`, last (so no earlier row shifts): a scripted set for renter1 (two open, one place left under the limit), renter2 (one for today) and the owner's properties, then about 150 random ones. A volume seeded before 6.2 has none until reseeded |
 
 Tests: `tests/Feature/Viewings/` (request, answer, renter pages), T6 and T7 extended, matrix rows, seeder checks. E2E: [e2e/viewings.spec.ts](e2e/viewings.spec.ts) (phone only; renter1 at Magno, cancels at the end so reruns work). Vitest: `ViewingForm.test.tsx`, `lib/dates.test.ts`.
 
 ### Quirks hit in 6.2
 
 - **Eloquent stores a `CarbonImmutable` in its own timezone**: convert to UTC before saving `preferred_at` (`->utc()`), or a Manila moment is written as Manila wall time.
-- **A requested viewing can\'t be "done"**: only accepted ones; the page lists only moves the table has from the status.
+- **A requested viewing can't be "done"**: only accepted ones; the page lists only moves the table has from the status.
 - **`actingAs()` keeps the guard**: call `auth()->logout()` before testing a guest in the same test.
-- **e2e runs leave cancelled Magno requests** in renter1\'s past list.
+- **e2e runs leave cancelled Magno requests** in renter1's past list.
 
 ### Quirks hit in 6.1
 
@@ -562,7 +562,7 @@ To read an invitation by hand in dev: invite from http://localhost:8180/landlord
 
 - **State closures see unresolved attributes** in Laravel factories (nested factories and closures are not yet evaluated). Derive from a parent in a *definition* closure (`fn (array $attributes)`, after the parent key), and do lookups that need real ids in `afterCreating`.
 - **`information_schema.TRIGGERS` and `SHOW TRIGGERS` need the `TRIGGER` privilege**, which `app` lacks, so the suite checks the triggers by behaviour, not by listing them.
-- **MySQL stores CHECK clauses with escaped literals** (`_utf8mb4\'renter\'`), MariaDB with plain quotes: the enum test's regex accepts both.
+- **MySQL stores CHECK clauses with escaped literals** (`_utf8mb4'renter'`), MariaDB with plain quotes: the enum test's regex accepts both.
 - **A CHECK can't use a column whose foreign key has a referential action** (`ON DELETE CASCADE`…). No foreign key here has one; keep it that way.
 - **MySQL's CHECK violation is `HY000`/3819, MariaDB's `23000`/4025**: compare driver codes, and use `CHECK_VIOLATION` from `tests/Pest.php`.
 - **`migrate:fresh` repeats** because the triggers die with the table.

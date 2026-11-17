@@ -7,11 +7,11 @@ import Pager from '@/Components/Pager';
 import ViewingStatusBadge, { viewingStatusStyles } from '@/Components/ViewingStatusBadge';
 import LandlordLayout from '@/Layouts/LandlordLayout';
 import { formatHoldEnd } from '@/lib/dates';
-import type { ViewingStatus } from '@/types/viewing';
+import type { ShownViewingStatus } from '@/types/viewing';
 
 interface Row {
     id: number;
-    status: ViewingStatus;
+    status: ShownViewingStatus;
     renter_name: string;
     property_name: string;
     preferred_at: string;
@@ -23,8 +23,8 @@ interface Row {
 interface IndexProps {
     viewings: Row[];
     pagination: { page: number; last_page: number; total: number; prev_url: string | null; next_url: string | null };
-    filter: { status: ViewingStatus | null; show: 'waiting' | null };
-    statuses: ViewingStatus[];
+    filter: { status: ShownViewingStatus | null; show: 'waiting' | null };
+    statuses: ShownViewingStatus[];
 }
 
 /** Everything after the origin, so an Inertia Link gets a path, not a full URL. */
@@ -113,7 +113,7 @@ export default function Index({ viewings, pagination, filter, statuses }: IndexP
                                             <td data-label="Property">{row.property_name}</td>
                                             <td data-label="Message">{row.message ? <span className="pre-line">{row.message}</span> : <span className="text-body-secondary">No message</span>}</td>
                                             <td data-label="Status">
-                                                <ViewingStatusBadge status={row.status} detail={!row.is_upcoming && (row.status === 'requested' || row.status === 'accepted') ? 'time has passed' : undefined} />
+                                                <ViewingStatusBadge status={row.status} detail={!row.is_upcoming && row.status === 'accepted' ? 'time has passed' : undefined} />
                                             </td>
                                         </tr>
                                     ))}

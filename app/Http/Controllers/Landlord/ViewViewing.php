@@ -47,7 +47,7 @@ final class ViewViewing
         return Inertia::render('Landlord/Viewings/Show', [
             'viewing' => [
                 'id' => $viewing->id,
-                'status' => $viewing->status->value,
+                'status' => $viewing->shownStatus(),
                 'preferred_at' => $viewing->preferred_at->toIso8601String(),
                 'is_upcoming' => $viewing->isUpcoming(),
                 'message' => $viewing->message,

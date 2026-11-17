@@ -8,11 +8,11 @@ import Pager from '@/Components/Pager';
 import ViewingStatusBadge from '@/Components/ViewingStatusBadge';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { formatHoldEnd } from '@/lib/dates';
-import type { ViewingStatus } from '@/types/viewing';
+import type { ShownViewingStatus } from '@/types/viewing';
 
 interface Row {
     id: number;
-    status: ViewingStatus;
+    status: ShownViewingStatus;
     property_name: string;
     place: string;
     listing_url: string | null;
@@ -116,7 +116,7 @@ function ViewingList({ rows }: { rows: Row[] }) {
                                     </h3>
                                     <p className="small text-body-secondary mb-0">{row.place}</p>
                                 </div>
-                                <ViewingStatusBadge status={row.status} detail={!row.is_upcoming && (row.status === 'requested' || row.status === 'accepted') ? 'time has passed' : undefined} />
+                                <ViewingStatusBadge status={row.status} detail={!row.is_upcoming && row.status === 'accepted' ? 'time has passed' : undefined} />
                             </div>
 
                             <p className="mt-2 mb-1">

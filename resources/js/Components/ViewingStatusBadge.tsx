@@ -1,8 +1,8 @@
 import type { ComponentType, SVGProps } from 'react';
 import { Badge } from 'react-bootstrap';
-import { CheckCircle, CheckCircleFill, Hourglass, SlashCircle, XCircle } from 'react-bootstrap-icons';
+import { CheckCircle, CheckCircleFill, ClockHistory, Hourglass, SlashCircle, XCircle } from 'react-bootstrap-icons';
 import type { BadgeColor } from '@/Components/StatusBadge';
-import type { ViewingStatus } from '@/types/viewing';
+import type { ShownViewingStatus } from '@/types/viewing';
 
 interface StatusStyle {
     label: string;
@@ -11,16 +11,17 @@ interface StatusStyle {
 }
 
 /** The one place viewing status colors, words and icons are chosen (DESIGN_SYSTEM.md: requested → info, accepted → success, declined → danger, done or cancelled → secondary). */
-export const viewingStatusStyles: Record<ViewingStatus, StatusStyle> = {
+export const viewingStatusStyles: Record<ShownViewingStatus, StatusStyle> = {
     requested: { label: 'Requested', color: 'info', Icon: Hourglass },
     accepted: { label: 'Accepted', color: 'success', Icon: CheckCircle },
     declined: { label: 'Declined', color: 'danger', Icon: XCircle },
     done: { label: 'Done', color: 'secondary', Icon: CheckCircleFill },
     cancelled: { label: 'Cancelled', color: 'secondary', Icon: SlashCircle },
+    expired: { label: 'Expired', color: 'secondary', Icon: ClockHistory },
 };
 
 interface ViewingStatusBadgeProps {
-    status: ViewingStatus;
+    status: ShownViewingStatus;
     /** Extra context after the label, e.g. "time has passed". */
     detail?: string;
 }

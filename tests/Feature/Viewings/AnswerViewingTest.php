@@ -277,3 +277,16 @@ it('shows only the account\'s own viewings, on the list and the dashboard figure
     $this->actingAs($owner)->get('/landlord')->assertInertia(fn ($page) => $page->where('figures.viewings.count', 1));
     expect($theirs->id)->not->toBe($mine->id);
 });
+
+it('shows a request nobody answered before its time as expired, on both lists and the page, and filters it apart from the waiting ones', function (): void {
+    [$owner, , $gone] = viewingInAccount('requested', '2027-03-14 09:00');
+    $waiting = ViewingRequest::factory()->for($gone->property)->for(User::factory()->renter()->create(), 'renter')->at(CarbonImmutable::parse('2027-03-17 09:00', 'Asia/Manila'))->create();
+    $statuses = fn (string $query) => collect($this->actingAs($owner)->get("/landlord/viewings{$query}")->viewData('page')['props']['viewings'])->pluck('status', 'id')->all();
+
+    expect($gone->fresh()?->status)->toBe(ViewingRequestStatus::Requested)->and($gone->shownStatus())->toBe('expired')
+        ->and($statuses(''))->toBe([$waiting->id => 'requested', $gone->id => 'expired'])
+        ->and($statuses('?status=requested'))->toBe([$waiting->id => 'requested'])
+        ->and($statuses('?status=expired'))->toBe([$gone->id => 'expired'])
+        ->and($this->actingAs($owner)->get("/landlord/viewings/{$gone->id}")->viewData('page')['props']['viewing']['status'])->toBe('expired')
+        ->and($this->actingAs($gone->renter)->get('/viewings')->viewData('page')['props']['past'][0]['status'])->toBe('expired');
+});

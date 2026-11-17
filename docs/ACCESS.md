@@ -226,7 +226,7 @@ Compared with `ViewingRequestStatus::transitions()` by [ViewingTransitionTableTe
 | accepted | cancelled | CancelViewing | renter | before `preferred_at` |
 | accepted | done | MarkViewingDone | owner, caretaker | from `preferred_at` |
 
-`declined`, `done` and `cancelled` end the request (a declined one can be accepted instead, until the time). A request nobody answered before its time stays `requested`: the pages say "time has passed", and it no longer counts as open.
+`declined`, `done` and `cancelled` end the request (a declined one can be accepted instead, until the time). A request nobody answered before its time stays `requested` in the table, but pages show it as **Expired** (`ViewingRequest::shownStatus()`, display only, like a hold that ran out); it no longer counts as open or as waiting, can't be answered or cancelled, and on the landlord list `?status=requested` means still waiting while `?status=expired` lists these. No job rewrites the row.
 
 #### Asking for a viewing (slice 6.2)
 
