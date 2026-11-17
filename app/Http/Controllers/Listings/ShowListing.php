@@ -14,10 +14,12 @@ use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\Space;
 use App\Models\User;
+use App\Models\ViewingRequest;
 use App\Support\BusinessDate;
 use App\Support\Listings\ListingCards;
 use App\Support\Listings\ListingSeo;
 use App\Support\Listings\Stay;
+use App\Support\Viewings\ViewingSlots;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -81,6 +83,7 @@ final class ShowListing
 
         return Inertia::render('Listings/Show', [
             'listing' => [
+                'id' => $property->id,
                 'name' => $property->name,
                 'kind' => $property->kind->value,
                 'gender_policy' => $property->gender_policy->value,
@@ -114,6 +117,7 @@ final class ShowListing
                 'min_months' => ReserveSpace::MIN_MONTHS,
                 'max_months' => ReserveSpace::MAX_MONTHS,
             ],
+            'viewing' => $this->viewing($request->user(), $property),
             'listingUrl' => ListingCards::url($property),
             // The reserve forms are plain HTML posts (they work without JavaScript), so they carry the token themselves.
             'csrf' => csrf_token(),
@@ -143,5 +147,34 @@ final class ShowListing
             });
 
         return $found;
+    }
+
+    /**
+     * The "ask for a viewing" form (slice 6.2): the earliest open slot (the form's default), the days and times to
+     * choose from, and the renter's own open request here, so the page points to it instead of offering a second.
+     *
+     * @return array{earliest: array{date: string, time: string}, dates: list<string>, times: list<string>, max_message: int, open: array{id: int, status: string, preferred_at: string}|null}
+     */
+    private function viewing(mixed $user, Property $property): array
+    {
+        $earliest = ViewingSlots::earliest();
+        $last = ViewingSlots::lastDay();
+        $dates = [];
+
+        for ($day = $earliest->startOfDay(); $day->lte($last); $day = $day->addDay()) {
+            $dates[] = $day->toDateString();
+        }
+
+        $open = $user instanceof User && $user->type === UserType::Renter
+            ? ViewingRequest::query()->openForRenter($user)->where('viewing_requests.property_id', $property->id)->orderBy('preferred_at')->first()
+            : null;
+
+        return [
+            'earliest' => ['date' => $earliest->toDateString(), 'time' => $earliest->format('H:i')],
+            'dates' => $dates,
+            'times' => ViewingSlots::times(),
+            'max_message' => ViewingRequest::MAX_TEXT,
+            'open' => $open === null ? null : ['id' => $open->id, 'status' => $open->status->value, 'preferred_at' => $open->preferred_at->toIso8601String()],
+        ];
     }
 }

@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useId, useRef, useState } from 'react';
-import { BoxArrowRight, CalendarCheck, ChevronDown, Speedometer2 } from 'react-bootstrap-icons';
+import { BoxArrowRight, CalendarCheck, CalendarEvent, ChevronDown, Speedometer2 } from 'react-bootstrap-icons';
 import type { AuthUser } from '@/types';
 
 function roleOf(user: AuthUser): string {
@@ -14,7 +14,7 @@ function roleOf(user: AuthUser): string {
 /**
  * The header's account menu: the user's first name is a button that opens a small panel
  * with their full name, their role and Log out (and, for a landlord away from the
- * landlord pages, the way back to the dashboard; for a renter, My reservations). A disclosure, not an ARIA menu: Tab
+ * landlord pages, the way back to the dashboard; for a renter, My reservations and My viewings). A disclosure, not an ARIA menu: Tab
  * moves through it, Escape closes it and returns focus, and a click or focus outside closes it.
  */
 export default function UserMenu({ user }: { user: AuthUser }) {
@@ -89,6 +89,14 @@ export default function UserMenu({ user }: { user: AuthUser }) {
                             <Link href="/reservations" className="user-menu__item">
                                 <CalendarCheck aria-hidden="true" focusable="false" />
                                 My reservations
+                            </Link>
+                        </li>
+                    )}
+                    {user.type === 'renter' && (
+                        <li>
+                            <Link href="/viewings" className="user-menu__item">
+                                <CalendarEvent aria-hidden="true" focusable="false" />
+                                My viewings
                             </Link>
                         </li>
                     )}

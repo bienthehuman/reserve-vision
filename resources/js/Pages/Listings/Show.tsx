@@ -4,6 +4,7 @@ import { BoxArrowUpRight, GeoAlt, InfoCircle } from 'react-bootstrap-icons';
 import ListingPhotos, { type ListingPhoto } from '@/Components/ListingPhotos';
 import PriceTag from '@/Components/PriceTag';
 import StickyReserveBar from '@/Components/StickyReserveBar';
+import ViewingForm, { type ViewingData } from '@/Components/ViewingForm';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { formatDate } from '@/lib/dates';
 import { genderLabel, kindLabel, type GenderPolicy, type PropertyKind } from '@/lib/labels';
@@ -23,6 +24,7 @@ interface RoomData {
 
 interface ListingPageProps {
     listing: {
+        id: number;
         name: string;
         kind: PropertyKind;
         gender_policy: GenderPolicy;
@@ -37,6 +39,7 @@ interface ListingPageProps {
     rooms: RoomData[];
     stay: { move_in: string; months: number; move_out: string };
     window: { first: string; last: string; min_months: number; max_months: number };
+    viewing: ViewingData;
     listingUrl: string;
     csrf: string;
     seo: {
@@ -88,11 +91,15 @@ function ListingHead({ seo }: Pick<ListingPageProps, 'seo'>) {
     );
 }
 
-export default function Show({ listing, rooms, stay, window, listingUrl, csrf, seo }: ListingPageProps) {
+export default function Show({ listing, rooms, stay, window, viewing, listingUrl, csrf, seo }: ListingPageProps) {
     const { auth, errors } = usePage().props;
     const user = auth.user;
     const isLandlord = user?.type === 'landlord';
-    const errorList = Object.values((errors ?? {}) as Record<string, string>);
+    // The viewing form (slice 6.2) shows its own errors; the stay form shows the rest.
+    const allErrors = Object.entries((errors ?? {}) as Record<string, string>);
+    const isViewingField = (field: string) => ['property_id', 'date', 'time', 'message'].includes(field);
+    const errorList = allErrors.filter(([field]) => !isViewingField(field)).map(([, message]) => message);
+    const viewingErrors = allErrors.filter(([field]) => isViewingField(field)).map(([, message]) => message);
     const stayText = `${formatDate(stay.move_in)} to ${formatDate(stay.move_out)}`;
 
     return (
@@ -284,6 +291,17 @@ export default function Show({ listing, rooms, stay, window, listingUrl, csrf, s
                                 ))}
                             </div>
                         </section>
+
+                        <ViewingForm
+                            propertyId={listing.id}
+                            propertyName={listing.name}
+                            viewing={viewing}
+                            today={window.first}
+                            csrf={csrf}
+                            loggedIn={user !== null && user !== undefined}
+                            isLandlord={isLandlord}
+                            errors={viewingErrors}
+                        />
 
                         <p className="mt-4 mb-0">
                             <Link href="/listings" className="back-link">

@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsureUserIsRenter;
 use App\Http\Middleware\ExposeRequestTiming;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\KeepReservationIntent;
+use App\Http\Middleware\KeepViewingIntent;
 use App\Http\Middleware\SecurityHeaders;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -48,6 +49,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // A guest's (or an unverified renter's) reserve post keeps the room and the stay as the page to come
         // back to (slice 5.3), so this must run before `auth` and `verified` would redirect on their own.
         $middleware->prependToPriorityList(AuthenticatesRequests::class, KeepReservationIntent::class);
+        $middleware->prependToPriorityList(AuthenticatesRequests::class, KeepViewingIntent::class); // slice 6.2, the same for a viewing request
 
         $middleware->alias([
             'landlord' => EnsureUserIsLandlord::class,

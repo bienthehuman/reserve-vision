@@ -5,12 +5,14 @@ declare(strict_types=1);
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Invitations\AcceptInvitationController;
 use App\Http\Controllers\Invitations\ShowInvitation;
+use App\Http\Controllers\Landlord\AcceptViewingController;
 use App\Http\Controllers\Landlord\ArchivePropertyController;
 use App\Http\Controllers\Landlord\ArchiveRoomController;
 use App\Http\Controllers\Landlord\ArchiveSpaceController;
 use App\Http\Controllers\Landlord\ConfirmReservationController;
 use App\Http\Controllers\Landlord\DashboardController;
 use App\Http\Controllers\Landlord\DeclineReservationController;
+use App\Http\Controllers\Landlord\DeclineViewingController;
 use App\Http\Controllers\Landlord\DeletePropertyPhotoController;
 use App\Http\Controllers\Landlord\DescribePropertyPhotoController;
 use App\Http\Controllers\Landlord\EditProperty;
@@ -19,7 +21,9 @@ use App\Http\Controllers\Landlord\EndStayController;
 use App\Http\Controllers\Landlord\ListMembers;
 use App\Http\Controllers\Landlord\ListProperties;
 use App\Http\Controllers\Landlord\ListReservations;
+use App\Http\Controllers\Landlord\ListViewings;
 use App\Http\Controllers\Landlord\MarkMovedInController;
+use App\Http\Controllers\Landlord\MarkViewingDoneController;
 use App\Http\Controllers\Landlord\MovePropertyPhotoController;
 use App\Http\Controllers\Landlord\NewProperty;
 use App\Http\Controllers\Landlord\NewRoom;
@@ -45,6 +49,7 @@ use App\Http\Controllers\Landlord\UndoConfirmationController;
 use App\Http\Controllers\Landlord\UnpublishPropertyController;
 use App\Http\Controllers\Landlord\ViewProperty;
 use App\Http\Controllers\Landlord\ViewReservation;
+use App\Http\Controllers\Landlord\ViewViewing;
 use App\Http\Controllers\Landlord\WithdrawReservationController;
 use App\Http\Controllers\Listings\CountListings;
 use App\Http\Controllers\Listings\ListListings;
@@ -61,8 +66,12 @@ use App\Http\Controllers\Reservations\StorePaymentProof;
 use App\Http\Controllers\Reservations\StoreReservation;
 use App\Http\Controllers\Rooms\RedirectRoom;
 use App\Http\Controllers\StyleguideController;
+use App\Http\Controllers\Viewings\CancelViewingController;
+use App\Http\Controllers\Viewings\ListOwnViewings;
+use App\Http\Controllers\Viewings\StoreViewing;
 use App\Http\Middleware\ExposeRequestTiming;
 use App\Http\Middleware\KeepReservationIntent;
+use App\Http\Middleware\KeepViewingIntent;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
@@ -102,6 +111,11 @@ Route::middleware(['auth', 'verified', 'renter'])->group(function (): void {
     Route::post('/reservations/{reservation}/proofs', StorePaymentProof::class)->whereNumber('reservation')->name('reservations.proofs.store');
     // ExposeRequestTiming is a no-op unless CONCURRENCY_PROBE (never in production): the confirm-versus-cancel race (6.1).
     Route::post('/reservations/{reservation}/cancel', CancelReservationController::class)->whereNumber('reservation')->middleware(ExposeRequestTiming::class)->name('reservations.cancel');
+
+    // Slice 6.2: viewing requests. KeepViewingIntent runs before `auth` (bootstrap/app.php): a guest comes back to the listing's form.
+    Route::post('/viewings', StoreViewing::class)->middleware([KeepViewingIntent::class, 'throttle:reservations'])->name('viewings.store');
+    Route::get('/viewings', ListOwnViewings::class)->name('viewings.index');
+    Route::post('/viewings/{viewing}/cancel', CancelViewingController::class)->whereNumber('viewing')->name('viewings.cancel');
 });
 
 // Payment proofs (slice 5.3, docs/ACCESS.md "Private files"). The renter whose proof it is and the members of
@@ -184,4 +198,12 @@ Route::middleware(['auth', 'verified', 'landlord'])->prefix('landlord')->name('l
     Route::post('/reservations/{reservation}/withdraw', WithdrawReservationController::class)->whereNumber('reservation')->name('reservations.withdraw');
     Route::post('/reservations/{reservation}/moved-in', MarkMovedInController::class)->whereNumber('reservation')->name('reservations.moved-in');
     Route::post('/reservations/{reservation}/end', EndStayController::class)->whereNumber('reservation')->name('reservations.end');
+
+    // Slice 6.2: viewing requests. Owner and caretaker alike. Registered last, in this order: T6 calls them in order
+    // on its own requested viewing (accept, then decline = a changed answer, then done = refused before the time).
+    Route::get('/viewings', ListViewings::class)->name('viewings.index');
+    Route::get('/viewings/{viewing}', ViewViewing::class)->whereNumber('viewing')->name('viewings.show');
+    Route::post('/viewings/{viewing}/accept', AcceptViewingController::class)->whereNumber('viewing')->name('viewings.accept');
+    Route::post('/viewings/{viewing}/decline', DeclineViewingController::class)->whereNumber('viewing')->name('viewings.decline');
+    Route::post('/viewings/{viewing}/done', MarkViewingDoneController::class)->whereNumber('viewing')->name('viewings.done');
 });

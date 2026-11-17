@@ -9,6 +9,7 @@ use App\Models\PropertyPhoto;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\User;
+use App\Models\ViewingRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
@@ -139,6 +140,25 @@ function t7DecisionRoutes(int $accountId): array
     ];
 }
 
+/**
+ * The viewing moves (slice 6.2), open to both roles: each on a viewing in the state it needs, with the audit action it writes.
+ *
+ * @return array<string, array{string, string, array<string, mixed>, string}>
+ */
+function t7ViewingRoutes(int $accountId): array
+{
+    $property = Property::factory()->published()->state(['landlord_account_id' => $accountId])->create();
+    $viewing = fn (string $state, string $moment) => ViewingRequest::factory()->for($property)->for(User::factory()->renter()->create(), 'renter')
+        ->at(now()->setTimezone('Asia/Manila')->modify($moment))->{$state}()->create();
+    $base = '/landlord/viewings/';
+
+    return [
+        'landlord.viewings.accept' => ['POST', $base.$viewing('requested', '+2 days')->id.'/accept', ['note' => 'Come at 3.'], 'viewing.accepted'],
+        'landlord.viewings.decline' => ['POST', $base.$viewing('accepted', '+2 days')->id.'/decline', ['note' => 'Sorry.'], 'viewing.declined'],
+        'landlord.viewings.done' => ['POST', $base.$viewing('accepted', '-1 day')->id.'/done', [], 'viewing.marked_done'],
+    ];
+}
+
 it('T7: every write route of the landlord pages is covered here', function (): void {
     $writes = collect(Route::getRoutes()->getRoutes())
         ->filter(fn ($route) => in_array('landlord', $route->gatherMiddleware(), true) && array_diff($route->methods(), ['GET', 'HEAD']) !== [])
@@ -146,7 +166,7 @@ it('T7: every write route of the landlord pages is covered here', function (): v
 
     $account = t7Account();
 
-    expect([...array_keys(t7WriteRoutes($account)), ...array_keys(t7DecisionRoutes(accountIdOf($account[0])))])->toEqualCanonicalizing($writes);
+    expect([...array_keys(t7WriteRoutes($account)), ...array_keys(t7DecisionRoutes(accountIdOf($account[0]))), ...array_keys(t7ViewingRoutes(accountIdOf($account[0])))])->toEqualCanonicalizing($writes);
 });
 
 it('T7: a caretaker makes every reservation decision but withdraw (6.1), each with one audit row, and a renter gets 403', function (): void {
@@ -165,6 +185,33 @@ it('T7: a caretaker makes every reservation decision but withdraw (6.1), each wi
         expect($rows)->toHaveCount(1, "{$name} should write one audit row")
             ->and($rows->first()->action)->toBe($action)
             ->and($rows->first()->actor_id)->toBe($caretaker->id);
+    }
+});
+
+it('T7: a caretaker answers every viewing request (6.2), each with one audit row; a renter gets 403 and another account 404', function (): void {
+    [$owner, $caretaker] = t7Account();
+    [$stranger] = t7Account();
+    $routes = t7ViewingRoutes(accountIdOf($owner));
+    $renter = User::factory()->renter()->create();
+
+    foreach ($routes as $name => [$method, $path, $body, $action]) {
+        $before = ViewingRequest::query()->get(['id', 'status', 'landlord_note', 'decided_by'])->toJson();
+        $this->actingAs($renter)->call($method, $path, $body)->assertForbidden("{$name} should be 403 for a renter");
+        $this->actingAs($renter)->call($method, $path, [])->assertForbidden("{$name} should be 403 for a renter, before validation");
+        $this->actingAs($stranger)->call($method, $path, $body)->assertNotFound("{$name} should be 404 for another account");
+
+        $count = auditRows()->count();
+        expect(auditRows())->toHaveCount($count);
+        $response = $this->actingAs($caretaker)->call($method, $path, $body);
+        expect($response->isRedirect())->toBeTrue("{$name} should succeed for a caretaker, got {$response->getStatusCode()}: ".($response->exception?->getMessage() ?? ''));
+
+        $rows = auditRows()->slice($count);
+        expect($rows)->toHaveCount(1, "{$name} should write one audit row")
+            ->and($rows->first()->action)->toBe($action)
+            ->and($rows->first()->actor_id)->toBe($caretaker->id);
+
+        // The refused attempts above changed nothing: the only change is the caretaker's own.
+        expect(ViewingRequest::query()->get(['id', 'status', 'landlord_note', 'decided_by'])->toJson())->not->toBe($before);
     }
 });
 
@@ -276,6 +323,9 @@ function t7RenterWriteRoutes(Room $room): array
         'rooms.reservations.store' => ['POST', "/rooms/{$room->id}/reservations", ['move_in' => now()->addDays(30)->toDateString(), 'months' => 6]],
         'reservations.proofs.store' => ['POST', "/reservations/{$hold->id}/proofs", proofForm()],
         'reservations.cancel' => ['POST', "/reservations/{$hold->id}/cancel", []],
+        // Slice 6.2: asking for a viewing of the landlord's own property, and cancelling a renter's request there.
+        'viewings.store' => ['POST', '/viewings', ['property_id' => $room->property_id, 'date' => now()->addDays(3)->toDateString(), 'time' => '09:00']],
+        'viewings.cancel' => ['POST', '/viewings/'.ViewingRequest::factory()->for($room->property)->for(User::factory()->renter()->create(), 'renter')->create()->id.'/cancel', []],
     ];
 }
 
@@ -288,7 +338,7 @@ it('T7: every renter write route refuses landlord users with 403, even on their 
         ->map(fn ($route) => $route->getName())->sort()->values()->all();
     expect(array_keys($routes))->toEqualCanonicalizing($writes);
 
-    $before = md5((string) json_encode([DB::table('reservations')->orderBy('id')->get(), DB::table('payment_proofs')->orderBy('id')->get()]));
+    $before = md5((string) json_encode([DB::table('reservations')->orderBy('id')->get(), DB::table('payment_proofs')->orderBy('id')->get(), DB::table('viewing_requests')->orderBy('id')->get()]));
 
     foreach ([$owner, $caretaker] as $landlord) {
         foreach ($routes as $name => [$method, $path, $body]) {
@@ -296,6 +346,6 @@ it('T7: every renter write route refuses landlord users with 403, even on their 
         }
     }
 
-    expect(md5((string) json_encode([DB::table('reservations')->orderBy('id')->get(), DB::table('payment_proofs')->orderBy('id')->get()])))->toBe($before)
+    expect(md5((string) json_encode([DB::table('reservations')->orderBy('id')->get(), DB::table('payment_proofs')->orderBy('id')->get(), DB::table('viewing_requests')->orderBy('id')->get()])))->toBe($before)
         ->and(Storage::disk('proofs')->allFiles())->toBeEmpty();
 });

@@ -200,14 +200,42 @@ Each main flow, step by step, with who acts and what they see. This is where gap
 | Move in | owner or caretaker | Mark moved in on or after `move_in` |
 | Stay ends | system or landlord | `EndStays` job, or `EndStay` early |
 
-### Flow C: Viewing request
+### Flow C: Viewing request (slice 6.2)
 
 | Step | Actor | Notes |
 | --- | --- | --- |
-| Request a viewing | renter | Preferred date and time; at most 3 open requests per renter |
-| Accept or decline with a note | owner or caretaker | Renter emailed |
-| Mark done | owner or caretaker | After `preferred_at` |
-| Cancel | renter | While requested or accepted |
+| Request a viewing | renter | The "See it first" form on the listing page: a day, a time and an optional message (≤ 500 characters). Needs a verified email; a guest is sent to log in and comes back to the form (`KeepViewingIntent`, the 5.3 pattern). See [Asking for a viewing](#asking-for-a-viewing-slice-62) for the slots and limits |
+| Accept or decline, with a note | owner or caretaker | `/landlord/viewings`, then the request. The note is optional and the renter reads it. The answer can be changed (accept ↔ decline) until the preferred time |
+| See the renter's contact details | owner or caretaker | Email and phone on the request's page only, never on the list |
+| Mark done | owner or caretaker | From the preferred time, on an accepted viewing |
+| Cancel | renter | While requested or accepted, until the preferred time |
+| See where to go | renter | Once accepted, `/viewings` shows the landlord account's contact phone and the property's full address; before that, neither |
+
+#### Transition table
+
+Compared with `ViewingRequestStatus::transitions()` by [ViewingTransitionTableTest](../tests/Feature/Docs/ViewingTransitionTableTest.php): change one, change the other. The first three columns are what the test reads. Every move also needs the time rule in the last column, which `ViewingRequest::assertCanMoveTo()` checks on the locked row (the clock is Manila's; `preferred_at` is stored in UTC).
+
+| From | To | Action | Who | Time rule |
+| --- | --- | --- | --- | --- |
+| — | requested | RequestViewing | renter | the slot rules below |
+| requested | accepted | AcceptViewing | owner, caretaker | before `preferred_at` |
+| requested | declined | DeclineViewing | owner, caretaker | before `preferred_at` |
+| accepted | declined | DeclineViewing | owner, caretaker | before `preferred_at` |
+| declined | accepted | AcceptViewing | owner, caretaker | before `preferred_at` |
+| requested | cancelled | CancelViewing | renter | before `preferred_at` |
+| accepted | cancelled | CancelViewing | renter | before `preferred_at` |
+| accepted | done | MarkViewingDone | owner, caretaker | from `preferred_at` |
+
+`declined`, `done` and `cancelled` end the request (a declined one can be accepted instead, until the time). A request nobody answered before its time stays `requested` in the table, but pages show it as **Expired** (`ViewingRequest::shownStatus()`, display only, like a hold that ran out); it no longer counts as open or as waiting, can't be answered or cancelled, and on the landlord list `?status=requested` means still waiting while `?status=expired` lists these. No job rewrites the row.
+
+#### Asking for a viewing (slice 6.2)
+
+- **The slot.** A day from today to 30 days ahead (Manila dates), 8:00 AM to 6:00 PM Manila time inclusive, on the hour or the half hour (21 slots a day). `preferred_at` is stored in UTC and shown in Manila time, labelled as such.
+- **Same day is allowed**, with the landlord's answer time in mind: the earliest slot is the first 30-minute step at or after **now + 2 hours** (`ViewingSlots::LEAD_HOURS`). From just after 4:00 PM there is no slot left today, and the form starts at tomorrow 8:00 AM. The form defaults to the earliest open slot. With JavaScript the times before it are disabled on that day; without, the server refuses a too-early time and names the earliest one.
+- **Limits.** At most 3 **open** requests per renter and 1 open per property. Open = `requested` or `accepted` with `preferred_at` in the future (`ViewingRequest::open()`). `RequestViewing` checks them under a lock on the renter row, like `ReserveSpace` (the first statement; every read a locking read).
+- **Who.** Renters only (landlord users get 403). The property must be published, not archived and of a verified account, else 404.
+- **The landlord's list** (`/landlord/viewings`) puts viewings still to come **today** (Manila) first, marked "Today", then the others still to come, soonest first, then the past ones. Filters: `?status=`, and `?show=waiting` (the dashboard figure: `requested`, time not yet come).
+- **Audit.** Every landlord move writes one row: `viewing.accepted`, `viewing.declined`, `viewing.marked_done` (before and after: `status`, `landlord_note`, `decided_by`). The renter's request and cancel write none (renter actions, like a reservation's).
 
 ### Gaps found and how they were resolved
 

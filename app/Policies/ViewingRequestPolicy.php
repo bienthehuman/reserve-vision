@@ -27,6 +27,18 @@ final class ViewingRequestPolicy
         return $this->renterOwns($user, $viewing->renter_id);
     }
 
+    /** Answer viewing requests: the list (slice 6.2). */
+    public function viewAny(User $user): Response
+    {
+        return $this->landlordRole($user, self::MEMBERS);
+    }
+
+    /** Answer viewing requests: one request and its page. */
+    public function view(User $user, ViewingRequest $viewing): Response
+    {
+        return $this->landlordOn($user, $viewing->landlord_account_id, self::MEMBERS);
+    }
+
     /** Answer viewing requests: accept or decline. */
     public function answer(User $user, ViewingRequest $viewing): Response
     {

@@ -9,13 +9,14 @@ use App\Enums\ReservationStatus;
 use App\Models\PaymentProof;
 use App\Models\Reservation;
 use App\Models\Space;
+use App\Models\ViewingRequest;
 use App\Support\CurrentLandlordAccount;
 use Illuminate\Database\Eloquent\Builder;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The landlord dashboard (owner and caretaker): four figures, each linking to the
+ * The landlord dashboard (owner and caretaker): five figures (the fifth, 6.2: viewing requests waiting), each linking to the
  * reservations list that shows exactly what was counted (`?status=` / `?show=`, the
  * same scopes). Every query goes through the isolation scope, so the figures are the
  * current account's, and the account's own `unverified` banner stays.
@@ -73,6 +74,8 @@ final class DashboardController
                     'days' => ListReservations::MOVE_IN_SOON_DAYS,
                 ],
                 'occupancy' => ['occupied' => $occupied, 'total' => $total],
+                // Slice 6.2: viewing requests nobody has answered, whose time hasn't come.
+                'viewings' => ['count' => ViewingRequest::query()->waiting()->count()],
             ],
         ]);
     }

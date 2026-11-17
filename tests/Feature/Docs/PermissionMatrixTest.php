@@ -60,7 +60,7 @@ const MATRIX_ABILITIES = [
     'Mark moved in, end stay' => [['markMovedIn', 'reservation'], ['endStay', 'reservation']],
     'Withdraw a confirmed reservation' => [['withdraw', 'reservation']],
     'Record a refund' => [['recordRefund', 'reservation']],
-    'Answer viewing requests' => [['answer', 'viewing'], ['markDone', 'viewing']],
+    'Answer viewing requests' => [['viewAny', ViewingRequest::class], ['view', 'viewing'], ['answer', 'viewing'], ['markDone', 'viewing']],
     'Invite or remove caretakers, revoke invites' => [
         ['viewAny', LandlordInvitation::class], ['create', LandlordInvitation::class], ['resend', 'invitation'], ['revoke', 'invitation'], ['remove', 'member'],
     ],
