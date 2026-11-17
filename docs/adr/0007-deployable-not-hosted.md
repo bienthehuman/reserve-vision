@@ -1,7 +1,8 @@
 # 0007. Ship deployable, not hosted; prove deployment in CI
 
-- Status: Proposed
+- Status: Accepted (2026-11-17)
 - Date: 2026-11-14
+- Updated: 2026-11-17 (as built in v1, last section)
 
 ## Context
 
@@ -14,7 +15,7 @@ The plan delivers a production setup without paying for a live host. The previou
 
 ## Decision
 
-Option 2, with a guard. From slice 1.3, **every PR to `main` builds the production image, boots `compose.prod.yaml` in CI, runs migrations as the `migrator` user, and smoke-tests the home page, a listing page and login over HTTP.**
+Option 2, with a guard. From slice 1.3, **every PR to `main` builds the production image, boots `compose.prod.yaml` in CI, runs migrations as the `migrator` user, and smoke-tests the home page, a listing page and login over HTTP.** (Update 2026-11-17: the listing page joined the smoke test in slice 5.1, when listing pages existed.)
 
 ## Consequences
 
@@ -22,3 +23,9 @@ Option 2, with a guard. From slice 1.3, **every PR to `main` builds the producti
 - Good: the production path is exercised continuously, so "deployable" stays true.
 - Bad: no public URL to share; HTTPS issuance (Caddy) and real email delivery aren't exercised in CI. DEPLOY.md documents them as manual steps.
 - Revisit if a job application needs a live link.
+
+## Update 2026-11-17: as built in v1
+
+- The guard grew with the app. The `Production` workflow now also runs `app:doctor`, seeds the demo data, checks a public listing page, the sitemap and `robots.txt`, logs in as the demo owner, checks the isolation `404`, runs the whole Playwright + axe suite against the stack (T12 included, reading the stack's emails from a CI-only Mailpit), and runs Lighthouse (mobile) on its own fresh stack (slice 7.2).
+- Codespaces is the demo, as decided: `.devcontainer/` runs `bin/setup` and opens the app with the demo logins.
+- Still not exercised in CI, as this ADR said: real TLS issuance, real email delivery, and deploying from a tag ([DEPLOY.md](../../DEPLOY.md#not-covered-by-ci)).

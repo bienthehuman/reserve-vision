@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Re-records the README's renter-flow GIF (slice 7.3): docs/media/renter-flow.gif.
+#
+#   bin/record-media               against a running stack with demo data (MEDIA_BASE_URL, default http://localhost:8280)
+#   bin/record-media --with-stack  boots a throwaway production stack first (bin/ci-production-env + deploy.sh --current
+#                                  + the demo seed), records, then removes it. What `make media` runs
+#   bin/record-media --convert-only  only converts the last recording again (to tune the settings below)
+#
+# Runs on the host: Node 24 and Playwright's Chromium (`npx playwright install chromium`), Docker. ffmpeg comes from the
+# host if it has one, else from a pinned image. Stop the dev stack first on a small machine (CLAUDE.md, 7.2 quirks).
+#
+# Env: MEDIA_BASE_URL, MEDIA_SECONDS (target length, default 22), MEDIA_FPS (default 10), MEDIA_WIDTH (default 390),
+# MEDIA_COLORS (palette size, default 128), MEDIA_DITHER (paletteuse dither, default none: dithering is noise, and noise costs bytes).
+set -Eeuo pipefail
+
+cd "$(dirname "$0")/.."
+
+FFMPEG_IMAGE=jrottenberg/ffmpeg:7.1-alpine
+OUT=test-results/media
+GIF=docs/media/renter-flow.gif
+SECONDS_TARGET=${MEDIA_SECONDS:-22}
+FPS=${MEDIA_FPS:-10}
+WIDTH=${MEDIA_WIDTH:-390}
+export MEDIA_BASE_URL=${MEDIA_BASE_URL:-http://localhost:8280}
+export MEDIA_OUT=$OUT
+
+with_stack=false
+record=true
+if [[ ${1:-} == --with-stack ]]; then
+    with_stack=true
+elif [[ ${1:-} == --convert-only ]]; then
+    record=false
+elif [[ $# -gt 0 ]]; then
+    echo "Usage: bin/record-media [--with-stack | --convert-only]" >&2
+    exit 2
+fi
+
+compose_prod() {
+    COMPOSE_FILE=compose.prod.yaml:compose.ci.yaml docker compose --env-file .env.production "$@"
+}
+
+if $with_stack; then
+    # The new throwaway env has new passwords, which an old stack's database volume doesn't know.
+    if docker volume inspect reservevision-prod_db-data >/dev/null 2>&1; then
+        echo "A production stack's volumes already exist. If it is a throwaway one, remove it first:" >&2
+        echo "  COMPOSE_FILE=compose.prod.yaml:compose.ci.yaml docker compose --env-file .env.production down -v" >&2
+        echo "  (or: docker compose -p reservevision-prod down -v)" >&2
+        exit 1
+    fi
+    port=${MEDIA_BASE_URL##*:}
+    bin/ci-production-env "$port"
+    trap 'compose_prod down -v >/dev/null 2>&1 || true; rm -f .env.production' EXIT
+    COMPOSE_FILE=compose.prod.yaml:compose.ci.yaml ./deploy.sh --current
+    compose_prod exec -T app php artisan db:seed --force
+fi
+
+if $record; then
+    if ! curl -fsS -o /dev/null "$MEDIA_BASE_URL/up"; then
+        echo "Nothing answers at $MEDIA_BASE_URL/up. Start a stack with demo data, or run: bin/record-media --with-stack" >&2
+        exit 1
+    fi
+    echo "Recording against $MEDIA_BASE_URL"
+    node e2e/media/renter-flow.ts
+fi
+
+if command -v ffmpeg >/dev/null; then
+    ffmpeg_run() { ffmpeg "$@"; }
+else
+    ffmpeg_run() { docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:$PWD" -w "$PWD" "$FFMPEG_IMAGE" "$@"; }
+fi
+
+# One trim per kept stretch, all of them concatenated, sped up to about SECONDS_TARGET, then a palette made from the
+# clip itself (stats_mode=diff favours what moves) and only the changed rectangle written per frame. mpdecimate drops
+# repeated frames (a static stretch costs one frame), so tpad holds the last one, or the GIF would end on a flash.
+mapfile -t args < <(node --input-type=module -e "
+import { readFileSync } from 'node:fs';
+const parts = JSON.parse(readFileSync('$OUT/cuts.json', 'utf8'));
+const inputs = [];
+const chains = [];
+let total = 0;
+parts.forEach((part, i) => {
+    inputs.push('-i', part.video);
+    for (const [start, end] of part.keep) {
+        chains.push('[' + i + ':v]trim=start=' + start + ':end=' + end + ',setpts=PTS-STARTPTS[c' + chains.length + ']');
+        total += end - start;
+    }
+});
+const speed = Math.max(1, total / $SECONDS_TARGET);
+const labels = chains.map((_, k) => '[c' + k + ']').join('');
+const filter = chains.join(';') + ';' + labels + 'concat=n=' + chains.length + ':v=1:a=0,setpts=PTS/' + speed.toFixed(3)
+    + ',fps=$FPS,scale=$WIDTH:-1:flags=lanczos,${MEDIA_PRE:-hqdn3d=4:3:6:4.5,mpdecimate=hi=512:lo=256:frac=0.5},tpad=stop_mode=clone:stop_duration=2.5,split[a][b];[a]palettegen=max_colors=${MEDIA_COLORS:-128}:stats_mode=diff[p];'
+    + '[b][p]paletteuse=dither=${MEDIA_DITHER:-none}:diff_mode=rectangle';
+console.error('Kept ' + total.toFixed(1) + ' s, played at ' + speed.toFixed(2) + 'x: ' + (total / speed).toFixed(1) + ' s');
+for (const arg of [...inputs, '-filter_complex', filter, '-loop', '0']) console.log(arg);
+")
+
+ffmpeg_run -y -loglevel error "${args[@]}" "$GIF"
+
+size=$(stat -c %s "$GIF")
+printf 'Wrote %s: %s kB\n' "$GIF" "$((size / 1024))"
+if ((size > 4 * 1024 * 1024)); then
+    echo "Over 4 MB: try MEDIA_FPS=8, MEDIA_WIDTH=360 or MEDIA_COLORS=64." >&2
+    exit 1
+fi

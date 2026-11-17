@@ -1,5 +1,5 @@
 # Shortcuts for the dev stack. Everything PHP runs inside the `app` container.
-.PHONY: setup up down logs shell migrate places seed fresh test lint analyse check vitest types e2e
+.PHONY: setup up down logs shell migrate places seed fresh test lint analyse check vitest types e2e media links
 
 EXEC = docker compose exec -T app
 
@@ -51,3 +51,9 @@ check: lint analyse test vitest types
 
 e2e: ## Runs on the host (needs Node 24 + `npx playwright install chromium`)
 	npm run e2e
+
+links: ## Every link inside the repo's Markdown resolves (lychee, offline; what the Links workflow runs)
+	docker run --rm -v "$(CURDIR):/input" -w /input lycheeverse/lychee:0.24.2 --config lychee.toml --root-dir /input './**/*.md'
+
+media: ## Re-record docs/media/renter-flow.gif on a throwaway production stack (host: Node, Chromium, Docker; stop the dev stack first)
+	bin/record-media --with-stack

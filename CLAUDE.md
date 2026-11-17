@@ -1,5 +1,9 @@
 # ReserveVision: notes for agents and contributors
 
+## Start here
+
+New to the project? Read the [README](README.md) (what it does, the guarantees and the tests behind them), then [docs/CONVENTIONS.md](docs/CONVENTIONS.md) (workflow, code rules, the checks a PR needs) and the [ADR index](docs/adr/README.md) (why it is built this way). `bin/setup` gives you a running stack with demo data; `make check` runs the PHP and TypeScript checks, `make e2e` the browser tests. The rest of this file is the reference: every service, command and test suite, then a section per slice with the pieces it added and the quirks it hit. Search it for the class or command you are about to touch before you change it.
+
 Read [docs/CONVENTIONS.md](docs/CONVENTIONS.md) first. The docs in `docs/` are the source of truth. Update them in the same PR as any behaviour change.
 
 ## Workflow
@@ -50,7 +54,7 @@ URLs: app http://localhost:8180, styleguide http://localhost:8180/styleguide, he
 
 ### Demo data (slice 2.2)
 
-`bin/setup` runs `php artisan places:import` and then `php artisan db:seed` on every invocation: the amenity catalogue (always) and `DemoSeeder` (only if `owner@example.com` doesn't exist yet, so reruns change nothing). To reseed from scratch: `docker compose down -v && bin/setup` (the seeder itself takes about 1 s; a whole cold `bin/setup` about a minute). `DemoSeeder` throws in production unless `APP_DEMO=true` (`config('app.demo')`, documented in both env examples); `DatabaseSeeder` skips it there instead. Every published demo property also gets 3 to 6 ready photos (4.2; real ones since 7.1, see [Demo photos](#demo-photos-slice-71)): each goes once per process through `PhotoProcessor`, and the files are written to the `photos` disk before the transaction commits (a volume seeded before 4.2 has none until it is reseeded). Logins and the "last bed" room are in the [README](README.md#demo-logins); data files are in `database/data/` (`places.php`: the demo's seven city slugs and their price `rate`; `names.php`, `amenities.php`). Since 4.4 each property's barangay is drawn from its city's real barangays in the places tables (by PSGC code, one Faker draw as before), so the seeder throws if `places:import` hasn't run; the last-bed house is the Sampaloc district's first, "Barangay 395, Sampaloc". Ids are assigned by the seeder (max + 1) so rows don't depend on auto-increment counters, and "now" is read once, so a fixed seed gives identical rows on any day apart from the relative dates. Reservations come from `Database\Seeders\Demo\StayScheduler` (back-to-back stays per space), not `ReserveSpace`.
+`bin/setup` runs `php artisan places:import` and then `php artisan db:seed` on every invocation: the amenity catalogue (always) and `DemoSeeder` (only if `owner@example.com` doesn't exist yet, so reruns change nothing). To reseed from scratch: `docker compose down -v && bin/setup` (the seeder itself takes about 1 s; a whole cold `bin/setup` about a minute). `DemoSeeder` throws in production unless `APP_DEMO=true` (`config('app.demo')`, documented in both env examples); `DatabaseSeeder` skips it there instead. Every published demo property also gets 3 to 6 ready photos (4.2; real ones since 7.1, see [Demo photos](#demo-photos-slice-71)): each goes once per process through `PhotoProcessor`, and the files are written to the `photos` disk before the transaction commits (a volume seeded before 4.2 has none until it is reseeded). Logins and the "last bed" room are in the [README](README.md#try-it); data files are in `database/data/` (`places.php`: the demo's seven city slugs and their price `rate`; `names.php`, `amenities.php`). Since 4.4 each property's barangay is drawn from its city's real barangays in the places tables (by PSGC code, one Faker draw as before), so the seeder throws if `places:import` hasn't run; the last-bed house is the Sampaloc district's first, "Barangay 395, Sampaloc". Ids are assigned by the seeder (max + 1) so rows don't depend on auto-increment counters, and "now" is read once, so a fixed seed gives identical rows on any day apart from the relative dates. Reservations come from `Database\Seeders\Demo\StayScheduler` (back-to-back stays per space), not `ReserveSpace`.
 
 The "last bed" room is `/rooms/1` (pinned by `DemoSeederTest`), in the house at `/listings/manila/santos-bedspace-house` (`/rooms/1` redirects to it); [e2e/reserve.spec.ts](e2e/reserve.spec.ts) is the Phase 2 demo on it, through the listing page (phone viewport only, so the two Playwright projects don't race for the bed; on a dev stack it reuses renter1's existing hold on reruns).
 
@@ -69,11 +73,12 @@ The seeder self-checks are in `tests/Feature/Seeding/DemoSeederTest.php`; each t
 | Vitest | `docker compose exec ssr npm run test` (`make vitest`) | jsdom; `resources/js/**/*.test.{ts,tsx}` |
 | TypeScript | `docker compose exec ssr npm run types` (`make types`) | TS 7 (`tsc --noEmit`) |
 | Playwright + axe | `npm run e2e` on the host (`make e2e`) | Needs the stack running and `npx playwright install chromium` once. `E2E_BASE_URL` (default `http://localhost:8180`) points it at another stack; `E2E_SKIP_DEV_PAGES=1` skips `/styleguide` against production |
+| Links | `make links` | lychee in Docker, offline, same as CI. A renamed heading breaks every `#fragment` pointing at it |
 | Production build | `docker compose exec ssr npm run build` | Client to `public/build`, SSR bundle to `bootstrap/ssr/app.js`. Delete `public/hot` or stop `ssr` to test the built assets |
 
 ### CI (GitHub Actions)
 
-Every PR and every push to `main` runs five workflows ([.github/workflows](.github/workflows)). Each cancels a superseded run on the same branch, runs with `contents: read`, and has a job timeout.
+Every PR and every push to `main` runs six workflows ([.github/workflows](.github/workflows)). Each cancels a superseded run on the same branch, runs with `contents: read`, and has a job timeout.
 
 | Workflow | File | Check name(s) | What it runs |
 | --- | --- | --- | --- |
@@ -81,6 +86,7 @@ Every PR and every push to `main` runs five workflows ([.github/workflows](.gith
 | Tests (MariaDB 11.4) | `tests-mariadb.yml` | `MariaDB 11.4 / Pest`, `MariaDB 11.4 / Concurrency` | Same, with `mariadb:11.4` |
 | Quality | `quality.yml` | `Pint + Larastan`, `TypeScript + Vitest + build` | `composer lint`, `composer analyse`, `npm run types`, `npm run test`, `npm run build`, then the CSS budget ([bin/check-css-budget.mjs](bin/check-css-budget.mjs): `app.css` ≤ 35 kB gzipped, size in the job summary) and the JavaScript budget ([bin/check-js-budget.mjs](bin/check-js-budget.mjs): entry chunk ≤ 118.9 kB and the listing page ≤ 23.7 kB gzipped, 7.2) |
 | E2E | `e2e.yml` | `Playwright + axe` | `bin/setup` (the dev Compose stack, MySQL), then `npm run e2e`. On failure: the Playwright report and traces as the `playwright-report` artifact, and the stack logs |
+| Links | `links.yml` | `Markdown links` | lychee 0.24.2 (Docker), offline: every link inside the repository's Markdown resolves, files and `#fragments` ([lychee.toml](lychee.toml); slice 7.3). External URLs are excluded, so it can't flake |
 | Production | `production.yml` | `Production stack`, `Lighthouse (mobile)` (7.2: its own fresh stack, see [Performance and accessibility](#performance-and-accessibility-slice-72)) | The ADR 0007 guard (with `COMPOSE_FILE=compose.prod.yaml:compose.ci.yaml`: [compose.ci.yaml](compose.ci.yaml) adds a Mailpit, CI only, API on 127.0.0.1:8226). ShellCheck, `bin/ci-production-env` (throwaway secrets, `APP_DEMO=true`, Caddy on plain HTTP `:80` published at 8280), `./deploy.sh --current` (build, migrate as `migrator`, `places:import`, up, optimize, `app:doctor`, `/up`), image size in the job summary, `php artisan db:seed --force` (demo data), an invitation link from `php artisan landlord:invite` exported as `E2E_INVITATION_URL` (masked; the phase 4 demo accepts through it), `bin/smoke-production` (SSR'd pitch text, `/up` 200, `/styleguide` 404, security headers incl. HSTS (`upgrade-insecure-requests` only against HTTPS), SSR'd login form, session cookie `Secure`/`HttpOnly`/`SameSite=Lax`, a CSRF login as `owner@example.com` landing on `/landlord`), asserts the `scheduler` service is up with the three jobs listed, then `npm run e2e` against it with `E2E_SKIP_DEV_PAGES=1` and `E2E_MAILPIT_URL` (T12 reads the emails). On failure: `playwright-report-production` artifact and the stack logs |
 
 How `_tests.yml` differs from dev: PHP comes from `setup-php` on the runner (no app container) and the database is a service container. Root runs [database/sql/create-users.sql](database/sql/create-users.sql) with the `mysql` client for `reservevision_test` and `reservevision_test_1`…`_4`, `composer migrate` runs as `migrator`, `npm run build` plus `php artisan inertia:start-ssr` replace the Vite dev server for SSR, and Pest runs as `app` with `--parallel --processes=4`.
@@ -226,6 +232,25 @@ Quirks hit in 7.1:
 - **Commons' "CC0" tag isn't always the photographer's**: files labelled "(Unsplash)" or from Pixabay or Pixel.la carry a CC0 tag on Commons but come from sites whose own licence isn't CC0, so they were skipped on purpose. "Unknown author" files (a CC0 tag with nobody who could have granted it) too.
 - **A Commons thumbnail has the EXIF turn applied; the original doesn't**, and the re-save here strips EXIF, so check the orientation of each file by eye after resizing.
 - **Search by free text finds castles**: browse a category (`Hostel bedrooms`, `Dormitory rooms`) with the licence filter instead.
+
+### README media (slice 7.3)
+
+The README's renter-flow GIF, [docs/media/renter-flow.gif](docs/media/renter-flow.gif), is recorded by a script, so it can be redone after UI changes: `make media`. The T2 clip ([docs/media/t2-race.svg](docs/media/t2-race.svg), from `t2-race.cast` by `bin/cast-to-svg`) is unchanged since 2.5. No video (decided in 7.3).
+
+| Piece | Where |
+| --- | --- |
+| Script | [e2e/media/renter-flow.ts](e2e/media/renter-flow.ts): plain Node (type stripping) + Playwright's `chromium`, **not** a test (no `.spec`, so `npm run e2e` never runs it). Phone 390 × 844, three browser contexts, three videos: the renter (home → search Manila → Santos Bedspace House → Reserve → log in as renter2 → hold → proof → "Awaiting review"), the owner confirming, the renter seeing "Confirmed". Move-in is today + 60 days. `roll()` / `cut()` mark the seconds to keep, written to `test-results/media/cuts.json`. renter2's open reservations are cancelled before and after, so it reruns |
+| Conversion | [bin/record-media](bin/record-media): runs the script, then ffmpeg (the host's, else `jrottenberg/ffmpeg:7.1-alpine`): trim and concatenate the kept stretches, speed up to about 22 s (`MEDIA_SECONDS`), 10 fps, 390 px, `mpdecimate` (a still stretch costs one frame), a palette from the clip, no dithering. Fails above 4 MB. `--with-stack` boots a throwaway production stack (`bin/ci-production-env`, `deploy.sh --current`, the demo seed) and removes it afterwards; `--convert-only` re-encodes the last recording |
+| Make | `make media` = `bin/record-media --with-stack`. Stop the dev stack first on an 8 GB machine. Against another stack: `MEDIA_BASE_URL=http://localhost:8180 bin/record-media` (the dev stack works too, but the README's GIF comes from the production one) |
+
+Quirks hit in 7.3:
+
+- **Bootstrap's reboot sets `scroll-behavior: smooth`** (`$enable-smooth-scroll`), so a plain `scrollIntoView()` animates, and a smooth scroll over photos is a full-size GIF frame per step (the first GIF was 9 MB). The script scrolls with `behavior: 'instant'`.
+- **Playwright's WebM is VP8 with compression noise**, so no two frames are equal and the GIF repeats whole frames: `mpdecimate` drops the near-duplicates, and dithering is off (it is noise too).
+- **`mpdecimate` drops a still ending**: the last kept frame would flash for 0.1 s. `tpad=stop_mode=clone` holds it.
+- **The confirmation toast sits over the status badge** (fixed, under the header): the script closes it before the "Awaiting review" and "Confirmed" shots.
+- **`bin/ci-production-env` makes new passwords, which an old `reservevision-prod_db-data` volume doesn't know** (the migrator gets 1045). `--with-stack` refuses while those volumes exist and prints the `down -v` to run.
+- **lychee 0.24 takes `include_fragments` as a string** (`"anchor-only"`), not a boolean.
 
 ### Performance and accessibility (slice 7.2)
 

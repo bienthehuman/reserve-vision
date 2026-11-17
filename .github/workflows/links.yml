@@ -1,0 +1,26 @@
+# Every link inside the repository's Markdown resolves: files and #fragments (slice 7.3).
+# lychee in offline mode, so external sites can't make it flaky; config in lychee.toml.
+name: Links
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    name: Markdown links
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: lychee (offline, files and fragments)
+        run: docker run --rm -v "$PWD:/input" -w /input lycheeverse/lychee:0.24.2 --config lychee.toml --root-dir /input './**/*.md'

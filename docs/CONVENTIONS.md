@@ -27,6 +27,7 @@ A PR merges only when every one of these checks is green (the CI workflows are d
 | `TypeScript + Vitest + build` | Quality | `tsc --noEmit`, Vitest, production build (client + SSR), CSS budget, JavaScript budget (entry chunk and the listing page) |
 | `Playwright + axe` | E2E | Smoke and accessibility on the dev stack, phone and desktop, including the sweep that runs axe on every page route for every actor (`e2e/a11y-sweep.spec.ts`; an unmapped GET route fails it) |
 | `Lighthouse (mobile)` | Production | Lighthouse CI against the production stack: mobile preset, 3 runs per page on four pages, assertions on Accessibility, Best Practices, SEO, CLS and Performance; scores in the job summary, reports as an artifact |
+| `Markdown links` | Links | Every link inside the repository's Markdown resolves, files and `#fragments` (lychee, offline; `make links`) |
 | `Production stack` | Production | Production image and `compose.prod.yaml` via `deploy.sh`, `app:doctor`, HTTP smoke test, Playwright + axe against it ([ADR 0007](adr/0007-deployable-not-hosted.md)) |
 
 A failing check is fixed in the PR, not skipped or retried until it passes.

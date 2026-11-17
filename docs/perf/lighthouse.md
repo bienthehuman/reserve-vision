@@ -20,7 +20,7 @@ Numbers move between runs (the same code gave 95 to 98 on the home page, with LC
 
 - **HTTPS.** CI serves plain HTTP on `localhost`, so the `is-on-https` and `redirects-http` audits can only fail for a reason a real deployment doesn't have. They are **skipped** (`skipAudits` in `lighthouserc.cjs`), and the job summary says so. Best Practices is therefore measured without them; with them it would lose the HTTPS items until the first TLS run (backlog: run Lighthouse once against a deployment with TLS). HTTP/2 and HTTP/3 (Caddy on TLS) aren't measured either.
 - **Slow CPUs and real networks.** Lighthouse simulates both from a fast run; a real Moto G on a real 4G varies.
-- **Logged-in pages.** The landlord and renter pages are client-rendered dashboards, not entry pages for a first visit; they're covered by the accessibility sweep, not by Lighthouse.
+- **Logged-in pages.** The landlord and renter pages are server-rendered too, but they sit behind a login and are not entry pages for a first visit; they're covered by the accessibility sweep, not by Lighthouse.
 
 ## Before and after
 
