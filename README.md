@@ -69,6 +69,8 @@ Or, with nothing installed: [open it in GitHub Codespaces](https://codespaces.ne
 
 `bin/setup` seeds fake but realistic data (15 landlord accounts, 60 properties in 7 cities, about 390 spaces, about 2,200 reservations in every status). All logins use the password `password`; every email ends in `@example.com`, so nothing can be sent to a real person. In Codespaces (and anywhere `APP_DEMO=true`) the login page lists them in a **Demo accounts** panel: one tap fills in the form. Locally, set `APP_DEMO=true` in `.env` to get the panel.
 
+The listing photos are real public-domain (CC0) photographs from Wikimedia Commons, not stock-site images; each one's source page, author and licence is in [database/data/demo-photos/CREDITS.md](database/data/demo-photos/CREDITS.md).
+
 | Login | Role | Use it for |
 | --- | --- | --- |
 | `owner@example.com` | Owner of **Santos Family Rentals** (verified, 5 properties) | Landlord flows |

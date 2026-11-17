@@ -93,12 +93,17 @@ Every slice's definition of done includes: tests for the new behaviour pass on b
 
 | # | Slice | Definition of done |
 | --- | --- | --- |
-| 7.1 | Polish + proof | Lighthouse mobile scores recorded; axe pass on every page; README (pitch, GIF, diagram, Guarantees linked to tests, Origins, Next); ADRs Accepted; T2 clip; demo video; Codespaces button checked from a fresh account |
+| 7.1 | CC0 demo photos | ~24 public-domain interior photos with recorded sources, seeded through the photo pipeline |
+| 7.2 | Performance + accessibility | Lighthouse (mobile) in CI with assertions and recorded scores; axe on every page, generated from the route list; JS budget |
+| 7.3 | README, ADRs, release | README (pitch, GIF, diagram, Guarantees linked to tests, Origins, Out of scope), ADRs reviewed and Accepted, backlog groomed; tag `v1.0.0` |
 
 ## Decisions log
 
 | Date | Decision | Where |
 | --- | --- | --- |
+| 2026-11-17 | Phase 7 is three slices (7.1 CC0 photos, 7.2 performance and accessibility, 7.3 README and release). Real CC0 / public-domain photos replace the generated ones; each is recorded with its source page, author and licence, and the licence is checked against an allowlist by a test | [CREDITS.md](../database/data/demo-photos/CREDITS.md) |
+| 2026-11-17 | No demo video: the README GIF and the T2 clip are enough | this file |
+| 2026-11-17 | The README's "Next" heading becomes "Out of scope" | this file |
 | 2026-11-14 | Deployable, not hosted; CI proves the production stack instead | [ADR 0007](adr/0007-deployable-not-hosted.md) |
 | 2026-11-14 | Landlord verification by artisan command; no admin web role | [ACCESS.md](ACCESS.md#actors) |
 | 2026-11-14 | Design system: ube primary (also prices), mango highlight, Plus Jakarta Sans headings; hue chosen to differ from Hilom/PesoTrack teal and the portfolio's orange, light mode only in v1 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
@@ -165,7 +170,7 @@ Ideas that came up and are deliberately not in any slice.
 | Delete a room or space that was never reserved (today only archive) | Slice 4.1 |
 | Reorder or bulk-rename beds; a bed count change that adds several at once | Slice 4.1 |
 | Show on the property page which spaces are blocked from archiving, and by whom, before the owner clicks | Slice 4.1 |
-| Replace generated demo photos with a licensed (CC0) photo set | Slice 4.2 |
+| The Phase 5 search e2e (`search.spec.ts`, Quezon City from today + 14 days) fails on a freshly seeded database (also on `main`, checked in 7.1): the demo has no free place there at that date, so it depends on when the volume was seeded. Pick the place and date from the data, or have the seed leave a known free window | Slice 7.1 |
 | HEIC/HEIF uploads (iPhones' default format; today the owner has to export a JPEG) | Slice 4.2 |
 | Sweep temporary uploads (`uploads/tmp/` on the proofs disk) older than a day: a worker killed at the wrong moment can leave one behind | Slice 4.2 |
 | Retry a failed photo without choosing the file again, when the failure was storage and not the file (today the upload is deleted on failure) | Slice 4.2 |
