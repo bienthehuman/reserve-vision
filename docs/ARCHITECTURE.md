@@ -64,11 +64,21 @@ Controllers don't touch the query builder for writes. Actions don't know about H
 | worker | `queue:work` | `queue:work --max-time=3600` |
 | scheduler | `schedule:work` | `schedule:work` |
 | db | MySQL 8.4 | MySQL 8.4, volume, `app` + `migrator` users |
-| mail | Mailpit | external SMTP |
+| mail | Mailpit | external SMTP (CI's production run adds a Mailpit through `compose.ci.yaml`) |
 | storage | local disk (`MEDIA_STORAGE=local`) | MinIO (or any S3): public photos bucket, private proofs bucket |
 | proxy | — | Caddy, automatic HTTPS; serves public photos at `/media/photos` |
 
 `app`, `worker`, `scheduler` and `ssr` run one image ([Dockerfile](../Dockerfile)) with different commands. Only Caddy publishes ports. The dev container (Codespaces) runs the dev stack with built assets and the production SSR bundle instead of the Vite dev server. Details: [DEPLOY.md](../DEPLOY.md) and [CLAUDE.md](../CLAUDE.md#production-stack-slice-13).
+
+**Scheduled jobs** (slice 6.3), run by the `scheduler` service; all use `withoutOverlapping()`, log one summary line, and are idempotent. Details in [RESERVATIONS.md](RESERVATIONS.md#the-scheduled-jobs).
+
+| Command | Schedule | Calls | Emails |
+| --- | --- | --- | --- |
+| `reservations:expire-holds` | every minute | `ExpireHold` | renter |
+| `reservations:end-stays` | daily 00:05 Manila | `EndFinishedStay` | none |
+| `reservations:remind-proofs` | hourly | `RemindAboutProof` | landlord members, once per proof at 24 h and 48 h |
+
+**Email** (slice 6.3). Actions queue one Markdown mailable per event after their transaction (`App\Support\Mail\Notify`); the worker renders it from the ids it carries, with one shared view (`mail.notice`) and a plain-text part. `/dev/mail` (development only) renders every mailable with demo data.
 
 **Photos** (slice 4.2). An owner's upload is checked by its content, copied to the private disk (which `app` and `worker` both reach; they are separate containers in production), and a `processing` row is saved; the queued `ProcessPropertyPhoto` job then applies the EXIF orientation, re-encodes the pixels as a 480 px thumbnail and a 1600 px full size in WebP on the public disk (which drops every piece of metadata, GPS included), deletes the upload and marks the row `ready`, or `failed` after three tries. Photos are served from `/media/photos/…` on the app's own origin in every environment: a route in dev, Caddy in front of the bucket in production.
 

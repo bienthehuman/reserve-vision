@@ -7,14 +7,16 @@ namespace App\Actions;
 use App\Actions\Concerns\DecidesViewings;
 use App\Enums\ViewingRequestStatus;
 use App\Exceptions\Domain\InvalidViewingMove;
+use App\Mail\Viewings\ViewingAnswered;
 use App\Models\User;
 use App\Models\ViewingRequest;
 use App\Support\AuditLogger;
+use App\Support\Mail\Notify;
 
 /**
  * A landlord member declines a viewing request, or changes an accept into a decline (until the preferred time) (docs/ACCESS.md flow C).
  * Who may: ViewingRequestPolicy::answer (owner, caretaker). The optional note is what the renter reads;
- * it replaces an earlier one. One audit row, `viewing.declined`. Emailing the renter is slice 6.3's.
+ * it replaces an earlier one. One audit row, `viewing.declined`. The renter is emailed after the transaction, with the note.
  */
 final class DeclineViewing
 {
@@ -25,6 +27,10 @@ final class DeclineViewing
     /** @throws InvalidViewingMove when the status or the clock doesn't allow it */
     public function handle(User $by, ViewingRequest $viewing, ?string $note = null): ViewingRequest
     {
-        return $this->move($by, $viewing, ViewingRequestStatus::Declined, $note, 'viewing.declined');
+        $viewing = $this->move($by, $viewing, ViewingRequestStatus::Declined, $note, 'viewing.declined');
+
+        Notify::renter($viewing->renter_id, new ViewingAnswered($viewing->id, accepted: false));
+
+        return $viewing;
     }
 }

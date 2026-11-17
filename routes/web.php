@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\DevMailController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Invitations\AcceptInvitationController;
 use App\Http\Controllers\Invitations\ShowInvitation;
@@ -77,6 +78,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', HomeController::class)->name('home');
 
 Route::get('/styleguide', StyleguideController::class)->name('styleguide');
+
+// Every status email rendered with demo data (slice 6.3). Development only: the controller answers 404 in production.
+Route::get('/dev/mail', [DevMailController::class, 'index'])->name('dev.mail.index');
+Route::get('/dev/mail/{key}', [DevMailController::class, 'show'])->name('dev.mail.show');
 
 require __DIR__.'/auth.php';
 

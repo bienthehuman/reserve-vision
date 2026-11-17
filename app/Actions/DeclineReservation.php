@@ -8,9 +8,11 @@ use App\Actions\Concerns\DecidesReservations;
 use App\Enums\PaymentProofStatus;
 use App\Enums\ReservationStatus;
 use App\Exceptions\Domain\InvalidTransition;
+use App\Mail\Reservations\ReservationDeclined;
 use App\Models\Reservation;
 use App\Models\User;
 use App\Support\AuditLogger;
+use App\Support\Mail\Notify;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 
@@ -30,7 +32,7 @@ final class DeclineReservation
     /** @throws InvalidTransition when the reservation isn't waiting for a decision any more */
     public function handle(User $by, Reservation $reservation, string $reason): Reservation
     {
-        return DB::transaction(function () use ($by, $reservation, $reason): Reservation {
+        $result = DB::transaction(function () use ($by, $reservation, $reason): Reservation {
             $locked = $this->lock($reservation);
             $locked->assertCanMoveTo(ReservationStatus::Declined);
 
@@ -49,5 +51,9 @@ final class DeclineReservation
 
             return $locked;
         });
+
+        Notify::renter($result->renter_id, new ReservationDeclined($result->id, $reason));
+
+        return $result;
     }
 }

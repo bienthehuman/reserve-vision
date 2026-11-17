@@ -8,9 +8,11 @@ use App\Actions\Concerns\DecidesReservations;
 use App\Enums\PaymentProofStatus;
 use App\Enums\ReservationStatus;
 use App\Exceptions\Domain\InvalidTransition;
+use App\Mail\Reservations\ProofRejected;
 use App\Models\Reservation;
 use App\Models\User;
 use App\Support\AuditLogger;
+use App\Support\Mail\Notify;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 
@@ -30,7 +32,7 @@ final class RejectProof
     /** @throws InvalidTransition when it isn't waiting for a decision, or a proof was already rejected twice */
     public function handle(User $by, Reservation $reservation, string $reason): Reservation
     {
-        return DB::transaction(function () use ($by, $reservation, $reason): Reservation {
+        $result = DB::transaction(function () use ($by, $reservation, $reason): Reservation {
             $locked = $this->lock($reservation);
             $locked->assertCanMoveTo(ReservationStatus::Held);
 
@@ -55,5 +57,9 @@ final class RejectProof
 
             return $locked;
         });
+
+        Notify::renter($result->renter_id, new ProofRejected($result->id, $reason));
+
+        return $result;
     }
 }

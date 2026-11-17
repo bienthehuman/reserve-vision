@@ -263,11 +263,15 @@ Any provider with SMTP works. Set `MAIL_HOST`, `MAIL_PORT`, `MAIL_SCHEME`, `MAIL
 - **Volume and price**: this app sends transactional mail only (reservation updates, password resets), so a free or entry tier is usually enough. Amazon SES, Postmark, Mailgun, Brevo, Resend and SMTP2GO all offer SMTP; check current pricing yourself.
 - **Region and data**: the mail contains renters' names and reservation details. Prefer a provider whose data processing terms you can accept under the Data Privacy Act.
 
+The app sends a mail for every reservation and viewing change (slice 6.3) and a reminder for proofs unanswered after 24 and 48 hours. **The `scheduler` service must be running**: without it holds are never tidied, stays never end and no reminder goes out (`rv ps` should list it; `rv exec scheduler php artisan schedule:list` shows the three jobs). The `worker` sends the mail, so it must run too.
+
 After changing mail settings, redeploy (or run `rv up -d` and `rv exec app php artisan optimize`), then send yourself a test:
 
 ```bash
 rv exec app php artisan tinker --execute "Mail::raw('ReserveVision test', fn (\$m) => \$m->to('you@example.com')->subject('Test'));"
 ```
+
+To see the status mails work end to end, make a reservation as a test renter, then `rv logs worker` shows each mail being sent (a failure names the SMTP error and the job is retried), and the recipient's inbox has it within seconds. `rv exec app php artisan reservations:expire-holds` and `reservations:remind-proofs` can be run by hand and print their summary line.
 
 ## Trial run on your own machine
 
@@ -292,7 +296,7 @@ The `Production` workflow boots this stack on every PR, but some things only a r
 | --- | --- | --- |
 | Real TLS issuance and renewal | CI has no public DNS name, so Caddy runs on plain HTTP (`DOMAIN=:80`) | `curl -I https://<DOMAIN>/up` shows `HTTP/2 200`; `rv logs caddy` shows "certificate obtained successfully". Renewal is automatic about 30 days before expiry |
 | HTTP to HTTPS redirect, HTTP/3 | Same | `curl -I http://<DOMAIN>/` returns `308` to `https://` |
-| Real email delivery | CI has a placeholder SMTP host. Verification and password-reset mails are queued, so the worker fails them there without affecting any request | The tinker test above; check the message's SPF/DKIM results in the recipient's "show original" |
+| Real email delivery | CI's SMTP is a Mailpit (`compose.ci.yaml`): every mail is delivered and read by T12, but SPF, DKIM and a real provider are not exercised | The tinker test above; check the message's SPF/DKIM results in the recipient's "show original" |
 | External S3 providers | CI uses MinIO | `app:doctor` after switching |
 | `deploy.sh <tag>` (checking out a tag) | CI deploys the checkout with `--current` | First tag deploy on the server |
 | Backups and restores | Need a schedule and a second machine | A restore drill on a throwaway host |

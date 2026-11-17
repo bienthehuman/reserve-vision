@@ -81,7 +81,7 @@ Every PR and every push to `main` runs five workflows ([.github/workflows](.gith
 | Tests (MariaDB 11.4) | `tests-mariadb.yml` | `MariaDB 11.4 / Pest`, `MariaDB 11.4 / Concurrency` | Same, with `mariadb:11.4` |
 | Quality | `quality.yml` | `Pint + Larastan`, `TypeScript + Vitest + build` | `composer lint`, `composer analyse`, `npm run types`, `npm run test`, `npm run build`, then the CSS budget ([bin/check-css-budget.mjs](bin/check-css-budget.mjs): `app.css` ≤ 35 kB gzipped, size in the job summary) |
 | E2E | `e2e.yml` | `Playwright + axe` | `bin/setup` (the dev Compose stack, MySQL), then `npm run e2e`. On failure: the Playwright report and traces as the `playwright-report` artifact, and the stack logs |
-| Production | `production.yml` | `Production stack` | The ADR 0007 guard. ShellCheck, `bin/ci-production-env` (throwaway secrets, `APP_DEMO=true`, Caddy on plain HTTP `:80` published at 8280), `./deploy.sh --current` (build, migrate as `migrator`, `places:import`, up, optimize, `app:doctor`, `/up`), image size in the job summary, `php artisan db:seed --force` (demo data), an invitation link from `php artisan landlord:invite` exported as `E2E_INVITATION_URL` (masked; the phase 4 demo accepts through it), `bin/smoke-production` (SSR'd pitch text, `/up` 200, `/styleguide` 404, security headers incl. HSTS (`upgrade-insecure-requests` only against HTTPS), SSR'd login form, session cookie `Secure`/`HttpOnly`/`SameSite=Lax`, a CSRF login as `owner@example.com` landing on `/landlord`), then `npm run e2e` against it with `E2E_SKIP_DEV_PAGES=1`. On failure: `playwright-report-production` artifact and the stack logs |
+| Production | `production.yml` | `Production stack` | The ADR 0007 guard (with `COMPOSE_FILE=compose.prod.yaml:compose.ci.yaml`: [compose.ci.yaml](compose.ci.yaml) adds a Mailpit, CI only, API on 127.0.0.1:8226). ShellCheck, `bin/ci-production-env` (throwaway secrets, `APP_DEMO=true`, Caddy on plain HTTP `:80` published at 8280), `./deploy.sh --current` (build, migrate as `migrator`, `places:import`, up, optimize, `app:doctor`, `/up`), image size in the job summary, `php artisan db:seed --force` (demo data), an invitation link from `php artisan landlord:invite` exported as `E2E_INVITATION_URL` (masked; the phase 4 demo accepts through it), `bin/smoke-production` (SSR'd pitch text, `/up` 200, `/styleguide` 404, security headers incl. HSTS (`upgrade-insecure-requests` only against HTTPS), SSR'd login form, session cookie `Secure`/`HttpOnly`/`SameSite=Lax`, a CSRF login as `owner@example.com` landing on `/landlord`), asserts the `scheduler` service is up with the three jobs listed, then `npm run e2e` against it with `E2E_SKIP_DEV_PAGES=1` and `E2E_MAILPIT_URL` (T12 reads the emails). On failure: `playwright-report-production` artifact and the stack logs |
 
 How `_tests.yml` differs from dev: PHP comes from `setup-php` on the runner (no app container) and the database is a service container. Root runs [database/sql/create-users.sql](database/sql/create-users.sql) with the `mysql` client for `reservevision_test` and `reservevision_test_1`…`_4`, `composer migrate` runs as `migrator`, `npm run build` plus `php artisan inertia:start-ssr` replace the Vite dev server for SSR, and Pest runs as `app` with `--parallel --processes=4`.
 
@@ -377,6 +377,33 @@ Tests: `tests/Feature/Landlord/DecisionsTest.php` (each action, every guard and 
 | Demo data | `DemoSeeder::buildViewings()`, last (so no earlier row shifts): a scripted set for renter1 (two open, one place left under the limit), renter2 (one for today) and the owner's properties, then about 150 random ones. A volume seeded before 6.2 has none until reseeded |
 
 Tests: `tests/Feature/Viewings/` (request, answer, renter pages), T6 and T7 extended, matrix rows, seeder checks. E2E: [e2e/viewings.spec.ts](e2e/viewings.spec.ts) (phone only; renter1 at Magno, cancels at the end so reruns work). Vitest: `ViewingForm.test.tsx`, `lib/dates.test.ts`.
+
+### Jobs and email (slice 6.3)
+
+[docs/RESERVATIONS.md](docs/RESERVATIONS.md#emails-slice-63) is the spec (which move emails whom, the jobs, the reminders); [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) the jobs table; [DEPLOY.md](DEPLOY.md) the scheduler and SMTP.
+
+| Piece | Where |
+| --- | --- |
+| Jobs | `routes/console.php`: `reservations:expire-holds` (every minute), `reservations:end-stays` (00:05 Manila), `reservations:remind-proofs` (hourly), all `withoutOverlapping()`. Commands in `app/Console/Commands/*Command.php` loop in chunks over `chunkById` and call one action per row, catching `BusinessRuleException` as "skipped"; each logs `reservations:<name>: N <verb>, M skipped` (also printed). Actions `ExpireHold`, `EndFinishedStay` (per row; the names in `ReservationStatus::transitions()` and the doc table), `RemindAboutProof`. None writes an audit row |
+| Reminders | `proof_reminders` (`ProofReminder`, unique `(payment_proof_id, threshold_hours)`, thresholds 24 and 48). `RemindAboutProof` locks the reservation row, re-reads status and proof, inserts the row, and a duplicate-key error means another run got there first. A proof past both thresholds gets only the 48 h mail |
+| Mailables | One final class per event in `app/Mail/Reservations` and `app/Mail/Viewings`, implementing `App\Mail\NoticeMail`, using `RendersNotice` (one view `mail.notice` + plain text `mail.notice-text`, from a `Notice` data object) and `LoadsReservationFacts` / `LoadsViewingFacts` (facts read by the worker when it renders). They carry ids and reasons only, never models or personal data. `Format::t()` is `__()` narrowed to string; `Format::day()/moment()` write Manila dates, labelled |
+| Dispatch | `App\Support\Mail\Notify::user() / renter($id) / landlordMembers($accountId)`: one mail per recipient (cloned), `afterCommit`. Actions call it **after** their `DB::transaction()` returns, so a deadlock retry can't send twice and the action reads nothing more inside the booking. The user-bound facts: `ReservationFacts`, `ViewingFacts` (`app/Data/Mail`) |
+| Previews | `/dev/mail` and `/dev/mail/{key}` (`DevMailController`, 404 in production) render `App\Support\Mail\MailCatalog::all()`, the one list of mailables; a test requires it to hold every class |
+| CI | `compose.ci.yaml` (Mailpit), `bin/ci-production-env` points `MAIL_HOST` at it, the workflow's `E2E_MAILPIT_URL` |
+
+Tests: `tests/Feature/Jobs/ScheduledJobsTest.php` (schedule, each command, Manila edges, thresholds, reruns), `tests/Feature/Mail/StatusMailsTest.php` (which mails each action queues and to whom, after commit, content, escaping, no leaks, `/dev/mail`), `tests/Concurrency/ReminderRaceTest.php` (four artisan processes; negative control: without the lock and the claim row it fails in round 1). `tests/TestCase.php` calls `Mail::fake()` for every Feature test, so a test that wants a real mailer swaps it back (see the after-commit test). E2E: [e2e/t12-full-flow.spec.ts](e2e/t12-full-flow.spec.ts), the phase 6 demo (own Playwright project `t12`, phone, runs after the others because it uses renter2).
+
+### Quirks hit in 6.3
+
+- **A `ShouldQueue` mailable queues even with `Mail::mailer('array')->send()`**: to render the plain-text part by hand, use the queue `sync` or read it from Mailpit.
+- **Raw HTML in a Markdown mail**: `mail.notice` writes `<p>`, `<table>` as HTML blocks so user text (a reason, a note) is escaped once by `{{ }}` and is never Markdown (no links from a reason). A blank line inside such a block ends it, so multi-line values go through `nl2br(e())`.
+- **The Markdown mail's plain-text part prints raw HTML**, hence the separate `text:` view.
+- **`Mail::fake()` for every Feature test** means actions queue instead of render. The locking tests that watch every statement of an action filter the one `landlord_members` read `Notify` makes after the transaction.
+- **A mailable can't use `Queueable` twice**: `RendersNotice` uses it, so the classes don't, and `afterCommit()` comes from it.
+- **`schedule:list` shows end-stays as `5 16 * * *`**: 00:05 Manila in UTC. The test checks the expression and the timezone.
+- **A Playwright project with `dependencies`** runs after all of them (T12 after the two viewport projects); `--no-deps` runs it alone.
+- **A running `worker` and `scheduler` keep the code they booted with**: `docker compose restart worker scheduler` after changing mailables.
+- **The dev `scheduler` expires every old demo hold on its first run** (53 mails to Mailpit).
 
 ### Quirks hit in 6.2
 

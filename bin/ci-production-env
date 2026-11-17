@@ -4,8 +4,8 @@
 #
 #   bin/ci-production-env [http-port]     default 8280
 #
-# Then:  ./deploy.sh --current   and   bin/smoke-production http://localhost:<http-port>
-# Never use the result for a real deployment (no HTTPS, placeholder SMTP).
+# Then:  export COMPOSE_FILE=compose.prod.yaml:compose.ci.yaml; ./deploy.sh --current   and   bin/smoke-production http://localhost:<http-port>
+# Never use the result for a real deployment (no HTTPS, mail to a Mailpit from compose.ci.yaml).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -36,9 +36,11 @@ declare -A values=(
     [MINIO_ROOT_PASSWORD]="$(secret)"
     [AWS_ACCESS_KEY_ID]="rv-app"
     [AWS_SECRET_ACCESS_KEY]="$(secret)"
-    # Unreachable on purpose: auth mails are queued, so the worker fails them, never a request.
-    # app:doctor checks only that the config is complete.
-    [MAIL_HOST]="smtp.example.invalid"
+    # The Mailpit of compose.ci.yaml (CI only): the worker delivers every mail there and T12 reads them through its API.
+    # app:doctor still checks the real thing: the smtp mailer, a host, a port, a from address.
+    [MAIL_HOST]="mail"
+    [MAIL_PORT]="1025"
+    [MAIL_SCHEME]="smtp"
     [MAIL_FROM_ADDRESS]="hello@example.invalid"
 )
 

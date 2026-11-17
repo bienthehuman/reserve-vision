@@ -19,7 +19,8 @@ permissions:
 
 env:
   BASE_URL: http://localhost:8280
-  COMPOSE_FILE: compose.prod.yaml
+  # compose.ci.yaml adds a Mailpit (CI only), so T12 can read the emails the production stack sends.
+  COMPOSE_FILE: compose.prod.yaml:compose.ci.yaml
 
 jobs:
   production:
@@ -40,6 +41,12 @@ jobs:
 
       - name: Deploy (build, migrate as migrator, up, optimize, app:doctor, /up)
         run: ./deploy.sh --current
+
+      - name: The scheduler is running
+        # The scheduled jobs (expire holds, end stays, proof reminders) only run if this service is up.
+        run: |
+          docker compose --env-file .env.production ps --status running --services | grep -qx scheduler
+          docker compose --env-file .env.production exec -T scheduler php artisan schedule:list | tee /dev/stderr | grep -E 'reservations:(expire-holds|end-stays|remind-proofs)' | wc -l | grep -qx 3
 
       - name: Image size
         run: |
@@ -101,6 +108,8 @@ jobs:
         env:
           E2E_BASE_URL: ${{ env.BASE_URL }}
           E2E_SKIP_DEV_PAGES: '1'
+          # T12 reads the emails from the CI-only Mailpit (compose.ci.yaml).
+          E2E_MAILPIT_URL: http://127.0.0.1:8226
 
       - name: Upload the Playwright report and traces
         if: failure()

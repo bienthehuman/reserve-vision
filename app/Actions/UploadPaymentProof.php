@@ -9,9 +9,12 @@ use App\Enums\ProofFileType;
 use App\Enums\ReservationStatus;
 use App\Exceptions\Domain\HoldExpired;
 use App\Exceptions\Domain\InvalidTransition;
+use App\Mail\Reservations\ProofUploaded;
 use App\Models\PaymentProof;
 use App\Models\Reservation;
 use App\Models\User;
+use App\Support\Mail\Notify;
+use App\Support\Pesos;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -27,7 +30,7 @@ use Throwable;
  * One transaction: lock the reservation row, assertCanMoveTo() on it, write the file to the private
  * disk, insert the `pending` proof and move the reservation. The bytes are stored exactly as
  * uploaded (evidence), under a random path. Renter actions write no audit row (CONVENTIONS.md);
- * emailing the landlord members is slice 6.3's.
+ * the landlord's members are emailed after the transaction (`ProofUploaded`, slice 6.3).
  */
 final class UploadPaymentProof
 {
@@ -37,7 +40,7 @@ final class UploadPaymentProof
      */
     public function handle(User $renter, Reservation $reservation, SplFileInfo $file, ProofFileType $type, int $amount, string $referenceNo): PaymentProof
     {
-        return DB::transaction(function () use ($renter, $reservation, $file, $type, $amount, $referenceNo): PaymentProof {
+        $proof = DB::transaction(function () use ($renter, $reservation, $file, $type, $amount, $referenceNo): PaymentProof {
             // The lock first, and only the locked row's status counts (a stale model could still say `held`).
             $locked = Reservation::query()->ownedByRenter($renter)->whereKey($reservation->getKey())->lockForUpdate()->firstOrFail();
             $locked->assertCanMoveTo(ReservationStatus::ProofUploaded);
@@ -66,6 +69,10 @@ final class UploadPaymentProof
 
             return $proof;
         });
+
+        Notify::landlordMembers($proof->landlord_account_id, new ProofUploaded($proof->reservation_id, Pesos::format($proof->amount), $proof->reference_no));
+
+        return $proof;
     }
 
     /** The original bytes, streamed to the private disk; nothing is re-encoded. */
