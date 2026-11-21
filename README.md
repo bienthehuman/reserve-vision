@@ -3,11 +3,7 @@
 Reservations for apartments and boarding-house beds in the Philippines, for renters and the landlords who run them. The guarantee: no bed is ever booked twice, proven by tests that fire real parallel requests.
 
 [![Tests (MySQL 8.4)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mysql.yml)
-[![Tests (MariaDB 11.4)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/tests-mariadb.yml)
-[![Quality](https://github.com/bienthehuman/reserve-vision/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/quality.yml)
 [![E2E](https://github.com/bienthehuman/reserve-vision/actions/workflows/e2e.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/e2e.yml)
-[![Production and Lighthouse](https://github.com/bienthehuman/reserve-vision/actions/workflows/production.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/production.yml)
-[![Links](https://github.com/bienthehuman/reserve-vision/actions/workflows/links.yml/badge.svg?branch=main)](https://github.com/bienthehuman/reserve-vision/actions/workflows/links.yml)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/bienthehuman/reserve-vision)
 
