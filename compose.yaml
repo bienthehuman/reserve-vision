@@ -102,7 +102,7 @@ services:
     restart: unless-stopped
 
   mail:
-    image: axllent/mailpit:v1.33
+    image: axllent/mailpit:v1.34
     ports:
       - "127.0.0.1:${FORWARD_MAILPIT_DASHBOARD_PORT:-8126}:8025"
       - "127.0.0.1:${FORWARD_MAILPIT_PORT:-1126}:1025"

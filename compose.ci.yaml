@@ -3,7 +3,7 @@
 # so the T12 run against production can read the emails the worker sends. The API is published on 127.0.0.1:8226 only.
 services:
   mail:
-    image: axllent/mailpit:v1.33
+    image: axllent/mailpit:v1.34
     ports:
       - "127.0.0.1:8226:8025"
     restart: unless-stopped
