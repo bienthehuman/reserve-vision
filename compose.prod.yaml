@@ -115,7 +115,7 @@ services:
   minio:
     # MinIO no longer publishes images on Docker Hub or Quay; Chainguard builds it
     # from source. The -dev variant includes sh, wget and mc (healthcheck, setup).
-    image: cgr.dev/chainguard/minio:latest-dev@sha256:64f223d68a772fc3e77412176417e5b8a00bb9d25ba465ae53d951e283c736ab
+    image: cgr.dev/chainguard/minio:latest-dev@sha256:9847741f83af2386200f45cf77f87850f4d56a10d178167ae963bde9fee77be2
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env.production}
@@ -134,7 +134,7 @@ services:
   # One-shot: creates both buckets and the app's own MinIO user, then exits 0.
   # Idempotent; runs on every `up`.
   minio-setup:
-    image: cgr.dev/chainguard/minio:latest-dev@sha256:64f223d68a772fc3e77412176417e5b8a00bb9d25ba465ae53d951e283c736ab
+    image: cgr.dev/chainguard/minio:latest-dev@sha256:9847741f83af2386200f45cf77f87850f4d56a10d178167ae963bde9fee77be2
     entrypoint: ["/bin/sh", "/setup/setup.sh"]
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
